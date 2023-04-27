@@ -1,0 +1,76 @@
+/*
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+#pragma once
+
+#include "aidlservice/Stream.h"
+
+namespace qti::audio::core {
+
+class DriverStub : public DriverInterface {
+   public:
+    DriverStub(const StreamContext& context, bool isInput);
+    ::android::status_t init() override;
+    ::android::status_t setConnectedDevices(
+        const std::vector<::aidl::android::media::audio::common::AudioDevice>&
+            connectedDevices) override;
+    ::android::status_t drain(
+        ::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode)
+        override;
+    ::android::status_t flush() override;
+    ::android::status_t pause() override;
+    ::android::status_t transfer(void* buffer, size_t frameCount,
+                                 size_t* actualFrameCount,
+                                 int32_t* latencyMs) override;
+    ::android::status_t standby() override;
+
+   private:
+    const size_t mFrameSizeBytes;
+    const bool mIsInput;
+};
+
+class StreamInStub final : public StreamIn {
+   public:
+    static ndk::ScopedAStatus createInstance(
+        const ::aidl::android::hardware::audio::common::SinkMetadata&
+            sinkMetadata,
+        StreamContext&& context,
+        const std::vector<
+            ::aidl::android::media::audio::common::MicrophoneInfo>& microphones,
+        std::shared_ptr<StreamIn>* result);
+
+   private:
+    friend class ndk::SharedRefBase;
+    StreamInStub(const ::aidl::android::hardware::audio::common::SinkMetadata&
+                     sinkMetadata,
+                 StreamContext&& context,
+                 const std::vector<
+                     ::aidl::android::media::audio::common::MicrophoneInfo>&
+                     microphones);
+};
+
+class StreamOutStub final : public StreamOut {
+   public:
+    static ndk::ScopedAStatus createInstance(
+        const ::aidl::android::hardware::audio::common::SourceMetadata&
+            sourceMetadata,
+        StreamContext&& context,
+        const std::optional<
+            ::aidl::android::media::audio::common::AudioOffloadInfo>&
+            offloadInfo,
+        std::shared_ptr<StreamOut>* result);
+
+   private:
+    friend class ndk::SharedRefBase;
+    StreamOutStub(
+        const ::aidl::android::hardware::audio::common::SourceMetadata&
+            sourceMetadata,
+        StreamContext&& context,
+        const std::optional<
+            ::aidl::android::media::audio::common::AudioOffloadInfo>&
+            offloadInfo);
+};
+
+}  // namespace qti::audio::core

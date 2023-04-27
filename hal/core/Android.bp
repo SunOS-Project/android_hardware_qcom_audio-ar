@@ -1,0 +1,59 @@
+
+cc_library_headers {
+    name: "audiohalutils_headers",
+    vendor: true,
+    export_include_dirs: ["include"],
+}
+
+cc_defaults {
+    name: "audiohalutils_defaults",
+    vendor: true,
+    include_dirs: [
+        "external/libxml2/include",
+    ],
+    shared_libs: [
+        "libaudioaidlcommon",
+        "libbase",
+        "libcutils",
+        "liblog",
+        "libstagefright_foundation",
+        "libutils",
+        "libxml2",
+        "android.media.audio.common.types-V2-ndk",
+        "android.hardware.audio.core-V1-ndk",
+    ],
+    header_libs: [
+        "audiohalutils_headers",
+        "libxsdc-utils",
+        "libaudio_system_headers",
+    ],
+}
+
+cc_library_static {
+    name: "libaudiohalutils",
+    vendor: true,
+    defaults: [
+        "audiohalutils_defaults",
+    ],
+    srcs: [
+        "aidlservice/ModuleConfig.cpp",
+        "aidlservice/EngineConfigXmlConverter.cpp",
+    ],
+    generated_headers: [
+                        "audio_module_config_qti",
+                        "audio_policy_engine_configuration",
+                        ],
+    generated_sources: [
+                        "audio_module_config_qti",
+                        "audio_policy_engine_configuration",
+                        ],
+    export_header_lib_headers: [
+                                "audiohalutils_headers",
+                                "libxsdc-utils",
+                                ],
+    export_generated_headers: [
+                                "audio_module_config_qti",
+                                "audio_policy_engine_configuration",
+                                ],
+}
+
