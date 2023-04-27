@@ -1,0 +1,311 @@
+/*
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+#include "VisualizerOffloadContext.h"
+
+#include <algorithm>
+#include <android/binder_status.h>
+#include <audio_utils/primitives.h>
+#include <math.h>
+#include <system/audio.h>
+#include <time.h>
+#include <Utils.h>
+
+using ::aidl::android::hardware::audio::common::getChannelCount;
+
+namespace aidl::android::hardware::audio::effect {
+
+VisualizerOffloadContext::VisualizerOffloadContext(int statusDepth, const Parameter::Common& common)
+    : EffectContext(statusDepth, common) {
+}
+
+VisualizerOffloadContext::~VisualizerOffloadContext() {
+    std::lock_guard lg(mMutex);
+    LOG(DEBUG) << __func__;
+    mState = State::UNINITIALIZED;
+}
+
+RetCode VisualizerOffloadContext::initParams(const Parameter::Common& common) {
+    std::lock_guard lg(mMutex);
+    LOG(DEBUG) << __func__;
+    if (common.input != common.output) {
+        LOG(ERROR) << __func__ << " mismatch input: " << common.input.toString()
+                   << " and output: " << common.output.toString();
+        return RetCode::ERROR_ILLEGAL_PARAMETER;
+    }
+
+    mState = State::INITIALIZED;
+    auto channelCount = getChannelCount(common.input.base.channelMask);
+#ifdef SUPPORT_MC
+    if (channelCount < 1 || channelCount > FCC_LIMIT) return RetCode::ERROR_ILLEGAL_PARAMETER;
+#else
+    if (channelCount != FCC_2) return RetCode::ERROR_ILLEGAL_PARAMETER;
+#endif
+    mChannelCount = channelCount;
+    mCommon = common;
+    return RetCode::SUCCESS;
+}
+
+RetCode VisualizerOffloadContext::enable() {
+    std::lock_guard lg(mMutex);
+    if (mState != State::INITIALIZED) {
+        return RetCode::ERROR_EFFECT_LIB_ERROR;
+    }
+    mState = State::ACTIVE;
+    return RetCode::SUCCESS;
+}
+
+RetCode VisualizerOffloadContext::disable() {
+    std::lock_guard lg(mMutex);
+    if (mState != State::ACTIVE) {
+        return RetCode::ERROR_EFFECT_LIB_ERROR;
+    }
+    mState = State::INITIALIZED;
+    return RetCode::SUCCESS;
+}
+
+void VisualizerOffloadContext::reset() {
+    std::lock_guard lg(mMutex);
+    std::fill_n(mCaptureBuf.begin(), kMaxCaptureBufSize, 0x80);
+}
+
+RetCode VisualizerOffloadContext::setCaptureSamples(int samples) {
+    std::lock_guard lg(mMutex);
+    mCaptureSamples = samples;
+    return RetCode::SUCCESS;
+}
+int VisualizerOffloadContext::getCaptureSamples() {
+    std::lock_guard lg(mMutex);
+    return mCaptureSamples;
+}
+
+RetCode VisualizerOffloadContext::setMeasurementMode(Visualizer::MeasurementMode mode) {
+    std::lock_guard lg(mMutex);
+    mMeasurementMode = mode;
+    return RetCode::SUCCESS;
+}
+Visualizer::MeasurementMode VisualizerOffloadContext::getMeasurementMode() {
+    std::lock_guard lg(mMutex);
+    return mMeasurementMode;
+}
+
+RetCode VisualizerOffloadContext::setScalingMode(Visualizer::ScalingMode mode) {
+    std::lock_guard lg(mMutex);
+    mScalingMode = mode;
+    return RetCode::SUCCESS;
+}
+Visualizer::ScalingMode VisualizerOffloadContext::getScalingMode() {
+    std::lock_guard lg(mMutex);
+    return mScalingMode;
+}
+
+RetCode VisualizerOffloadContext::setDownstreamLatency(int latency) {
+    std::lock_guard lg(mMutex);
+    mDownstreamLatency = latency;
+    return RetCode::SUCCESS;
+}
+
+int VisualizerOffloadContext::getDownstreamLatency() {
+    std::lock_guard lg(mMutex);
+    return mDownstreamLatency;
+}
+
+uint32_t VisualizerOffloadContext::getDeltaTimeMsFromUpdatedTime_l() {
+    uint32_t deltaMs = 0;
+    if (mBufferUpdateTime.tv_sec != 0) {
+        struct timespec ts;
+        if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0) {
+            time_t secs = ts.tv_sec - mBufferUpdateTime.tv_sec;
+            long nsec = ts.tv_nsec - mBufferUpdateTime.tv_nsec;
+            if (nsec < 0) {
+                --secs;
+                nsec += 1000000000;
+            }
+            deltaMs = secs * 1000 + nsec / 1000000;
+        }
+    }
+    return deltaMs;
+}
+
+Visualizer::Measurement VisualizerOffloadContext::getMeasure() {
+    uint16_t peakU16 = 0;
+    float sumRmsSquared = 0.0f;
+    uint8_t nbValidMeasurements = 0;
+
+    {
+        std::lock_guard lg(mMutex);
+        // reset measurements if last measurement was too long ago (which implies stored
+        // measurements aren't relevant anymore and shouldn't bias the new one)
+        const uint32_t delayMs = getDeltaTimeMsFromUpdatedTime_l();
+        if (delayMs > kDiscardMeasurementsTimeMs) {
+            LOG(INFO) << __func__ << " Discarding " << delayMs << " ms old measurements";
+            for (uint32_t i = 0; i < mMeasurementWindowSizeInBuffers; i++) {
+                mPastMeasurements[i].mIsValid = false;
+                mPastMeasurements[i].mPeakU16 = 0;
+                mPastMeasurements[i].mRmsSquared = 0;
+            }
+            mMeasurementBufferIdx = 0;
+        } else {
+            // only use actual measurements, otherwise the first RMS measure happening before
+            // MEASUREMENT_WINDOW_MAX_SIZE_IN_BUFFERS have been played will always be artificially
+            // low
+            for (uint32_t i = 0; i < mMeasurementWindowSizeInBuffers; i++) {
+                if (mPastMeasurements[i].mIsValid) {
+                    if (mPastMeasurements[i].mPeakU16 > peakU16) {
+                        peakU16 = mPastMeasurements[i].mPeakU16;
+                    }
+                    sumRmsSquared += mPastMeasurements[i].mRmsSquared;
+                    nbValidMeasurements++;
+                }
+            }
+        }
+    }
+
+    float rms = nbValidMeasurements == 0 ? 0.0f : sqrtf(sumRmsSquared / nbValidMeasurements);
+    Visualizer::Measurement measure;
+    // convert from I16 sample values to mB and write results
+    measure.rms = (rms < 0.000016f) ? -9600 : (int32_t)(2000 * log10(rms / 32767.0f));
+    measure.peak = (peakU16 == 0) ? -9600 : (int32_t)(2000 * log10(peakU16 / 32767.0f));
+    LOG(INFO) << __func__ << " peak " << peakU16 << " (" << measure.peak << "mB), rms " << rms
+              << " (" << measure.rms << "mB)";
+    return measure;
+}
+
+std::vector<uint8_t> VisualizerOffloadContext::capture() {
+    std::vector<uint8_t> result;
+    std::lock_guard lg(mMutex);
+    RETURN_VALUE_IF(mState != State::ACTIVE, result, "illegalState");
+    const uint32_t deltaMs = getDeltaTimeMsFromUpdatedTime_l();
+
+    // if audio framework has stopped playing audio although the effect is still active we must
+    // clear the capture buffer to return silence
+    if ((mLastCaptureIdx == mCaptureIdx) && (mBufferUpdateTime.tv_sec != 0) &&
+        (deltaMs > kMaxStallTimeMs)) {
+        LOG(INFO) << __func__ << " capture going to idle";
+        mBufferUpdateTime.tv_sec = 0;
+        return result;
+    }
+    int32_t latencyMs = mDownstreamLatency;
+    latencyMs -= deltaMs;
+    if (latencyMs < 0) {
+        latencyMs = 0;
+    }
+    uint32_t deltaSamples = mCaptureSamples + mCommon.input.base.sampleRate * latencyMs / 1000;
+
+    // large sample rate, latency, or capture size, could cause overflow.
+    // do not offset more than the size of buffer.
+    if (deltaSamples > kMaxCaptureBufSize) {
+        android_errorWriteLog(0x534e4554, "31781965");
+        deltaSamples = kMaxCaptureBufSize;
+    }
+
+    int32_t capturePoint;
+    //capturePoint = (int32_t)mCaptureIdx - deltaSamples;
+    __builtin_sub_overflow((int32_t) mCaptureIdx, deltaSamples, &capturePoint);
+    // a negative capturePoint means we wrap the buffer.
+    if (capturePoint < 0) {
+        uint32_t size = -capturePoint;
+        if (size > mCaptureSamples) {
+            size = mCaptureSamples;
+        }
+        result.insert(result.end(), &mCaptureBuf[kMaxCaptureBufSize + capturePoint],
+                        &mCaptureBuf[kMaxCaptureBufSize + capturePoint + size]);
+        mCaptureSamples -= size;
+        capturePoint = 0;
+    }
+    result.insert(result.end(), &mCaptureBuf[capturePoint],
+                    &mCaptureBuf[capturePoint + mCaptureSamples]);
+    mLastCaptureIdx = mCaptureIdx;
+    return result;
+}
+
+IEffect::Status VisualizerOffloadContext::process(float* in, float* out, int samples) {
+    IEffect::Status result = {STATUS_NOT_ENOUGH_DATA, 0, 0};
+    RETURN_VALUE_IF(in == nullptr || out == nullptr || samples == 0, result, "dataBufferError");
+
+    std::lock_guard lg(mMutex);
+    result.status = STATUS_INVALID_OPERATION;
+    RETURN_VALUE_IF(mState != State::ACTIVE, result, "stateNotActive");
+    LOG(DEBUG) << __func__ << " in " << in << " out " << out << " sample " << samples;
+    // perform measurements if needed
+    if (mMeasurementMode == Visualizer::MeasurementMode::PEAK_RMS) {
+        // find the peak and RMS squared for the new buffer
+        float rmsSqAcc = 0;
+        float maxSample = 0.f;
+        for (size_t inIdx = 0; inIdx < (unsigned)samples; ++inIdx) {
+            maxSample = fmax(maxSample, fabs(in[inIdx]));
+            rmsSqAcc += in[inIdx] * in[inIdx];
+        }
+        maxSample *= 1 << 15; // scale to int16_t, with exactly 1 << 15 representing positive num.
+        rmsSqAcc *= 1 << 30; // scale to int16_t * 2
+        mPastMeasurements[mMeasurementBufferIdx] = {
+                .mPeakU16 = (uint16_t)maxSample,
+                .mRmsSquared = rmsSqAcc / samples,
+                .mIsValid = true };
+        if (++mMeasurementBufferIdx >= mMeasurementWindowSizeInBuffers) {
+            mMeasurementBufferIdx = 0;
+        }
+    }
+
+    float fscale;  // multiplicative scale
+    if (mScalingMode == Visualizer::ScalingMode::NORMALIZED) {
+        // derive capture scaling factor from peak value in current buffer
+        // this gives more interesting captures for display.
+        float maxSample = 0.f;
+        for (size_t inIdx = 0; inIdx < (unsigned)samples; ) {
+            // we reconstruct the actual summed value to ensure proper normalization
+            // for multichannel outputs (channels > 2 may often be 0).
+            float smp = 0.f;
+            for (int i = 0; i < mChannelCount; ++i) {
+                smp += in[inIdx++];
+            }
+            maxSample = fmax(maxSample, fabs(smp));
+        }
+        if (maxSample > 0.f) {
+            fscale = 0.99f / maxSample;
+            int exp; // unused
+            const float significand = frexp(fscale, &exp);
+            if (significand == 0.5f) {
+                fscale *= 255.f / 256.f; // avoid returning unaltered PCM signal
+            }
+        } else {
+            // scale doesn't matter, the values are all 0.
+            fscale = 1.f;
+        }
+    } else {
+        assert(mScalingMode == Visualizer::ScalingMode::AS_PLAYED);
+        // Note: if channels are uncorrelated, 1/sqrt(N) could be used at the risk of clipping.
+        fscale = 1.f / mChannelCount;  // account for summing all the channels together.
+    }
+
+    uint32_t captIdx;
+    uint32_t inIdx;
+    for (inIdx = 0, captIdx = mCaptureIdx; inIdx < (unsigned)samples; captIdx++) {
+        // wrap
+        if (captIdx >= kMaxCaptureBufSize) {
+            captIdx = 0;
+        }
+
+        float smp = 0.f;
+        for (uint32_t i = 0; i < mChannelCount; ++i) {
+            smp += in[inIdx++];
+        }
+        mCaptureBuf[captIdx] = clamp8_from_float(smp * fscale);
+    }
+
+    // the following two should really be atomic, though it probably doesn't
+    // matter much for visualization purposes
+    mCaptureIdx = captIdx;
+    // update last buffer update time stamp
+    if (clock_gettime(CLOCK_MONOTONIC, &mBufferUpdateTime) < 0) {
+        mBufferUpdateTime.tv_sec = 0;
+    }
+
+    // TODO: handle access_mode
+    memcpy(out, in, samples * sizeof(float));
+    return {STATUS_OK, samples, samples};
+}
+
+}  // namespace aidl::android::hardware::audio::effect

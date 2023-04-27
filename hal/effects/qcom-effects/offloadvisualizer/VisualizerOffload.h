@@ -1,0 +1,47 @@
+/*
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+#pragma once
+
+#include <aidl/android/hardware/audio/effect/BnEffect.h>
+
+#include "effect-impl/EffectImpl.h"
+#include "effect-impl/EffectUUID.h"
+
+#include "VisualizerOffloadContext.h"
+
+namespace aidl::android::hardware::audio::effect {
+
+class VisualizerOffload final : public EffectImpl {
+  public:
+    static const std::string kEffectName;
+    static const Capability kCapability;
+    static const Descriptor kDescriptor;
+    VisualizerOffload() { LOG(DEBUG) << __func__; }
+    ~VisualizerOffload() {
+        //cleanUp();
+        LOG(DEBUG) << __func__;
+    }
+
+    ndk::ScopedAStatus commandImpl(CommandId command) override;
+    ndk::ScopedAStatus getDescriptor(Descriptor* _aidl_return) override;
+    ndk::ScopedAStatus setParameterSpecific(const Parameter::Specific& specific) override;
+    ndk::ScopedAStatus getParameterSpecific(const Parameter::Id& id,
+                                            Parameter::Specific* specific) override;
+    IEffect::Status effectProcessImpl(float* in, float* out, int process) override;
+    std::shared_ptr<EffectContext> createContext(const Parameter::Common& common) override;
+    RetCode releaseContext() override;
+
+    std::shared_ptr<EffectContext> getContext() override { return mContext; }
+    std::string getEffectName() override { return kEffectName; }
+
+  private:
+    static const std::vector<Range::VisualizerRange> kRanges;
+    std::shared_ptr<VisualizerOffloadContext> mContext;
+    ndk::ScopedAStatus getParameterVisualizer(const Visualizer::Tag& tag,
+                                                    Parameter::Specific* specific);
+};
+
+}  // namespace aidl::android::hardware::audio::effect

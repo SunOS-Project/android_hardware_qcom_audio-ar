@@ -1,0 +1,60 @@
+cc_defaults {
+    name: "aidlaudioeffectserviceqti_defaults",
+    defaults: [
+        "latest_android_media_audio_common_types_ndk_shared",
+        "latest_android_hardware_audio_effect_ndk_shared",
+    ],
+    vendor: true,
+    shared_libs: [
+        "libaudioaidlcommon",
+        "libbase",
+        "libbinder_ndk",
+        "libcutils",
+        "libfmq",
+        "liblog",
+        "libutils",
+        "android.hardware.common-V2-ndk",
+        "android.hardware.common.fmq-V1-ndk",
+    ],
+    header_libs: [
+        "libaudioeffectsaidlqti_headers",
+        "libaudio_system_headers",
+        "libsystem_headers",
+    ],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wthread-safety",
+    ],
+}
+
+filegroup {
+    name: "effectCommonFilesqti",
+    srcs: [
+        "EffectThread.cpp",
+        "EffectImpl.cpp",
+    ],
+}
+
+cc_library_shared {
+    name: "libaudioeffecthal.qti",
+    relative_install_path: "hw",
+    vintf_fragments: ["audioeffectservice_qti.xml"],
+    defaults: ["aidlaudioeffectserviceqti_defaults"],
+    shared_libs: [
+        "libtinyxml2",
+    ],
+    srcs: [
+        "EffectConfig.cpp",
+        "EffectFactory.cpp",
+        "EffectMain.cpp",
+    ],
+}
+
+cc_library_headers {
+    name: "libaudioeffectsaidlqti_headers",
+    export_include_dirs: ["include"],
+    vendor_available: true,
+    host_supported: true,
+}
