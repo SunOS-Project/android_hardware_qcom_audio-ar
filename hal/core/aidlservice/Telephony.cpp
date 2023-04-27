@@ -11,10 +11,10 @@
 #include <android-base/logging.h>
 #include <android/binder_to_string.h>
 
-using aidl::android::media::audio::common::AudioMode;
-using aidl::android::media::audio::common::Boolean;
-using aidl::android::media::audio::common::Float;
-using android::hardware::audio::common::isValidAudioMode;
+using ::aidl::android::media::audio::common::AudioMode;
+using ::aidl::android::media::audio::common::Boolean;
+using ::aidl::android::media::audio::common::Float;
+using ::aidl::android::hardware::audio::common::isValidAudioMode;
 
 namespace qti::audio::core {
 

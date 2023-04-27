@@ -25,40 +25,40 @@
 #include <platform/PlatformModule.h>
 #include <system/audio_config.h>
 
-using aidl::android::media::audio::common::AudioChannelLayout;
-using aidl::android::media::audio::common::AudioDevice;
-using aidl::android::media::audio::common::AudioFormatDescription;
-using aidl::android::media::audio::common::AudioFormatType;
-using aidl::android::media::audio::common::AudioInputFlags;
-using aidl::android::media::audio::common::AudioIoFlags;
-using aidl::android::media::audio::common::AudioMMapPolicy;
-using aidl::android::media::audio::common::AudioMMapPolicyInfo;
-using aidl::android::media::audio::common::AudioMMapPolicyType;
-using aidl::android::media::audio::common::AudioMode;
-using aidl::android::media::audio::common::AudioOffloadInfo;
-using aidl::android::media::audio::common::AudioOutputFlags;
-using aidl::android::media::audio::common::AudioPort;
-using aidl::android::media::audio::common::AudioPortConfig;
-using aidl::android::media::audio::common::AudioPortExt;
-using aidl::android::media::audio::common::AudioProfile;
-using aidl::android::media::audio::common::Boolean;
-using aidl::android::media::audio::common::Int;
-using aidl::android::media::audio::common::MicrophoneInfo;
-using aidl::android::media::audio::common::PcmType;
+using ::aidl::android::media::audio::common::AudioChannelLayout;
+using ::aidl::android::media::audio::common::AudioDevice;
+using ::aidl::android::media::audio::common::AudioFormatDescription;
+using ::aidl::android::media::audio::common::AudioFormatType;
+using ::aidl::android::media::audio::common::AudioInputFlags;
+using ::aidl::android::media::audio::common::AudioIoFlags;
+using ::aidl::android::media::audio::common::AudioMMapPolicy;
+using ::aidl::android::media::audio::common::AudioMMapPolicyInfo;
+using ::aidl::android::media::audio::common::AudioMMapPolicyType;
+using ::aidl::android::media::audio::common::AudioMode;
+using ::aidl::android::media::audio::common::AudioOffloadInfo;
+using ::aidl::android::media::audio::common::AudioOutputFlags;
+using ::aidl::android::media::audio::common::AudioPort;
+using ::aidl::android::media::audio::common::AudioPortConfig;
+using ::aidl::android::media::audio::common::AudioPortExt;
+using ::aidl::android::media::audio::common::AudioProfile;
+using ::aidl::android::media::audio::common::Boolean;
+using ::aidl::android::media::audio::common::Int;
+using ::aidl::android::media::audio::common::MicrophoneInfo;
+using ::aidl::android::media::audio::common::PcmType;
 
-using aidl::android::hardware::audio::common::SinkMetadata;
-using aidl::android::hardware::audio::common::SourceMetadata;
-using android::hardware::audio::common::getFrameSizeInBytes;
-using android::hardware::audio::common::isBitPositionFlagSet;
-using android::hardware::audio::common::isValidAudioMode;
+using ::aidl::android::hardware::audio::common::SinkMetadata;
+using ::aidl::android::hardware::audio::common::SourceMetadata;
+using ::aidl::android::hardware::audio::common::getFrameSizeInBytes;
+using ::aidl::android::hardware::audio::common::isBitPositionFlagSet;
+using ::aidl::android::hardware::audio::common::isValidAudioMode;
 
-using aidl::android::hardware::audio::core::IStreamOut;
-using aidl::android::hardware::audio::core::IStreamIn;
+using ::aidl::android::hardware::audio::core::IStreamOut;
+using ::aidl::android::hardware::audio::core::IStreamIn;
 using ::aidl::android::hardware::audio::core::AudioPatch;
 using ::aidl::android::hardware::audio::core::AudioRoute;
 using ::aidl::android::hardware::audio::core::IBluetooth;
 using ::aidl::android::hardware::audio::core::VendorParameter;
-using aidl::android::hardware::audio::core::sounddose::ISoundDose;
+using ::aidl::android::hardware::audio::core::sounddose::ISoundDose;
 
 namespace qti::audio::core {
 

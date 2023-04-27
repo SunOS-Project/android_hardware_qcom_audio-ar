@@ -36,9 +36,9 @@ class EffectContext {
         LOG_ALWAYS_FATAL_IF(output.base.format.pcm !=
                                     aidl::android::media::audio::common::PcmType::FLOAT_32_BIT,
                             "outputFormatNotFloat");
-        mInputFrameSize = ::android::hardware::audio::common::getFrameSizeInBytes(
+        mInputFrameSize = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
                 input.base.format, input.base.channelMask);
-        mOutputFrameSize = ::android::hardware::audio::common::getFrameSizeInBytes(
+        mOutputFrameSize = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
                 output.base.format, output.base.channelMask);
         // in/outBuffer size in float (FMQ data format defined for DataMQ)
         size_t inBufferSizeInFloat = input.frameCount * mInputFrameSize / sizeof(float);

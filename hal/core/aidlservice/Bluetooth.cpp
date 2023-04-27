@@ -121,7 +121,7 @@ ndk::ScopedAStatus BluetoothLe::setEnabled(bool in_enabled) {
     LOG(DEBUG) << __func__ << ": " << mEnabled;
     return ndk::ScopedAStatus::ok();
 }
-#if 0
+
 ndk::ScopedAStatus BluetoothLe::supportsOffloadReconfiguration(bool* _aidl_return) {
     *_aidl_return = true;
     LOG(DEBUG) << __func__ << ": returning " << *_aidl_return;
@@ -134,5 +134,5 @@ ndk::ScopedAStatus BluetoothLe::reconfigureOffload(
     LOG(DEBUG) << __func__ << ": " << ::android::internal::ToString(in_parameters);
     return ndk::ScopedAStatus::ok();
 }
-#endif
+
 }  // namespace qti::audio::core

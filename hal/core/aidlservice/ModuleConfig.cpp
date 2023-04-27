@@ -26,29 +26,29 @@
 
 #include <Utils.h>
 
-using aidl::android::media::audio::common::AudioDeviceDescription;
-using aidl::android::media::audio::common::AudioOutputFlags;
-using android::hardware::audio::common::makeBitPositionFlagMask;
-using aidl::android::media::audio::common::AudioChannelLayout;
-using aidl::android::media::audio::common::AudioDeviceAddress;
-using aidl::android::media::audio::common::AudioDeviceType;
-using aidl::android::media::audio::common::AudioEncapsulationType;
-using aidl::android::media::audio::common::AudioFormatDescription;
-using aidl::android::media::audio::common::AudioFormatType;
-using aidl::android::media::audio::common::AudioGain;
-using aidl::android::media::audio::common::AudioGainConfig;
-using aidl::android::media::audio::common::AudioIoFlags;
-using aidl::android::media::audio::common::AudioPort;
-using aidl::android::media::audio::common::AudioPortConfig;
-using aidl::android::media::audio::common::AudioPortExt;
-using aidl::android::media::audio::common::AudioPortDeviceExt;
-using aidl::android::media::audio::common::AudioPortMixExt;
-using aidl::android::media::audio::common::AudioProfile;
-using aidl::android::media::audio::common::MicrophoneInfo;
-using aidl::android::media::audio::common::Int;
-using aidl::android::media::audio::common::PcmType;
-using aidl::android::hardware::audio::core::AudioPatch;
-using aidl::android::hardware::audio::core::AudioRoute;
+using ::aidl::android::media::audio::common::AudioDeviceDescription;
+using ::aidl::android::media::audio::common::AudioOutputFlags;
+using ::aidl::android::hardware::audio::common::makeBitPositionFlagMask;
+using ::aidl::android::media::audio::common::AudioChannelLayout;
+using ::aidl::android::media::audio::common::AudioDeviceAddress;
+using ::aidl::android::media::audio::common::AudioDeviceType;
+using ::aidl::android::media::audio::common::AudioEncapsulationType;
+using ::aidl::android::media::audio::common::AudioFormatDescription;
+using ::aidl::android::media::audio::common::AudioFormatType;
+using ::aidl::android::media::audio::common::AudioGain;
+using ::aidl::android::media::audio::common::AudioGainConfig;
+using ::aidl::android::media::audio::common::AudioIoFlags;
+using ::aidl::android::media::audio::common::AudioPort;
+using ::aidl::android::media::audio::common::AudioPortConfig;
+using ::aidl::android::media::audio::common::AudioPortExt;
+using ::aidl::android::media::audio::common::AudioPortDeviceExt;
+using ::aidl::android::media::audio::common::AudioPortMixExt;
+using ::aidl::android::media::audio::common::AudioProfile;
+using ::aidl::android::media::audio::common::MicrophoneInfo;
+using ::aidl::android::media::audio::common::Int;
+using ::aidl::android::media::audio::common::PcmType;
+using ::aidl::android::hardware::audio::core::AudioPatch;
+using ::aidl::android::hardware::audio::core::AudioRoute;
 
 namespace xsd = ::audio_module_config_qti;
 

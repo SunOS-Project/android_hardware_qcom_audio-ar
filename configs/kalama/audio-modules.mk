@@ -67,7 +67,7 @@ AUDIO_TEST += osal_in_test_example
 #AUDIO_MODULES := audio.a2dp.default
 AUDIO_MODULES := audio.usb.default
 AUDIO_MODULES += audio.r_submix.default
-AUDIO_MODULES += audio.primary.kalama
+#AUDIO_MODULES += audio.primary.kalama
 AUDIO_MODULES += ftm_test_config
 AUDIO_MODULES += ftm_test_config_kalama-qrd-snd-card
 AUDIO_MODULES += ftm_test_config_kalama-grd-snd-card
@@ -171,5 +171,12 @@ AUDIO_MODULES += \
 AUDIO_MODULES += \
     vendor.qti.hardware.ListenSoundModel@1.0 \
     vendor.qti.hardware.ListenSoundModel@1.0-impl
+
+# AIDL Audio modules
+
+AUDIO_MODULES += \
+    audiohalservice.qti \
+    libaudiocorehal.qti \
+    libaudioeffecthal.qti
 
 endif

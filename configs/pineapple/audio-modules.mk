@@ -168,4 +168,13 @@ AUDIO_MODULES += \
     vendor.qti.hardware.ListenSoundModel@1.0 \
     vendor.qti.hardware.ListenSoundModel@1.0-impl
 
+
+# AIDL Audio modules
+
+AUDIO_MODULES += \
+    audiohalservice.qti \
+    libaudiocorehal.qti \
+    libaudioeffecthal.qti
+
+
 endif

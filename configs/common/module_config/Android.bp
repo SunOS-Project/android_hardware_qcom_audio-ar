@@ -1,0 +1,6 @@
+xsd_config {
+    name: "audio_module_config_qti",
+    srcs: ["audio_module_config_qti.xsd"],
+    package_name: "audio_module_config_qti",
+    nullability: true,
+}
