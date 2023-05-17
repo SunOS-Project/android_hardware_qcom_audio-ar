@@ -22,7 +22,7 @@
 #include <aidlservice/StreamStub.h>
 #include <aidlservice/Telephony.h>
 #include <utils/utils.h>
-#include <platform/PlatformModule.h>
+#include <Platform.h>
 #include <system/audio_config.h>
 
 using ::aidl::android::media::audio::common::AudioChannelLayout;
@@ -122,9 +122,6 @@ bool Module::generateDefaultPortConfig(const AudioPort& port,
 }
 
 void Module::init(std::shared_ptr<Module> module) {
-    mPlatformModule = std::make_shared<PlatformModule>(module);
-    mPlatformModule->init();
-
     // TODO remove this dump if not debug
     {
         auto fd = ::open(kAudioHALServiceDumpPath,
@@ -489,10 +486,11 @@ std::vector<AudioProfile> Module::getProfilesForDevicePort(
     const auto& devicePortExt =
         in_templateDevicePort.ext.get<AudioPortExt::Tag::device>();
 
+    auto& platform = ::qti::audio::Platform::getInstance();
     // In debug mode never call, platform API
     if (!mDebug.simulateDeviceConnections &&
-        is_usb_device(devicePortExt.device)) {
-        return mPlatformModule->getDynamicProfiles(in_templateDevicePort);
+        platform.isUsbDevice(devicePortExt.device)) {
+        return platform.getDynamicProfiles(in_templateDevicePort);
     }
 
     // since mExternalDevicePortProfiles match id with templates AudioPorts
@@ -557,9 +555,10 @@ ndk::ScopedAStatus Module::connectExternalDevice(
     }
 
     // lets handle connect when not in debug mode
+    auto& platform = ::qti::audio::Platform::getInstance();
     if (!mDebug.simulateDeviceConnections &&
-        !mPlatformModule->handleDeviceConnectionChange(
-            in_templateIdAndAdditionalData, true)) {
+        !platform.handleDeviceConnectionChange(in_templateIdAndAdditionalData,
+                                               true)) {
         LOG(ERROR) << __func__ << ": failed to connect external device";
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
@@ -640,8 +639,9 @@ ndk::ScopedAStatus Module::disconnectExternalDevice(int32_t in_portId) {
     }
 
     // lets handle disconnect when not in debug mode
+    auto& platform = ::qti::audio::Platform::getInstance();
     if (!mDebug.simulateDeviceConnections &&
-        !mPlatformModule->handleDeviceConnectionChange(port, false)) {
+        !platform.handleDeviceConnectionChange(port, false)) {
         LOG(ERROR) << __func__ << ": failed to disconnect external device";
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
@@ -1534,7 +1534,6 @@ int32_t Module::dumpInternal(const int fd) {
     // member objects dump here
     int32_t status = 0;
     status = !status ? getModuleConfig().dump(fd) : status;
-    status = !status ? mPlatformModule->dump(fd) : status;
 
     return status;
 }

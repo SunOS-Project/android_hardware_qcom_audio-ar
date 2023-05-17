@@ -10,7 +10,6 @@
 
 namespace qti::audio::core {
 
-class PlatformModule;
 class ModuleConfig;
 
 class Module : public ::aidl::android::hardware::audio::core::BnModule,
@@ -215,7 +214,6 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
 
     const Type mType;
     std::shared_ptr<ModuleConfig> mModuleConfig;
-    std::shared_ptr<PlatformModule> mPlatformModule;
     ::aidl::android::hardware::audio::core::ModuleDebug mDebug;
     VendorDebug mVendorDebug;
     ChildInterface<::aidl::android::hardware::audio::core::ITelephony>

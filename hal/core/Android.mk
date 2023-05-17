@@ -21,11 +21,8 @@ LOCAL_SRC_FILES := \
     aidlservice/EngineConfigXmlConverter.cpp \
     aidlservice/Telephony.cpp \
     platform/PlatformStream.cpp \
-    platform/PlatformModule.cpp \
     platform/PlatformBluetooth.cpp \
-    platform/PlatformVoice.cpp \
-    paramhandler/PlatformModuleParameterHandler.cpp \
-    utils/Conversion.cpp
+    platform/PlatformVoice.cpp
 
 LOCAL_HEADER_LIBRARIES :=  \
     libaudioclient_headers \
@@ -66,7 +63,8 @@ LOCAL_SHARED_LIBRARIES := \
     android.hardware.audio.core-V1-ndk \
     android.hardware.audio.core.sounddose-V1-ndk \
     libar-pal \
-    libaudioserviceexampleimpl
+    libaudioserviceexampleimpl \
+    libaudioplatform.qti
 
 include $(BUILD_SHARED_LIBRARY)
 
