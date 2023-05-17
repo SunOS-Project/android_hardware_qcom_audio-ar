@@ -12,7 +12,7 @@
 
 namespace qti::audio::core {
 
-ndk::ScopedAStatus SoundDose::setOutputRs2(float in_rs2ValueDbA) {
+ndk::ScopedAStatus SoundDose::setOutputRs2UpperBound(float in_rs2ValueDbA) {
     if (in_rs2ValueDbA < MIN_RS2 || in_rs2ValueDbA > DEFAULT_MAX_RS2) {
         LOG(ERROR) << __func__ << ": RS2 value is invalid: " << in_rs2ValueDbA;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
@@ -22,7 +22,7 @@ ndk::ScopedAStatus SoundDose::setOutputRs2(float in_rs2ValueDbA) {
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus SoundDose::getOutputRs2(float* _aidl_return) {
+ndk::ScopedAStatus SoundDose::getOutputRs2UpperBound(float* _aidl_return) {
     *_aidl_return = mRs2Value;
     LOG(DEBUG) << __func__ << ": returning " << *_aidl_return;
     return ndk::ScopedAStatus::ok();
