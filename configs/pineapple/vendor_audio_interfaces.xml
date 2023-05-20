@@ -4,14 +4,12 @@ Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
 SPDX-License-Identifier: BSD-3-Clause-Clear
 -->
 <libraries>
-    <library name = "agm" libraryName="vendor.qti.hardware.AGMIPC@1.0-impl.so"
-            method="registerHidlService" mandatory="true"/>
     <library name = "audiohal" libraryName="libaudiocorehal.qti.so"
-            method="registerService" mandatory="true"/>
+            method="registerServices" mandatory="true"/>
     <library name = "audioeffecthal" libraryName="libaudioeffecthal.qti.so"
             method="registerService" mandatory="true"/>
-    <library name = "sthal" libraryName="android.hardware.soundtrigger.audio-impl.so"
-            method="createISoundTriggerFactory" mandatory="true" />
-    <library name = "bthal" libraryName="android.hardware.bluetooth.audio-impl.so"
-            method="createIBluetoothAudioProviderFactory" mandatory="false"/>
+    <!-- <library name = "sthal" libraryName="android.hardware.soundtrigger.audio-impl.so"
+            method="createISoundTriggerFactory" mandatory="true" /> -->
+    <!-- <library name = "bthal" libraryName="android.hardware.bluetooth.audio-impl.so"
+            method="createIBluetoothAudioProviderFactory" mandatory="false"/> -->
 </libraries>

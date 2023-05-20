@@ -71,8 +71,8 @@ class StreamInPrimary final : public StreamIn {
         const std::vector<
             ::aidl::android::media::audio::common::MicrophoneInfo>&
             microphones);
-    pal_stream_handle_t mPalStreamHandle{0};
-    InputUseCase mUsecase;
+    // pal_stream_handle_t mPalStreamHandle{0};
+    // InputUseCase mUsecase;
 };
 
 class StreamOutPrimary final : public StreamOut {
@@ -115,8 +115,8 @@ class StreamOutPrimary final : public StreamOut {
         const std::optional<
             ::aidl::android::media::audio::common::AudioOffloadInfo>&
             offloadInfo);
-    pal_stream_handle_t mPalStreamHandle{0};
-    OutputUseCase mUsecase;
+    // pal_stream_handle_t mPalStreamHandle{0};
+    // OutputUseCase mUsecase;
 };
 
 class PlatformDriverIn : public DriverInterface {

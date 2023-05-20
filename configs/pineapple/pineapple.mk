@@ -513,3 +513,5 @@ AUDIO_FEATURE_ENABLED_GKI := true
 BUILD_AUDIO_TECHPACK_SOURCE := true
 AUDIO_FEATURE_HIDL_HAL := false
 
+include vendor/qcom/opensource/audio-hal/primary-hal/configs/pineapple/audio_android_props.mk
+

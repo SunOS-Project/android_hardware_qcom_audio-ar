@@ -209,7 +209,8 @@ ndk::ScopedAStatus Module::createStreamContext(
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
     LOG(DEBUG) << __func__ << ": frame size " << frameSize << " bytes";
-    if (frameSize > kMaximumStreamBufferSizeBytes / in_bufferSizeFrames) {
+    if (frameSize > static_cast<size_t>(kMaximumStreamBufferSizeBytes /
+                                        in_bufferSizeFrames)) {
         LOG(ERROR) << __func__ << ": buffer size " << in_bufferSizeFrames
                    << " frames is too large, maximum size is "
                    << kMaximumStreamBufferSizeBytes / frameSize;
@@ -317,7 +318,7 @@ ndk::ScopedAStatus Module::findPortIdForNewStream(int32_t in_portConfigId,
                    << " does not correspond to a mix port";
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
-    const int32_t maxOpenStreamCount =
+    const size_t maxOpenStreamCount =
         portForId.ext.get<AudioPortExt::Tag::mix>().maxOpenStreamCount;
     if (maxOpenStreamCount != 0 &&
         mStreams.count(portId) >= maxOpenStreamCount) {
@@ -1523,7 +1524,7 @@ int32_t Module::dumpInternal(const int fd) {
         auto dumpInfoSize = dumpInfo.size();
         // TODO remove fd and add fstream support
         auto b = ::write(fd, dumpInfo.c_str(), dumpInfoSize);
-        if (b != dumpInfoSize) {
+        if (b != static_cast<decltype(b)>(dumpInfoSize)) {
             LOG(ERROR) << __func__ << ": dump failed";
             return -EIO;
         }

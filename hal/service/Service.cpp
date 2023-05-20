@@ -20,7 +20,7 @@
 #include <android/binder_manager.h>
 #include <android/binder_process.h>
 #include <android-base/logging.h>
-#include <cutils/properties.h>
+#include <android-base/properties.h>
 #include "ConfigManager.h"
 
 // TODO Remove it
@@ -104,16 +104,14 @@ void registerAvailableInterfaces() {
 }
 
 void setLogSeverity() {
-    char value[PROPERTY_VALUE_MAX];
-    int logLevel = 2;
-    // system/libbase/include/android-base/logging.h
-    if (property_get("vendor.audio.hal.loglevel", value, "2")) {
-        int level = atoi(value);
-        if (level >= 0 && level <= 6)
-            logLevel = level;
-    }
+    const std::string kDefaultAudioHALLogLevel{"vendor.audio.hal.loglevel"};
+    auto logLevel =
+        ::android::base::GetIntProperty<int8_t>(kDefaultAudioHALLogLevel, 0);
+    logLevel = 0;
 
-    android::base::SetMinimumLogSeverity(static_cast<android::base::LogSeverity>(logLevel));
+    // system/libbase/include/android-base/logging.h
+    android::base::SetMinimumLogSeverity(
+        static_cast<::android::base::LogSeverity>(logLevel));
 }
 
 int main() {

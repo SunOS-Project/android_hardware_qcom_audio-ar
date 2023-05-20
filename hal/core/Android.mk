@@ -7,6 +7,10 @@ LOCAL_MODULE_RELATIVE_PATH := hw
 
 LOCAL_C_INCLUDES    := $(LOCAL_PATH)/include
 
+# LOCAL_CFLAGS += -Wall -Wextra -Werror -Wthread-safety
+
+# LOCAL_CPPFLAGS += -fexceptions
+
 LOCAL_VINTF_FRAGMENTS   := \
     ../../configs/common/manifest_non_qmaa.xml
 
@@ -29,6 +33,10 @@ LOCAL_HEADER_LIBRARIES :=  \
     libaudio_system_headers \
     audiohalutils_headers \
     libmedia_helper_headers \
+    libagmclient_headers \
+    libagm_headers \
+    qti_audio_kernel_uapi \
+    libhardware_headers \
     libexpectedutils_headers
 
 #    defaults: [
@@ -48,6 +56,7 @@ LOCAL_SHARED_LIBRARIES := \
     libcutils \
     libdl \
     libhidlbase \
+    libhardware \
     libfmq \
     liblog \
     libmedia_helper \
@@ -63,7 +72,16 @@ LOCAL_SHARED_LIBRARIES := \
     android.hardware.audio.core-V1-ndk \
     android.hardware.audio.core.sounddose-V1-ndk \
     libar-pal \
+    android.hidl.allocator@1.0 \
+    android.hidl.memory@1.0 \
+    libhidlmemory \
     libaudioserviceexampleimpl \
+    vendor.qti.hardware.AGMIPC@1.0 \
+    vendor.qti.hardware.AGMIPC@1.0-impl \
+    libagmclient \
+    libagm \
+    vendor.qti.hardware.pal@1.0 \
+    vendor.qti.hardware.pal@1.0-impl \
     libaudioplatform.qti
 
 include $(BUILD_SHARED_LIBRARY)
