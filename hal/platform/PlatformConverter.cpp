@@ -17,7 +17,7 @@ using ::aidl::android::media::audio::common::AudioFormatDescription;
 using ::aidl::android::media::audio::common::AudioFormatType;
 using ::aidl::android::media::audio::common::PcmType;
 
-namespace qti::audio {
+namespace qti::audio::core {
 
 AudioDeviceDescription makeAudioDeviceDescription(
     AudioDeviceType type, const std::string& connection = "") {

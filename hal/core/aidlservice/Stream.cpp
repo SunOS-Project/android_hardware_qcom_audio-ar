@@ -5,14 +5,17 @@
 
 #define LOG_TAG "AHAL_Stream"
 #include <Utils.h>
+
 #include <android-base/logging.h>
 #include <android/binder_ibinder_platform.h>
-#include <aidlservice/Module.h>
-#include <platform/PlatformStream.h>
-#include <aidlservice/Stream.h>
 #include <utils/SystemClock.h>
 
-using ::aidl::android::hardware::audio::common::AudioOffloadMetadata;
+#include <aidlservice/Module.h>
+#include <aidlservice/Stream.h>
+
+using aidl::android::hardware::audio::common::AudioOffloadMetadata;
+using aidl::android::hardware::audio::common::getChannelCount;
+using aidl::android::hardware::audio::common::getFrameSizeInBytes;
 using aidl::android::hardware::audio::common::SinkMetadata;
 using aidl::android::hardware::audio::common::SourceMetadata;
 using aidl::android::media::audio::common::AudioDevice;
@@ -22,11 +25,11 @@ using aidl::android::media::audio::common::AudioOffloadInfo;
 using aidl::android::media::audio::common::AudioPlaybackRate;
 using aidl::android::media::audio::common::MicrophoneDynamicInfo;
 using aidl::android::media::audio::common::MicrophoneInfo;
+
 using ::aidl::android::hardware::audio::common::getChannelCount;
 using ::aidl::android::hardware::audio::common::getFrameSizeInBytes;
-
-using ::aidl::android::hardware::audio::core::StreamDescriptor;
 using ::aidl::android::hardware::audio::core::IStreamCommon;
+using ::aidl::android::hardware::audio::core::StreamDescriptor;
 using ::aidl::android::hardware::audio::core::VendorParameter;
 
 namespace qti::audio::core {
@@ -659,7 +662,6 @@ ndk::ScopedAStatus StreamCommonImpl<Metadata>::setVendorParameters(
     const std::vector<VendorParameter>& in_parameters, bool in_async) {
     LOG(DEBUG) << __func__ << ": parameters count " << in_parameters.size()
                << ", async: " << in_async;
-    // return mDriver->setVendorParameters(in_parameters, in_async);
     return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
 }
 

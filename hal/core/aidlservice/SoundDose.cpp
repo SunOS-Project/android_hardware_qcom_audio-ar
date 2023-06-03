@@ -3,11 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-
 #define LOG_TAG "AHAL_SoundDose"
 
 #include <aidlservice/SoundDose.h>
-
 #include <android-base/logging.h>
 
 namespace qti::audio::core {
@@ -29,13 +27,14 @@ ndk::ScopedAStatus SoundDose::getOutputRs2UpperBound(float* _aidl_return) {
 }
 
 ndk::ScopedAStatus SoundDose::registerSoundDoseCallback(
-        const std::shared_ptr<ISoundDose::IHalSoundDoseCallback>& in_callback) {
+    const std::shared_ptr<ISoundDose::IHalSoundDoseCallback>& in_callback) {
     if (in_callback.get() == nullptr) {
         LOG(ERROR) << __func__ << ": Callback is nullptr";
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
     if (mCallback != nullptr) {
-        LOG(ERROR) << __func__ << ": Sound dose callback was already registered";
+        LOG(ERROR) << __func__
+                   << ": Sound dose callback was already registered";
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
@@ -44,4 +43,4 @@ ndk::ScopedAStatus SoundDose::registerSoundDoseCallback(
     return ndk::ScopedAStatus::ok();
 }
 
-}  // namespace aidl::android::hardware::audio::core::sounddose
+}  // namespace qti::audio::core

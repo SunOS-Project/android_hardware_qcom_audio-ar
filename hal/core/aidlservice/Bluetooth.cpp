@@ -4,10 +4,9 @@
  */
 
 #define LOG_TAG "AHAL_Bluetooth"
-#include "aidlservice/Bluetooth.h"
-#include "platform/PlatformBluetooth.h"
-
 #include <android-base/logging.h>
+
+#include <aidlservice/Bluetooth.h>
 
 using aidl::android::hardware::audio::core::VendorParameter;
 using aidl::android::media::audio::common::Boolean;
@@ -23,18 +22,15 @@ Bluetooth::Bluetooth() {
     mHfpConfig.isEnabled = Boolean{false};
     mHfpConfig.sampleRate = Int{8000};
     mHfpConfig.volume = Float{HfpConfig::VOLUME_MAX};
-    mPlatformBluetooth = std::make_shared<PlatformBluetooth>();
 }
+
 ndk::ScopedAStatus Bluetooth::setScoConfig(const ScoConfig& in_config,
                                            ScoConfig* _aidl_return) {
     if (in_config.isEnabled.has_value()) {
         mScoConfig.isEnabled = in_config.isEnabled;
-        mPlatformBluetooth->setBtScoEnabled(mScoConfig.isEnabled.value().value);
     }
     if (in_config.isNrecEnabled.has_value()) {
         mScoConfig.isNrecEnabled = in_config.isNrecEnabled;
-        mPlatformBluetooth->setBtScoNrecEnabled(
-            mScoConfig.isNrecEnabled.value().value);
     }
     if (in_config.mode != ScoConfig::Mode::UNSPECIFIED) {
         mScoConfig.mode = in_config.mode;
@@ -66,16 +62,12 @@ ndk::ScopedAStatus Bluetooth::setHfpConfig(const HfpConfig& in_config,
 
     if (in_config.isEnabled.has_value()) {
         mHfpConfig.isEnabled = in_config.isEnabled;
-        mPlatformBluetooth->setHfpEnabled(mHfpConfig.isEnabled.value().value);
     }
     if (in_config.sampleRate.has_value()) {
         mHfpConfig.sampleRate = in_config.sampleRate;
-        mPlatformBluetooth->setHfpSampleRate(
-            in_config.sampleRate.value().value);
     }
     if (in_config.volume.has_value()) {
         mHfpConfig.volume = in_config.volume;
-        mPlatformBluetooth->setHfpVolume(in_config.volume.value().value);
     }
     *_aidl_return = mHfpConfig;
     LOG(DEBUG) << __func__ << ": received " << in_config.toString()
@@ -122,16 +114,18 @@ ndk::ScopedAStatus BluetoothLe::setEnabled(bool in_enabled) {
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus BluetoothLe::supportsOffloadReconfiguration(bool* _aidl_return) {
+ndk::ScopedAStatus BluetoothLe::supportsOffloadReconfiguration(
+    bool* _aidl_return) {
     *_aidl_return = true;
     LOG(DEBUG) << __func__ << ": returning " << *_aidl_return;
     return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus BluetoothLe::reconfigureOffload(
-        const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& in_parameters
-                __unused) {
-    LOG(DEBUG) << __func__ << ": " << ::android::internal::ToString(in_parameters);
+    const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
+        in_parameters __unused) {
+    LOG(DEBUG) << __func__ << ": "
+               << ::android::internal::ToString(in_parameters);
     return ndk::ScopedAStatus::ok();
 }
 

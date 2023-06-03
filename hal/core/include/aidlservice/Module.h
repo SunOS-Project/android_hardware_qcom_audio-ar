@@ -6,11 +6,15 @@
 #pragma once
 
 #include <aidl/android/hardware/audio/core/BnModule.h>
+
+#include <map>
+#include <memory>
+#include <set>
+
 #include <aidlservice/Stream.h>
+#include <aidlservice/ModuleConfig.h>
 
 namespace qti::audio::core {
-
-class ModuleConfig;
 
 class Module : public ::aidl::android::hardware::audio::core::BnModule,
                public std::enable_shared_from_this<Module> {
@@ -20,8 +24,6 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
     enum Type : int { DEFAULT, R_SUBMIX, USB };
 
     explicit Module(Type type) : mType(type) {}
-
-    void init(std::shared_ptr<Module> module);
 
     static std::shared_ptr<Module> createInstance(Type type);
     static StreamIn::CreateInstance getStreamInCreator(Type type);
@@ -61,17 +63,13 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
         const ::aidl::android::hardware::audio::core::ModuleDebug& in_debug)
         override;
     ndk::ScopedAStatus getTelephony(
-        std::shared_ptr<::aidl::android::hardware::audio::core::ITelephony>*
-            _aidl_return) override;
+        std::shared_ptr<::aidl::android::hardware::audio::core::ITelephony>* _aidl_return) override;
     ndk::ScopedAStatus getBluetooth(
-        std::shared_ptr<::aidl::android::hardware::audio::core::IBluetooth>*
-            _aidl_return) override;
+        std::shared_ptr<::aidl::android::hardware::audio::core::IBluetooth>* _aidl_return) override;
     ndk::ScopedAStatus getBluetoothA2dp(
-        std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothA2dp>*
-            _aidl_return) override;
+        std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothA2dp>* _aidl_return) override;
     ndk::ScopedAStatus getBluetoothLe(
-        std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothLe>*
-            _aidl_return) override;
+        std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothLe>* _aidl_return) override;
     ndk::ScopedAStatus connectExternalDevice(
         const ::aidl::android::media::audio::common::AudioPort&
             in_templateIdAndAdditionalData,
@@ -79,8 +77,7 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
         override;
     ndk::ScopedAStatus disconnectExternalDevice(int32_t in_portId) override;
     ndk::ScopedAStatus getAudioPatches(
-        std::vector<::aidl::android::hardware::audio::core::AudioPatch>*
-            _aidl_return) override;
+        std::vector<::aidl::android::hardware::audio::core::AudioPatch>* _aidl_return) override;
     ndk::ScopedAStatus getAudioPort(
         int32_t in_portId,
         ::aidl::android::media::audio::common::AudioPort* _aidl_return)
@@ -92,8 +89,7 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
         std::vector<::aidl::android::media::audio::common::AudioPort>*
             _aidl_return) override;
     ndk::ScopedAStatus getAudioRoutes(
-        std::vector<::aidl::android::hardware::audio::core::AudioRoute>*
-            _aidl_return) override;
+        std::vector<::aidl::android::hardware::audio::core::AudioRoute>* _aidl_return) override;
     ndk::ScopedAStatus getAudioRoutesForAudioPort(
         int32_t in_portId,
         std::vector<::aidl::android::hardware::audio::core::AudioRoute>*
@@ -109,12 +105,9 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
         ::aidl::android::hardware::audio::core::IModule::OpenOutputStreamReturn*
             _aidl_return) override;
     ndk::ScopedAStatus getSupportedPlaybackRateFactors(
-        ::aidl::android::hardware::audio::core::IModule::
-            SupportedPlaybackRateFactors* _aidl_return) override;
-    ndk::ScopedAStatus setAudioPatch(
-        const ::aidl::android::hardware::audio::core::AudioPatch& in_requested,
-        ::aidl::android::hardware::audio::core::AudioPatch* _aidl_return)
-        override;
+        SupportedPlaybackRateFactors* _aidl_return) override;
+    ndk::ScopedAStatus setAudioPatch(const ::aidl::android::hardware::audio::core::AudioPatch& in_requested,
+                                     ::aidl::android::hardware::audio::core::AudioPatch* _aidl_return) override;
     ndk::ScopedAStatus setAudioPortConfig(
         const ::aidl::android::media::audio::common::AudioPortConfig&
             in_requested,
@@ -138,18 +131,13 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
             in_rotation) override;
     ndk::ScopedAStatus updateScreenState(bool in_isTurnedOn) override;
     ndk::ScopedAStatus getSoundDose(
-        std::shared_ptr<
-            ::aidl::android::hardware::audio::core::sounddose::ISoundDose>*
-            _aidl_return) override;
+        std::shared_ptr<::aidl::android::hardware::audio::core::sounddose::ISoundDose>* _aidl_return) override;
     ndk::ScopedAStatus generateHwAvSyncId(int32_t* _aidl_return) override;
     ndk::ScopedAStatus getVendorParameters(
         const std::vector<std::string>& in_ids,
-        std::vector<::aidl::android::hardware::audio::core::VendorParameter>*
-            _aidl_return) override;
+        std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return) override;
     ndk::ScopedAStatus setVendorParameters(
-        const std::vector<
-            ::aidl::android::hardware::audio::core::VendorParameter>&
-            in_parameters,
+        const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& in_parameters,
         bool in_async) override;
     ndk::ScopedAStatus addDeviceEffect(
         int32_t in_portConfigId,
@@ -170,70 +158,50 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
     ndk::ScopedAStatus getAAudioMixerBurstCount(int32_t* _aidl_return) override;
     ndk::ScopedAStatus getAAudioHardwareBurstMinUsec(
         int32_t* _aidl_return) override;
-    virtual binder_status_t dump(int fd, const char** args,
-                                 uint32_t numArgs) override;
 
     void cleanUpPatch(int32_t patchId);
     ndk::ScopedAStatus createStreamContext(
         int32_t in_portConfigId, int64_t in_bufferSizeFrames,
-        std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback>
-            asyncCallback,
-        std::shared_ptr<
-            ::aidl::android::hardware::audio::core::IStreamOutEventCallback>
-            outEventCallback,
+        std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> asyncCallback,
+        std::shared_ptr<::aidl::android::hardware::audio::core::IStreamOutEventCallback> outEventCallback,
         StreamContext* out_context);
     std::vector<::aidl::android::media::audio::common::AudioDevice>
     findConnectedDevices(int32_t portConfigId);
-    int32_t dumpInternal(const int fd = 0);
-    // get profiles for a external device port
-    std::vector<::aidl::android::media::audio::common::AudioProfile>
-    getProfilesForDevicePort(
-        const ::aidl::android::media::audio::common::AudioPort&
-            in_templateDevicePort);
-    bool generateDefaultPortConfig(
-        const ::aidl::android::media::audio::common::AudioPort& port,
-        ::aidl::android::media::audio::common::AudioPortConfig& config);
     std::set<int32_t> findConnectedPortConfigIds(int32_t portConfigId);
     ndk::ScopedAStatus findPortIdForNewStream(
         int32_t in_portConfigId,
         ::aidl::android::media::audio::common::AudioPort** port);
-    ModuleConfig& getModuleConfig();
+    ModuleConfig& getConfig();
     template <typename C>
     std::set<int32_t> portIdsFromPortConfigIds(C portConfigIds);
-    void registerPatch(
-        const ::aidl::android::hardware::audio::core::AudioPatch& patch);
-    void updateStreamsConnectedState(
-        const ::aidl::android::hardware::audio::core::AudioPatch& oldPatch,
-        const ::aidl::android::hardware::audio::core::AudioPatch& newPatch);
+    void registerPatch(const ::aidl::android::hardware::audio::core::AudioPatch& patch);
+    void updateStreamsConnectedState(const ::aidl::android::hardware::audio::core::AudioPatch& oldPatch,
+                                     const ::aidl::android::hardware::audio::core::AudioPatch& newPatch);
     bool isMmapSupported();
 
     // This value is used for all AudioPatches.
-    static constexpr int32_t kMinimumStreamBufferSizeFrames = 16;
+    static constexpr int32_t kMinimumStreamBufferSizeFrames = 256;
     // The maximum stream buffer size is 1 GiB = 2 ** 30 bytes;
     static constexpr int32_t kMaximumStreamBufferSizeBytes = 1 << 30;
 
     const Type mType;
-    std::shared_ptr<ModuleConfig> mModuleConfig;
+    std::unique_ptr<ModuleConfig> mConfig;
     ::aidl::android::hardware::audio::core::ModuleDebug mDebug;
     VendorDebug mVendorDebug;
-    ChildInterface<::aidl::android::hardware::audio::core::ITelephony>
-        mTelephony;
-    ChildInterface<::aidl::android::hardware::audio::core::IBluetooth>
-        mBluetooth;
-    ChildInterface<::aidl::android::hardware::audio::core::IBluetoothA2dp>
-        mBluetoothA2dp;
-    ChildInterface<::aidl::android::hardware::audio::core::IBluetoothLe>
-        mBluetoothLe;
-    // ids of ports created at runtime via 'connectExternalDevice'.
-    std::set<int32_t> mConnExtDevicePortsIds;
+    ChildInterface<::aidl::android::hardware::audio::core::ITelephony> mTelephony;
+    ChildInterface<::aidl::android::hardware::audio::core::IBluetooth> mBluetooth;
+    ChildInterface<::aidl::android::hardware::audio::core::IBluetoothA2dp> mBluetoothA2dp;
+    ChildInterface<::aidl::android::hardware::audio::core::IBluetoothLe> mBluetoothLe;
+    // ids of device ports created at runtime via 'connectExternalDevice'.
+    // Also stores ids of mix ports with dynamic profiles which got populated
+    // from the connected port.
+    std::map<int32_t, std::vector<int32_t>> mConnectedDevicePorts;
     Streams mStreams;
     // Maps port ids and port config ids to patch ids.
     // Multimap because both ports and configs can be used by multiple patches.
     std::multimap<int32_t, int32_t> mPatches;
     bool mMicMute = false;
-    ChildInterface<
-        ::aidl::android::hardware::audio::core::sounddose::ISoundDose>
-        mSoundDose;
+    ChildInterface<::aidl::android::hardware::audio::core::sounddose::ISoundDose> mSoundDose;
     std::optional<bool> mIsMmapSupported;
 
    protected:
@@ -247,11 +215,9 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
     // `IModule.setAudioPatch` method.
     virtual ndk::ScopedAStatus checkAudioPatchEndpointsMatch(
         const std::vector<
-            const ::aidl::android::media::audio::common::AudioPortConfig*>&
-            sources,
+            ::aidl::android::media::audio::common::AudioPortConfig*>& sources,
         const std::vector<
-            const ::aidl::android::media::audio::common::AudioPortConfig*>&
-            sinks);
+            ::aidl::android::media::audio::common::AudioPortConfig*>& sinks);
     virtual void onExternalDeviceConnectionChanged(
         const ::aidl::android::media::audio::common::AudioPort& audioPort,
         bool connected);
@@ -260,5 +226,10 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
 
     bool mMasterMute = false;
     float mMasterVolume = 1.0f;
+
+   public:
+    std::string toStringInternal();
+    void dumpInternal() ;
 };
+
 }  // namespace qti::audio::core

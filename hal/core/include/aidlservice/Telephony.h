@@ -10,8 +10,6 @@
 
 namespace qti::audio::core {
 
-class PlatformVoice;
-
 class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
    public:
     Telephony();
@@ -34,7 +32,6 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
             // Omit CALL_SCREEN for a better VTS coverage.
         };
     TelecomConfig mTelecomConfig;
-    std::shared_ptr<PlatformVoice> mPlatformVoice;
 };
 
 }  // namespace qti::audio::core

@@ -19,8 +19,13 @@
 #include <log/log.h>
 #include <android/binder_manager.h>
 #include <android/binder_process.h>
+#include <android/binder_ibinder_platform.h>
+#include <binder/ProcessState.h>
 #include <android-base/logging.h>
 #include <android-base/properties.h>
+// #include <hidl/HidlTransportSupport.h>
+// #include <hidl/LegacySupport.h>
+// #include <hwbinder/ProcessState.h>
 #include "ConfigManager.h"
 
 // TODO Remove it
@@ -121,6 +126,8 @@ int main() {
     setLogSeverity();
 
     ABinderProcess_setThreadPoolMaxThreadCount(16);
+    ABinderProcess_startThreadPool();
+
     registerAvailableInterfaces();
     auto endTime = std::chrono::steady_clock::now();
     float timeTaken = std::chrono::duration_cast<std::chrono::duration<float>>(

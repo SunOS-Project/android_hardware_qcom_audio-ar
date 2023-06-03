@@ -11,18 +11,19 @@ LOCAL_C_INCLUDES    := $(LOCAL_PATH)/include
 
 # LOCAL_CPPFLAGS += -fexceptions
 
+LOCAL_CFLAGS += -DPAL_HIDL_ENABLED
+LOCAL_CFLAGS += -DAGM_HIDL_ENABLED
+
 LOCAL_VINTF_FRAGMENTS   := \
     ../../configs/common/manifest_non_qmaa.xml
 
 LOCAL_SRC_FILES := \
     CoreService.cpp \
     aidlservice/Bluetooth.cpp \
-    aidlservice/Config.cpp \
     aidlservice/Module.cpp \
     aidlservice/SoundDose.cpp \
     aidlservice/Stream.cpp \
     aidlservice/StreamStub.cpp \
-    aidlservice/EngineConfigXmlConverter.cpp \
     aidlservice/Telephony.cpp \
     platform/PlatformStream.cpp \
     platform/PlatformBluetooth.cpp \
@@ -33,10 +34,6 @@ LOCAL_HEADER_LIBRARIES :=  \
     libaudio_system_headers \
     audiohalutils_headers \
     libmedia_helper_headers \
-    libagmclient_headers \
-    libagm_headers \
-    qti_audio_kernel_uapi \
-    libhardware_headers \
     libexpectedutils_headers
 
 #    defaults: [
@@ -47,7 +44,7 @@ LOCAL_HEADER_LIBRARIES :=  \
 #    android.media.audio.common.types-V2-ndk \
 #    android.hardware.audio.core-V1-ndk
 
-LOCAL_STATIC_LIBRARIES := libaudiohalutils libaudiocore.extension
+LOCAL_STATIC_LIBRARIES := libaudiohalutils libaudiocore.extension libaudioplatform.qti
 
 LOCAL_SHARED_LIBRARIES := \
     libaudioaidlcommon \
@@ -58,31 +55,18 @@ LOCAL_SHARED_LIBRARIES := \
     libhidlbase \
     libhardware \
     libfmq \
-    liblog \
     libmedia_helper \
-    libprocessgroup \
     libstagefright_foundation \
     libutils \
+    libaudioutils \
     libxml2 \
-    libtinyalsav2 \
-    libalsautilsv2 \
     android.hardware.common-V2-ndk \
     android.hardware.common.fmq-V1-ndk \
     android.media.audio.common.types-V2-ndk \
     android.hardware.audio.core-V1-ndk \
     android.hardware.audio.core.sounddose-V1-ndk \
     libar-pal \
-    android.hidl.allocator@1.0 \
-    android.hidl.memory@1.0 \
-    libhidlmemory \
-    libaudioserviceexampleimpl \
-    vendor.qti.hardware.AGMIPC@1.0 \
-    vendor.qti.hardware.AGMIPC@1.0-impl \
-    libagmclient \
-    libagm \
-    vendor.qti.hardware.pal@1.0 \
-    vendor.qti.hardware.pal@1.0-impl \
-    libaudioplatform.qti
+    libaudioserviceexampleimpl
 
 include $(BUILD_SHARED_LIBRARY)
 

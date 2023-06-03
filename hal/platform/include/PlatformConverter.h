@@ -66,7 +66,7 @@ using AidlToPalAudioFormatMap = std::unordered_map<
 using ChannelCountToPalChannelInfoMap =
     std::unordered_map<int, std::unique_ptr<pal_channel_info>>;
 
-namespace qti::audio {
+namespace qti::audio::core {
 
 // singleton class
 class PlatformConverter {
@@ -96,4 +96,4 @@ class PlatformConverter {
     AidlToPalDeviceMap mAidlToPalDeviceMap;
     AidlToPalAudioFormatMap mAidlToPalAudioFormatMap;
 };
-}  // namespace qti::audio
+}  // namespace qti::audio::core

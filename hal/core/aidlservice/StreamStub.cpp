@@ -3,12 +3,15 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
+#include <cmath>
+
 #define LOG_TAG "AHAL_Stream"
-#include "aidlservice/StreamStub.h"
 
 #include <android-base/logging.h>
+#include <audio_utils/clock.h>
 
-#include "aidlservice/Module.h"
+#include <aidlservice/Module.h>
+#include <aidlservice/StreamStub.h>
 
 using aidl::android::hardware::audio::common::SinkMetadata;
 using aidl::android::hardware::audio::common::SourceMetadata;
@@ -19,32 +22,44 @@ using aidl::android::media::audio::common::MicrophoneInfo;
 namespace qti::audio::core {
 
 DriverStub::DriverStub(const StreamContext& context, bool isInput)
-    : mFrameSizeBytes(context.getFrameSize()), mIsInput(isInput) {}
+    : mFrameSizeBytes(context.getFrameSize()),
+      mSampleRate(context.getSampleRate()),
+      mIsAsynchronous(!!context.getAsyncCallback()),
+      mIsInput(isInput) {}
 
 ::android::status_t DriverStub::init() {
-    usleep(1000);
+    usleep(500);
     return ::android::OK;
 }
 
-::android::status_t DriverStub::drain(::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode) {
-    usleep(1000);
+::android::status_t DriverStub::drain(
+    ::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode) {
+    usleep(500);
     return ::android::OK;
 }
 
 ::android::status_t DriverStub::flush() {
-    usleep(1000);
+    usleep(500);
     return ::android::OK;
 }
 
 ::android::status_t DriverStub::pause() {
-    usleep(1000);
+    usleep(500);
     return ::android::OK;
 }
 
 ::android::status_t DriverStub::transfer(void* buffer, size_t frameCount,
                                          size_t* actualFrameCount,
                                          int32_t* latencyMs) {
-    usleep(3000);
+    static constexpr float kMicrosPerSecond = MICROS_PER_SECOND;
+    static constexpr float kScaleFactor = .8f;
+    if (mIsAsynchronous) {
+        usleep(500);
+    } else {
+        const size_t delayUs = static_cast<size_t>(std::roundf(
+            kScaleFactor * frameCount * kMicrosPerSecond / mSampleRate));
+        usleep(delayUs);
+    }
     if (mIsInput) {
         uint8_t* byteBuffer = static_cast<uint8_t*>(buffer);
         for (size_t i = 0; i < frameCount * mFrameSizeBytes; ++i) {
@@ -57,12 +72,13 @@ DriverStub::DriverStub(const StreamContext& context, bool isInput)
 }
 
 ::android::status_t DriverStub::standby() {
-    usleep(1000);
+    usleep(500);
     return ::android::OK;
 }
 
 ::android::status_t DriverStub::setConnectedDevices(
     const std::vector<AudioDevice>& connectedDevices __unused) {
+    usleep(500);
     return ::android::OK;
 }
 

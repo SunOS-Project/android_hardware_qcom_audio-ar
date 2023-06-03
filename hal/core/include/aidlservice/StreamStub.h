@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "aidlservice/Stream.h"
+#include <aidlservice/Stream.h>
 
 namespace qti::audio::core {
 
@@ -28,6 +28,8 @@ class DriverStub : public DriverInterface {
 
    private:
     const size_t mFrameSizeBytes;
+    const int mSampleRate;
+    const bool mIsAsynchronous;
     const bool mIsInput;
 };
 

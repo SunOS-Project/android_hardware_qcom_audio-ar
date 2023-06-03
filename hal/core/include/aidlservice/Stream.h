@@ -14,12 +14,10 @@
 #include <aidl/android/hardware/audio/core/IStreamCallback.h>
 #include <aidl/android/hardware/audio/core/IStreamOutEventCallback.h>
 #include <aidl/android/hardware/audio/core/StreamDescriptor.h>
-#include <aidl/android/hardware/audio/core/VendorParameter.h>
 #include <aidl/android/media/audio/common/AudioDevice.h>
 #include <aidl/android/media/audio/common/AudioOffloadInfo.h>
 #include <aidl/android/media/audio/common/MicrophoneInfo.h>
 #include <fmq/AidlMessageQueue.h>
-#include <utils/utils.h>
 #include <system/thread_defs.h>
 #include <utils/Errors.h>
 
@@ -31,12 +29,15 @@
 #include <optional>
 #include <variant>
 
+#include <utils/utils.h>
+
+// ::aidl::android::hardware::audio::core
+
 namespace qti::audio::core {
 
-// This class is similar to
-// ::aidl::android::hardware::audio::core::StreamDescriptor, but unlike the
-// descriptor, it actually owns the objects implementing data exchange: FMQs
-// etc, whereas ::aidl::android::hardware::audio::core::StreamDescriptor only
+// This class is similar to StreamDescriptor, but unlike
+// the descriptor, it actually owns the objects implementing
+// data exchange: FMQs etc, whereas StreamDescriptor only
 // contains their descriptors.
 class StreamContext {
    public:
@@ -380,16 +381,17 @@ class StreamCommon
                    ? delegate->close()
                    : ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
+    ndk::ScopedAStatus prepareToClose() override {
+        auto delegate = mDelegate.lock();
+        return delegate != nullptr
+                   ? delegate->prepareToClose()
+                   : ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+    }
     ndk::ScopedAStatus updateHwAvSyncId(int32_t in_hwAvSyncId) override {
         auto delegate = mDelegate.lock();
         return delegate != nullptr
                    ? delegate->updateHwAvSyncId(in_hwAvSyncId)
                    : ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
-    }
-    ndk::ScopedAStatus prepareToClose() override {
-        auto delegate = mDelegate.lock();
-        return delegate != nullptr ? delegate->prepareToClose()
-                                   : ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
     ndk::ScopedAStatus getVendorParameters(
         const std::vector<std::string>& in_ids,
@@ -459,8 +461,7 @@ class StreamCommonImpl : public StreamCommonInterface {
         override;
 
     ndk::ScopedAStatus getStreamCommon(
-        std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCommon>*
-            _aidl_return);
+        std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCommon>* _aidl_return);
     ndk::ScopedAStatus init() {
         return mWorker->start()
                    ? ndk::ScopedAStatus::ok()
@@ -503,8 +504,7 @@ class StreamIn : public StreamCommonImpl<
                      ::aidl::android::hardware::audio::common::SinkMetadata>,
                  public ::aidl::android::hardware::audio::core::BnStreamIn {
     ndk::ScopedAStatus getStreamCommon(
-        std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCommon>*
-            _aidl_return) override {
+        std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCommon>* _aidl_return) override {
         return StreamCommonImpl<
             ::aidl::android::hardware::audio::common::SinkMetadata>::
             getStreamCommon(_aidl_return);
@@ -568,8 +568,7 @@ class StreamOut : public StreamCommonImpl<
                       ::aidl::android::hardware::audio::common::SourceMetadata>,
                   public ::aidl::android::hardware::audio::core::BnStreamOut {
     ndk::ScopedAStatus getStreamCommon(
-        std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCommon>*
-            _aidl_return) override {
+        std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCommon>* _aidl_return) override {
         return StreamCommonImpl<
             ::aidl::android::hardware::audio::common::SourceMetadata>::
             getStreamCommon(_aidl_return);

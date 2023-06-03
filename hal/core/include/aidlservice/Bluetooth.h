@@ -10,7 +10,7 @@
 #include <aidl/android/hardware/audio/core/BnBluetoothLe.h>
 
 namespace qti::audio::core {
-class PlatformBluetooth;
+
 class Bluetooth : public ::aidl::android::hardware::audio::core::BnBluetooth {
    public:
     Bluetooth();
@@ -23,11 +23,9 @@ class Bluetooth : public ::aidl::android::hardware::audio::core::BnBluetooth {
 
     ScoConfig mScoConfig;
     HfpConfig mHfpConfig;
-    std::shared_ptr<PlatformBluetooth> mPlatformBluetooth;
 };
 
-class BluetoothA2dp
-    : public ::aidl::android::hardware::audio::core::BnBluetoothA2dp {
+class BluetoothA2dp : public ::aidl::android::hardware::audio::core::BnBluetoothA2dp {
    public:
     BluetoothA2dp() = default;
 
@@ -45,16 +43,20 @@ class BluetoothA2dp
 };
 
 class BluetoothLe : public ::aidl::android::hardware::audio::core::BnBluetoothLe {
-  public:
+   public:
     BluetoothLe() = default;
 
-  private:
+   private:
     ndk::ScopedAStatus isEnabled(bool* _aidl_return) override;
     ndk::ScopedAStatus setEnabled(bool in_enabled) override;
-    ndk::ScopedAStatus supportsOffloadReconfiguration(bool* _aidl_return) override;
+    ndk::ScopedAStatus supportsOffloadReconfiguration(
+        bool* _aidl_return) override;
     ndk::ScopedAStatus reconfigureOffload(
-            const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
-                    in_parameters) override;
+        const std::vector<
+            ::aidl::android::hardware::audio::core::VendorParameter>&
+            in_parameters) override;
+
     bool mEnabled = false;
 };
+
 }  // namespace qti::audio::core

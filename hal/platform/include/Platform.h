@@ -15,11 +15,13 @@
 #include <unordered_map>
 #include <vector>
 
-namespace qti::audio {
+#include <AudioUsecase.h>
+
+namespace qti::audio::core {
 // Singleton
 class Platform {
    private:
-    explicit Platform() = default;
+    explicit Platform();
 
     Platform(const Platform&) = delete;
     Platform& operator=(const Platform& x) = delete;
@@ -32,11 +34,11 @@ class Platform {
     constexpr static uint32_t kDefaultPCMBidWidth = 16;
     constexpr static pal_audio_fmt_t kDefaultPalPCMFormat =
         PAL_AUDIO_FMT_PCM_S16_LE;
-    std::unordered_map<std::string,std::string> mParameters;
+    std::unordered_map<std::string, std::string> mParameters;
 
    public:
     static Platform& getInstance();
-    bool setParameter(const std::string& key,const std::string& value);
+    bool setParameter(const std::string& key, const std::string& value);
     std::string getParameter(const std::string& key) const;
     std::string toString() const;
     bool isFormatTypePCM(
@@ -70,5 +72,8 @@ class Platform {
     bool handleDeviceConnectionChange(
         const ::aidl::android::media::audio::common::AudioPort& deviceAudioPort,
         const bool isConnect) const;
+    std::unique_ptr<AudioUsecase> createAudioUsecase(
+        const ::aidl::android::media::audio::common::AudioPortConfig& mixport,
+        const bool isInput) const;
 };
-}  // namespace qti::audio
+}  // namespace qti::audio::core

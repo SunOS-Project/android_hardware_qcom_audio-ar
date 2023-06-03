@@ -174,7 +174,10 @@ AUDIO_MODULES += \
 AUDIO_MODULES += \
     audiohalservice.qti \
     libaudiocorehal.qti \
-    libaudioeffecthal.qti
+    libaudioeffecthal.qti \
+    vendor.qti.hardware.AGMIPC@1.0-impl \
+    vendor.qti.hardware.pal@1.0-impl \
+    android.hardware.bluetooth.audio-impl
 
 
 endif

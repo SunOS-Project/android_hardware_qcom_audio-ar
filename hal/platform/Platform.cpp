@@ -21,14 +21,17 @@ using ::aidl::android::media::audio::common::AudioFormatDescription;
 using ::aidl::android::media::audio::common::AudioFormatType;
 using ::aidl::android::media::audio::common::AudioPort;
 using ::aidl::android::media::audio::common::AudioPortConfig;
-using ::aidl::android::media::audio::common::AudioProfile;
-using ::aidl::android::media::audio::common::AudioPortExt;
 using ::aidl::android::media::audio::common::AudioPortDeviceExt;
+using ::aidl::android::media::audio::common::AudioPortExt;
+using ::aidl::android::media::audio::common::AudioProfile;
 using ::aidl::android::media::audio::common::PcmType;
+using ::aidl::android::media::audio::common::AudioOutputFlags;
+using ::aidl::android::media::audio::common::AudioIoFlags;
 
 using ::aidl::android::hardware::audio::common::getChannelCount;
+using ::aidl::android::hardware::audio::common::isBitPositionFlagSet;
 
-namespace qti::audio {
+namespace qti::audio::core {
 
 std::unique_ptr<pal_stream_attributes> Platform::getPalStreamAttributes(
     const AudioPortConfig& portConfig, const bool isInput) const {
@@ -174,7 +177,7 @@ std::vector<AudioProfile> Platform::getDynamicProfiles(
         return {};
     }
     auto& audioDeviceDesc = devicePortExt.device.type;
-    auto& platformConverter = ::qti::audio::PlatformConverter::getInstance();
+    auto& platformConverter = PlatformConverter::getInstance();
     auto& deviceMap = platformConverter.getAidlToPalDeviceMap();
     if (deviceMap.find(audioDeviceDesc) == deviceMap.cend()) {
         LOG(ERROR) << __func__ << "no compatible PAL device for port "
@@ -185,10 +188,9 @@ std::vector<AudioProfile> Platform::getDynamicProfiles(
 
     const auto& addressTag = devicePortExt.device.address.getTag();
     if (addressTag != AudioDeviceAddress::Tag::alsa) {
-            LOG(ERROR) << __func__
-                       << ": no alsa address provided for the AudioPort"
-                       << dynamicDeviceAudioPort.toString();
-            return {};
+        LOG(ERROR) << __func__ << ": no alsa address provided for the AudioPort"
+                   << dynamicDeviceAudioPort.toString();
+        return {};
     }
     const auto& deviceAddressAlsa =
         devicePortExt.device.address.get<AudioDeviceAddress::Tag::alsa>();
@@ -200,14 +202,14 @@ std::vector<AudioProfile> Platform::getDynamicProfiles(
     // get capability from device of USB
     auto deviceCapability = std::make_unique<pal_param_device_capability_t>();
     if (!deviceCapability) {
-            LOG(ERROR) << __func__ << ": allocation failed ";
-            return {};
+        LOG(ERROR) << __func__ << ": allocation failed ";
+        return {};
     }
 
     auto dynamicMediaConfig = std::make_unique<dynamic_media_config_t>();
     if (!dynamicMediaConfig) {
-            LOG(ERROR) << __func__ << ": allocation failed ";
-            return {};
+        LOG(ERROR) << __func__ << ": allocation failed ";
+        return {};
     }
 
     size_t payload_size = 0;
@@ -220,16 +222,15 @@ std::vector<AudioProfile> Platform::getDynamicProfiles(
     if (int32_t ret = pal_get_param(PAL_PARAM_ID_DEVICE_CAPABILITY, &v,
                                     &payload_size, nullptr);
         ret != 0) {
-            LOG(ERROR)
-                << __func__ << "LINE:" << __LINE__
-                << " PAL get param failed for PAL_PARAM_ID_DEVICE_CAPABILITY"
-                << ret;
-            return {};
+        LOG(ERROR) << __func__ << "LINE:" << __LINE__
+                   << " PAL get param failed for PAL_PARAM_ID_DEVICE_CAPABILITY"
+                   << ret;
+        return {};
     }
     if (!dynamicMediaConfig->jack_status) {
-            LOG(ERROR) << __func__ << "LINE:" << __LINE__
-                       << " false usb jack status ";
-            return {};
+        LOG(ERROR) << __func__ << "LINE:" << __LINE__
+                   << " false usb jack status ";
+        return {};
     }
 
     std::vector<AudioProfile> supportedProfiles;
@@ -260,41 +261,39 @@ std::vector<AudioProfile> Platform::getDynamicProfiles(
     for (int i = 0;
          i <= MAX_SUPPORTED_FORMATS && dynamicMediaConfig->format[i] != 0;
          ++i) {
-            AudioProfile p;
-            p.format.type = AudioFormatType::PCM;
-            // TODO check remaining formats
-            if (dynamicMediaConfig->format[i] == PCM_24_BIT_PACKED) {
+        AudioProfile p;
+        p.format.type = AudioFormatType::PCM;
+        // TODO check remaining formats
+        if (dynamicMediaConfig->format[i] == PCM_24_BIT_PACKED) {
             p.format.pcm = PcmType::INT_24_BIT;
-            } else if (dynamicMediaConfig->format[i] == PCM_32_BIT) {
+        } else if (dynamicMediaConfig->format[i] == PCM_32_BIT) {
             p.format.pcm = PcmType::INT_32_BIT;
-            } else if (dynamicMediaConfig->format[i] == PCM_16_BIT) {
+        } else if (dynamicMediaConfig->format[i] == PCM_16_BIT) {
             p.format.pcm = PcmType::INT_16_BIT;
-            } else {
+        } else {
             // Todo check the default one
             p.format.pcm = PcmType::INT_16_BIT;
-            }
-            p.sampleRates = sampleRatesSupported;
-            p.channelMasks = channelsSupported;
+        }
+        p.sampleRates = sampleRatesSupported;
+        p.channelMasks = channelsSupported;
 
-            p.name =
-                (isOutputDevice(devicePortExt.device) ? "usb_playback_profile"
-                                                      : "usb_record_profile") +
-                p.format.toString();
-            supportedProfiles.emplace_back(p);
+        p.name = (isOutputDevice(devicePortExt.device) ? "usb_playback_profile"
+                                                       : "usb_record_profile") +
+                 p.format.toString();
+        supportedProfiles.emplace_back(p);
     }
     return supportedProfiles;
 }
 
-bool Platform::handleDeviceConnectionChange(
-    const AudioPort& deviceAudioPort, const bool isConnect) const {
+bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
+                                            const bool isConnect) const {
     const auto& devicePortExt =
         deviceAudioPort.ext.get<AudioPortExt::Tag::device>();
 
-    auto& audioDeviceDesc= devicePortExt.device.type;
-    auto& platformConverter = ::qti::audio::PlatformConverter::getInstance();
+    auto& audioDeviceDesc = devicePortExt.device.type;
+    auto& platformConverter = PlatformConverter::getInstance();
     auto& deviceMap = platformConverter.getAidlToPalDeviceMap();
-    if (deviceMap.find(audioDeviceDesc) ==
-        deviceMap.cend()) {
+    if (deviceMap.find(audioDeviceDesc) == deviceMap.cend()) {
         LOG(ERROR) << __func__ << "no compatible PAL device for port "
                    << deviceAudioPort.toString();
         return false;
@@ -397,6 +396,37 @@ std::string Platform::toString() const {
     return os.str();
 }
 
+std::unique_ptr<AudioUsecase> Platform::createAudioUsecase(
+    const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
+    const bool isInput) const {
+    auto usecase = std::make_unique<AudioUsecase>();
+    if (isInput) {
+        return nullptr;
+    } else {  // output
+        if (mixPortConfig.flags) {
+            auto& flags = mixPortConfig.flags.value();
+            const bool isDeepBuffer =
+                isBitPositionFlagSet(flags.get<AudioIoFlags::Tag::output>(),
+                                     AudioOutputFlags::DEEP_BUFFER);
+            if (isDeepBuffer) {
+                // create AudioUsecase as Deep buffer
+                usecase->set<AudioUsecase::Tag::DEEPBUFFER_PLAYBACK>(
+                    DeepBufferPlayback());
+                return std::move(usecase);
+            }
+        }
+    }
+    return nullptr;
+}
+
+Platform::Platform() {
+    if (int32_t ret = pal_init(); ret) {
+        LOG(ERROR) << __func__ << " LINE:" << __LINE__
+                   << "pal init failed!!! ret:" << std::to_string(ret);
+    }
+    LOG(INFO) << __func__ << " LINE:" << __LINE__ << " pal init successful";
+}
+
 // static
 Platform& Platform::getInstance() {
     static const auto kPlatform = []() {
@@ -406,4 +436,4 @@ Platform& Platform::getInstance() {
     return *(kPlatform.get());
 }
 
-}  // namespace qti::audio
+}  // namespace qti::audio::core

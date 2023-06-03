@@ -4,17 +4,16 @@
  */
 
 #define LOG_TAG "AHAL_Telephony"
-#include "aidlservice/Telephony.h"
-#include "platform/PlatformVoice.h"
-
 #include <Utils.h>
 #include <android-base/logging.h>
 #include <android/binder_to_string.h>
 
-using ::aidl::android::media::audio::common::AudioMode;
-using ::aidl::android::media::audio::common::Boolean;
-using ::aidl::android::media::audio::common::Float;
-using ::aidl::android::hardware::audio::common::isValidAudioMode;
+#include <aidlservice/Telephony.h>
+
+using aidl::android::hardware::audio::common::isValidAudioMode;
+using aidl::android::media::audio::common::AudioMode;
+using aidl::android::media::audio::common::Boolean;
+using aidl::android::media::audio::common::Float;
 
 namespace qti::audio::core {
 
@@ -22,7 +21,6 @@ Telephony::Telephony() {
     mTelecomConfig.voiceVolume = Float{TelecomConfig::VOICE_VOLUME_MAX};
     mTelecomConfig.ttyMode = TelecomConfig::TtyMode::OFF;
     mTelecomConfig.isHacEnabled = Boolean{false};
-    mPlatformVoice = std::make_shared<PlatformVoice>();
 }
 
 ndk::ScopedAStatus Telephony::getSupportedAudioModes(
@@ -40,7 +38,6 @@ ndk::ScopedAStatus Telephony::switchAudioMode(AudioMode in_mode) {
     }
     if (std::find(mSupportedAudioModes.begin(), mSupportedAudioModes.end(),
                   in_mode) != mSupportedAudioModes.end()) {
-        mPlatformVoice->updateAudioMode(static_cast<int32_t>(in_mode));
         LOG(DEBUG) << __func__ << ": " << toString(in_mode);
         return ndk::ScopedAStatus::ok();
     }
@@ -61,15 +58,12 @@ ndk::ScopedAStatus Telephony::setTelecomConfig(const TelecomConfig& in_config,
     }
     if (in_config.voiceVolume.has_value()) {
         mTelecomConfig.voiceVolume = in_config.voiceVolume;
-        mPlatformVoice->setVoiceVolume(in_config.voiceVolume.value().value);
     }
     if (in_config.ttyMode != TelecomConfig::TtyMode::UNSPECIFIED) {
         mTelecomConfig.ttyMode = in_config.ttyMode;
-        mPlatformVoice->setTtyMode(static_cast<int32_t>(in_config.ttyMode));
     }
     if (in_config.isHacEnabled.has_value()) {
         mTelecomConfig.isHacEnabled = in_config.isHacEnabled;
-        mPlatformVoice->setHacEnabled(in_config.isHacEnabled.value().value);
     }
     *_aidl_return = mTelecomConfig;
     LOG(DEBUG) << __func__ << ": received " << in_config.toString()

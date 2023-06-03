@@ -14,8 +14,7 @@ using aidl::android::media::audio::common::AudioDevice;
 
 namespace qti::audio::core {
 
-class SoundDose
-    : public ::aidl::android::hardware::audio::core::sounddose::BnSoundDose {
+class SoundDose : public ::aidl::android::hardware::audio::core::sounddose::BnSoundDose {
    public:
     SoundDose() : mRs2Value(DEFAULT_MAX_RS2){};
 

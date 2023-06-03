@@ -11,7 +11,8 @@ LOCAL_EXPORT_C_INCLUDE_DIRS   := $(LOCAL_PATH)/include
 
 LOCAL_SRC_FILES := \
     PlatformConverter.cpp \
-    Platform.cpp
+    Platform.cpp \
+    AudioUsecase.cpp
 
 LOCAL_SHARED_LIBRARIES := \
     libbase \
@@ -20,4 +21,4 @@ LOCAL_SHARED_LIBRARIES := \
     libaudioaidlcommon \
     libar-pal
 
-include $(BUILD_SHARED_LIBRARY)
+include $(BUILD_STATIC_LIBRARY)

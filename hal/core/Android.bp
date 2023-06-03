@@ -37,7 +37,6 @@ cc_library_static {
     ],
     srcs: [
         "aidlservice/ModuleConfig.cpp",
-        "aidlservice/EngineConfigXmlConverter.cpp",
     ],
     generated_headers: [
                         "audio_module_config_qti",
