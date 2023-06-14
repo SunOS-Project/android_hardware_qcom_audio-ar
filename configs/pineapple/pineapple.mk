@@ -242,9 +242,6 @@ vendor.audio.tunnel.encode=false
 PRODUCT_PROPERTY_OVERRIDES += \
 persist.vendor.audio.ras.enabled=false
 
-#Buffer size in kbytes for compress offload playback
-PRODUCT_PROPERTY_OVERRIDES += \
-vendor.audio.offload.buffer.size.kb=32
 
 #Enable offload audio video playback by default
 PRODUCT_PROPERTY_OVERRIDES += \
@@ -473,8 +470,7 @@ vendor.audio.feature.vbat.enable=true \
 vendor.audio.feature.wsa.enable=false \
 vendor.audio.feature.audiozoom.enable=false \
 vendor.audio.feature.snd_mon.enable=true \
-vendor.audio.feature.dmabuf.cma.memory.enable=false \
-vendor.audio.hdr.record.enable=false
+vendor.audio.feature.dmabuf.cma.memory.enable=false
 
 
 PRODUCT_PACKAGES_ENG += \

@@ -13,7 +13,7 @@
 #include <android/binder_process.h>
 #include <core-impl/Config.h>
 #include <core-impl/ModuleUsb.h>
-
+#include <qti-audio-core/HalAdapterVendorExtension.h>
 
 #include <cstdlib>
 #include <ctime>
@@ -26,6 +26,27 @@ auto registerBinderAsService = [](auto&& binder,
         AServiceManager_addService(binder.get(), serviceName.c_str());
     return status;
 };
+
+std::shared_ptr<::qti::audio::core::HalAdapterVendorExtension>
+    gHalAdapterVendorExtension;
+void registerIHalAdapterVendorExtension() {
+    gHalAdapterVendorExtension = ndk::SharedRefBase::make<
+        ::qti::audio::core::HalAdapterVendorExtension>();
+    const auto kServiceName =
+        std::string(gHalAdapterVendorExtension->descriptor)
+            .append("/")
+            .append("default");
+    auto status = registerBinderAsService(
+        gHalAdapterVendorExtension->asBinder(), kServiceName);
+    if (status != EX_NONE) {
+        LOG(ERROR) << __func__ << " LINE:" << __LINE__
+                   << " failed to register AOSP " << kServiceName
+                   << std::to_string(status);
+        CHECK_EQ(1, 0);
+    }
+    LOG(INFO) << __func__ << " LINE:" << __LINE__
+              << " registered successfully AOSP " << kServiceName;
+}
 
 std::shared_ptr<::aidl::android::hardware::audio::core::Module>
     gModuleDefaultAosp;
@@ -108,11 +129,10 @@ void registerIConfigAosp() {
               << " registered successfully AOSP " << kServiceName;
 }
 
-std::shared_ptr<qti::audio::core::Module> gModuleDefaultQti;
+std::shared_ptr<::qti::audio::core::Module> gModuleDefaultQti;
 void registerIModuleDefaultQti() {
     gModuleDefaultQti = ndk::SharedRefBase::make<::qti::audio::core::Module>(
         qti::audio::core::Module::Type::DEFAULT);
-    gModuleDefaultQti->dumpInternal();
     const std::string kServiceName = std::string(gModuleDefaultQti->descriptor)
                                          .append("/")
                                          .append("default");
@@ -128,8 +148,9 @@ void registerIModuleDefaultQti() {
               << " registered successfully QTI " << kServiceName;
 }
 
-extern "C" __attribute__((visibility("default"))) binder_status_t
-registerServices() {
+extern "C" __attribute__((visibility("default")))
+int32_t registerServices() {
+
     const std::string& kDefaultConfigProp{
         "vendor.audio.core_hal_IConfig_default"};
     const auto& kDefaultConfig =
@@ -143,12 +164,15 @@ registerServices() {
     const std::string& kDefaultModuleProp{
         "vendor.audio.core_hal_IModule_default"};
     const auto& kDefaultModule =
-        ::android::base::GetProperty(kDefaultModuleProp, "aosp");
-    if (kDefaultModule == "qti") {
-        ::registerIModuleDefaultQti();
-    } else {
+        ::android::base::GetProperty(kDefaultModuleProp, "qti");
+
+    if (kDefaultModule == "aosp") {
         ::registerIModuleDefaultAosp();
+    } else {
+        ::registerIHalAdapterVendorExtension();
+        ::registerIModuleDefaultQti();
     }
+
     ::registerIModuleRSubmixAosp();
     ::registerIModuleUsbAosp();
     return STATUS_OK;

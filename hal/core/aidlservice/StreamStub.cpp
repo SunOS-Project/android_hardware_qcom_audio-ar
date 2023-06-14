@@ -82,6 +82,32 @@ DriverStub::DriverStub(const StreamContext& context, bool isInput)
     return ::android::OK;
 }
 
+::android::status_t DriverStub::close() { return 0; }
+::android::status_t DriverStub::prepareToClose() { return 0; }
+::android::status_t DriverStub::updateHwAvSyncId(int32_t in_hwAvSyncId) { return 0; }
+::android::status_t DriverStub::getVendorParameters(
+    const std::vector<std::string>& in_ids,
+    std::vector<::aidl::android::hardware::audio::core::VendorParameter>*
+        _aidl_return) {
+    return 0;
+}
+::android::status_t DriverStub::setVendorParameters(
+    const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
+        in_parameters,
+    bool in_async) {
+    return 0;
+}
+::android::status_t DriverStub::addEffect(
+    const std::shared_ptr<::aidl::android::hardware::audio::effect::IEffect>&
+        in_effect) {
+    return 0;
+}
+::android::status_t DriverStub::removeEffect(
+    const std::shared_ptr<::aidl::android::hardware::audio::effect::IEffect>&
+        in_effect) {
+    return 0;
+}
+
 // static
 ndk::ScopedAStatus StreamInStub::createInstance(
     const SinkMetadata& sinkMetadata, StreamContext&& context,

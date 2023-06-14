@@ -254,6 +254,7 @@ static AudioProfile createProfile(
     AudioEncapsulationType encapsulationType = AudioEncapsulationType::NONE) {
     AudioProfile profile;
     profile.format.encoding = encodingType;
+    profile.format.type = ::aidl::android::media::audio::common::AudioFormatType::NON_PCM;
     fillProfile(&profile, name, channelLayouts, sampleRates, encapsulationType);
     return profile;
 }
@@ -449,7 +450,7 @@ static std::vector<AudioProfile> populateProfiles(
             return xsd::toString(profile.getEncoding());
         }
         if (XsdToPcmType.find(profile.getPcmType()) == XsdToPcmType.end()) {
-            PcmType::DEFAULT;
+            return PcmType::DEFAULT;
         }
         return XsdToPcmType.at(profile.getPcmType());
     };

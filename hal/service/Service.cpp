@@ -23,9 +23,6 @@
 #include <binder/ProcessState.h>
 #include <android-base/logging.h>
 #include <android-base/properties.h>
-// #include <hidl/HidlTransportSupport.h>
-// #include <hidl/LegacySupport.h>
-// #include <hwbinder/ProcessState.h>
 #include "ConfigManager.h"
 
 // TODO Remove it

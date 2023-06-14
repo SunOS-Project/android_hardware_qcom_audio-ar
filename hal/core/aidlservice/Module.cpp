@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <set>
 
-#define LOG_TAG "AHAL_Module"
+#define LOG_TAG "AHAL_ModulePrimary"
 #include <android-base/logging.h>
 #include <android/binder_ibinder_platform.h>
 
@@ -18,10 +18,9 @@
 #include <aidlservice/Module.h>
 #include <aidlservice/SoundDose.h>
 #include <aidlservice/StreamStub.h>
+#include <aidlservice/StreamPrimary.h>
 #include <aidlservice/Telephony.h>
 #include <utils/utils.h>
-
-#include <Platform.h>
 
 using aidl::android::hardware::audio::common::getFrameSizeInBytes;
 using aidl::android::hardware::audio::common::isBitPositionFlagSet;
@@ -212,7 +211,7 @@ ndk::ScopedAStatus Module::createStreamContext(
                 portConfigIt->format.value(), portConfigIt->channelMask.value(),
                 portConfigIt->sampleRate.value().value,
                 std::make_unique<StreamContext::DataMQ>(frameSize * in_bufferSizeFrames),
-                asyncCallback, outEventCallback, params);
+                asyncCallback, outEventCallback,*portConfigIt,params);
         if (temp.isValid()) {
             *out_context = std::move(temp);
         } else {
@@ -310,7 +309,6 @@ std::set<int32_t> Module::portIdsFromPortConfigIds(C portConfigIds) {
 
 ModuleConfig& Module::getConfig() {
     if (!mConfig) {
-        Platform::getInstance();
         switch (mType) {
             case Type::DEFAULT:
                 mConfig = ModuleConfig::getPrimaryConfiguration();
@@ -471,9 +469,21 @@ ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdA
     }
 
     if (!mDebug.simulateDeviceConnections) {
-        if (ndk::ScopedAStatus status = populateConnectedDevicePort(&connectedPort);
+        if (ndk::ScopedAStatus status =
+                populateConnectedDevicePort(&connectedPort, templateId);
             !status.isOk()) {
             return status;
+        }
+        if (mPlatform.isUsbDevice(in_templateIdAndAdditionalData.ext
+                                      .get<AudioPortExt::Tag::device>()
+                                      .device)) {
+            /* As of now, only for usb devices, real time fetching dynamic
+             profiles. */
+            const auto& dynamicProfiles =
+                mPlatform.getDynamicProfiles(in_templateIdAndAdditionalData);
+            dynamicProfiles.size() != 0
+                ? (void)(connectedPort.profiles = dynamicProfiles)
+                : (void)0;
         }
     } else {
         auto& connectedProfiles = getConfig().connectedProfiles;
@@ -667,8 +677,9 @@ ndk::ScopedAStatus Module::openInputStream(const OpenInputStreamArguments& in_ar
     }
     context.fillDescriptor(&_aidl_return->desc);
     std::shared_ptr<StreamIn> stream;
-    ndk::ScopedAStatus status = getStreamInCreator(mType)(in_args.sinkMetadata, std::move(context),
-                                                          mConfig->microphones, &stream);
+    ndk::ScopedAStatus status = StreamInPrimary::createInstance(
+        in_args.sinkMetadata, std::move(context), mConfig->microphones,
+        &stream);
     if (!status.isOk()) {
         return status;
     }
@@ -721,8 +732,9 @@ ndk::ScopedAStatus Module::openOutputStream(const OpenOutputStreamArguments& in_
     }
     context.fillDescriptor(&_aidl_return->desc);
     std::shared_ptr<StreamOut> stream;
-    ndk::ScopedAStatus status = getStreamOutCreator(mType)(
-            in_args.sourceMetadata, std::move(context), in_args.offloadInfo, &stream);
+    ndk::ScopedAStatus status = StreamOutPrimary::createInstance(
+        in_args.sourceMetadata, std::move(context), in_args.offloadInfo,
+        &stream);
     if (!status.isOk()) {
         return status;
     }
@@ -837,6 +849,7 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
     AudioPatch oldPatch{};
     if (existing == patches.end()) {
         _aidl_return->id = getConfig().nextPatchId++;
+        onNewPatchCreation(sources, sinks, *_aidl_return);
         patches.push_back(*_aidl_return);
         existing = patches.begin() + (patches.size() - 1);
     } else {
@@ -849,6 +862,15 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
     LOG(DEBUG) << __func__ << ": " << (oldPatch.id == 0 ? "created" : "updated") << " patch "
                << _aidl_return->toString();
     return ndk::ScopedAStatus::ok();
+}
+
+void Module::onNewPatchCreation(const std::vector<AudioPortConfig*>& sources,
+                                const std::vector<AudioPortConfig*>& sinks,
+                                AudioPatch& newPatch) {
+    auto numFrames = mPlatform.getMinimumStreamSizeFrames(
+        sources, sinks);
+    numFrames != 0 ? (void)(newPatch.minimumStreamBufferSizeFrames = numFrames)
+                   : (void)0;
 }
 
 ndk::ScopedAStatus Module::setAudioPortConfig(const AudioPortConfig& in_requested,
@@ -1329,8 +1351,19 @@ bool Module::isMmapSupported() {
     return mIsMmapSupported.value();
 }
 
-ndk::ScopedAStatus Module::populateConnectedDevicePort(AudioPort* audioPort __unused) {
-    LOG(VERBOSE) << __func__ << ": do nothing and return ok";
+ndk::ScopedAStatus Module::populateConnectedDevicePort(
+    AudioPort* connectedDevicePort, const int32_t templateDevicePortId) {
+    auto& externalDeviceProfiles = getConfig().mExternalDevicePortProfiles;
+    if (auto connectedProfilesIt =
+            externalDeviceProfiles.find(templateDevicePortId);
+        connectedProfilesIt != externalDeviceProfiles.end()) {
+        connectedDevicePort->profiles = connectedProfilesIt->second;
+    }
+    LOG(VERBOSE) << __func__ << " profiles"
+                 << (connectedDevicePort->profiles.size() != 0
+                         ? " attached"
+                         : " not attached")
+                 << " for " << connectedDevicePort->toString();
     return ndk::ScopedAStatus::ok();
 }
 
@@ -1342,9 +1375,14 @@ ndk::ScopedAStatus Module::checkAudioPatchEndpointsMatch(
 }
 
 void Module::onExternalDeviceConnectionChanged(
-        const ::aidl::android::media::audio::common::AudioPort& audioPort __unused,
-        bool connected __unused) {
-    LOG(DEBUG) << __func__ << ": do nothing and return";
+    const ::aidl::android::media::audio::common::AudioPort& audioPort,
+    bool connected) {
+    if (!mPlatform.handleDeviceConnectionChange(audioPort, connected)) {
+        LOG(WARNING) << __func__
+                     << " failed to handle device connection change:"
+                     << (connected ? " connect" : "disconnect") << " for "
+                     << audioPort.toString();
+    }
 }
 
 ndk::ScopedAStatus Module::onMasterMuteChanged(bool mute __unused) {
@@ -1361,6 +1399,7 @@ std::string Module::toStringInternal() {
     std::ostringstream os;
     os << "--- Module start ---" << std::endl;
     os << getConfig().toString() << std::endl;
+    os << mPlatform.toString() << std::endl;
     os << "--- Module end ---" << std::endl;
     return os.str();
 }
@@ -1384,6 +1423,21 @@ void Module::dumpInternal() {
     LOG(INFO) << "dump internal successful to " << kDumpPath;
     ::close(fd);
     return;
+}
+
+binder_status_t Module::dump(int fd, const char** args, uint32_t numArgs) {
+    if (fd <= 0) {
+        LOG(ERROR) << ": fd:" << fd << " dump error";
+        return -EINVAL;
+    }
+    auto dumpData = toStringInternal();
+    auto b = ::write(fd, dumpData.c_str(), dumpData.size());
+    if (b != static_cast<decltype(b)>(dumpData.size())) {
+        LOG(ERROR) << __func__ << " write error in dump";
+        return -EIO;
+    }
+    LOG(INFO) << "dump success";
+    return 0;
 }
 
 }  // namespace aidl::android::hardware::audio::core

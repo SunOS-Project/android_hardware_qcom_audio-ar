@@ -17,6 +17,8 @@
 #include <aidl/android/media/audio/common/AudioDevice.h>
 #include <aidl/android/media/audio/common/AudioOffloadInfo.h>
 #include <aidl/android/media/audio/common/MicrophoneInfo.h>
+#include <aidl/android/media/audio/common/AudioInputFlags.h>
+#include <aidl/android/media/audio/common/AudioOutputFlags.h>
 #include <fmq/AidlMessageQueue.h>
 #include <system/thread_defs.h>
 #include <utils/Errors.h>
@@ -29,9 +31,10 @@
 #include <optional>
 #include <variant>
 
+#include <Utils.h>
 #include <utils/utils.h>
+#include <qti-audio-core/Platform.h>
 
-// ::aidl::android::hardware::audio::core
 
 namespace qti::audio::core {
 
@@ -79,7 +82,7 @@ class StreamContext {
             asyncCallback,
         std::shared_ptr<
             ::aidl::android::hardware::audio::core::IStreamOutEventCallback>
-            outEventCallback,
+            outEventCallback,::aidl::android::media::audio::common::AudioPortConfig mixPortConfig,
         DebugParameters debugParameters)
         : mCommandMQ(std::move(commandMQ)),
           mInternalCommandCookie(std::rand()),
@@ -90,6 +93,7 @@ class StreamContext {
           mDataMQ(std::move(dataMQ)),
           mAsyncCallback(asyncCallback),
           mOutEventCallback(outEventCallback),
+          mMixPortConfig(mixPortConfig),
           mDebugParameters(debugParameters) {}
     StreamContext(StreamContext&& other)
         : mCommandMQ(std::move(other.mCommandMQ)),
@@ -101,6 +105,7 @@ class StreamContext {
           mDataMQ(std::move(other.mDataMQ)),
           mAsyncCallback(std::move(other.mAsyncCallback)),
           mOutEventCallback(std::move(other.mOutEventCallback)),
+          mMixPortConfig(std::move(other.mMixPortConfig)),
           mDebugParameters(std::move(other.mDebugParameters)) {}
     StreamContext& operator=(StreamContext&& other) {
         mCommandMQ = std::move(other.mCommandMQ);
@@ -112,6 +117,7 @@ class StreamContext {
         mDataMQ = std::move(other.mDataMQ);
         mAsyncCallback = std::move(other.mAsyncCallback);
         mOutEventCallback = std::move(other.mOutEventCallback);
+        mMixPortConfig = std::move(other.mMixPortConfig);
         mDebugParameters = std::move(other.mDebugParameters);
         return *this;
     }
@@ -152,6 +158,10 @@ class StreamContext {
     int getSampleRate() const { return mSampleRate; }
     bool isValid() const;
     void reset();
+    const ::aidl::android::media::audio::common::AudioPortConfig&
+    getMixPortConfig() const {
+        return mMixPortConfig;
+    }
 
    private:
     std::unique_ptr<CommandMQ> mCommandMQ;
@@ -161,6 +171,7 @@ class StreamContext {
     ::aidl::android::media::audio::common::AudioFormatDescription mFormat;
     ::aidl::android::media::audio::common::AudioChannelLayout mChannelLayout;
     int mSampleRate;
+    ::aidl::android::media::audio::common::AudioPortConfig mMixPortConfig;
     std::unique_ptr<DataMQ> mDataMQ;
     std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback>
         mAsyncCallback;
@@ -193,6 +204,27 @@ struct DriverInterface {
                                          size_t* actualFrameCount,
                                          int32_t* latencyMs) = 0;
     virtual ::android::status_t standby() = 0;
+
+    /* Also have replica of StreamCommonInterface APIs, to handle it from driver
+    implementation. Also these APIs are called from Binder threads */
+    virtual ::android::status_t close() = 0;
+    virtual ::android::status_t prepareToClose() = 0;
+    virtual ::android::status_t updateHwAvSyncId(int32_t in_hwAvSyncId) = 0;
+    virtual ::android::status_t getVendorParameters(
+        const std::vector<std::string>& in_ids,
+        std::vector<::aidl::android::hardware::audio::core::VendorParameter>*
+            _aidl_return) = 0;
+    virtual ::android::status_t setVendorParameters(
+        const std::vector<
+            ::aidl::android::hardware::audio::core::VendorParameter>&
+            in_parameters,
+        bool in_async) = 0;
+    virtual ::android::status_t addEffect(
+        const std::shared_ptr<
+            ::aidl::android::hardware::audio::effect::IEffect>& in_effect) = 0;
+    virtual ::android::status_t removeEffect(
+        const std::shared_ptr<
+            ::aidl::android::hardware::audio::effect::IEffect>& in_effect) = 0;
 };
 
 class StreamWorkerCommonLogic

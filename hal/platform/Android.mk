@@ -12,11 +12,13 @@ LOCAL_EXPORT_C_INCLUDE_DIRS   := $(LOCAL_PATH)/include
 LOCAL_SRC_FILES := \
     PlatformConverter.cpp \
     Platform.cpp \
-    AudioUsecase.cpp
+    AudioUsecase.cpp \
+    AudioUsecaseExt.cpp
 
 LOCAL_SHARED_LIBRARIES := \
     libbase \
     libstagefright_foundation \
+    android.hardware.audio.core-V1-ndk \
     android.media.audio.common.types-V2-ndk \
     libaudioaidlcommon \
     libar-pal

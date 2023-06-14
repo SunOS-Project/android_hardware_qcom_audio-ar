@@ -265,6 +265,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
                     <xs:attribute name="attached" type="xs:boolean" use="optional" default="false" />
                     <xs:attribute name="deviceType" type="audioDeviceType" use="required" />
                     <xs:attribute name="role" type="role" use="required" />
+                    <!-- some of the device needs address ex: bulit in mic address as bottom -->
                     <xs:attribute name="address" type="xs:string" use="optional" default="" />
                     <xs:attribute name="connection" type="connectionType" use="optional" />
                     <xs:attribute name="encodings" type="audioMimeList" use="optional" />

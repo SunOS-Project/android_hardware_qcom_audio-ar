@@ -90,11 +90,16 @@ std::string StreamWorkerCommonLogic::init() {
                std::to_string(mDataMQ->getQuantumSize());
     }
     mDataBufferSize = mDataMQ->getQuantumCount() * mDataMQ->getQuantumSize();
+    LOG(VERBOSE) << __func__ << " data FMQ size is "
+                 << std::to_string(mDataBufferSize);
     mDataBuffer.reset(new (std::nothrow) DataBufferElement[mDataBufferSize]);
     if (mDataBuffer == nullptr) {
         return "Failed to allocate data buffer for element count " +
                std::to_string(mDataMQ->getQuantumCount()) +
                ", size in bytes: " + std::to_string(mDataBufferSize);
+    }
+    if (mDriver == nullptr) {
+        LOG(ERROR) << __func__ << " LINE:" << __LINE__ << "driver is null";
     }
     if (::android::status_t status = mDriver->init(); status != STATUS_OK) {
         return "Failed to initialize the driver: " + std::to_string(status);
@@ -108,6 +113,10 @@ void StreamWorkerCommonLogic::populateReply(StreamDescriptor::Reply* reply,
     if (isConnected) {
         reply->observable.frames = mFrameCount;
         reply->observable.timeNs = ::android::elapsedRealtimeNano();
+        // only in case of offload playback
+        if(mAsyncCallback){
+            
+        }
     } else {
         reply->observable.frames = StreamDescriptor::Position::UNKNOWN;
         reply->observable.timeNs = StreamDescriptor::Position::UNKNOWN;
@@ -645,6 +654,7 @@ template <class Metadata>
 ndk::ScopedAStatus StreamCommonImpl<Metadata>::updateHwAvSyncId(
     int32_t in_hwAvSyncId) {
     LOG(DEBUG) << __func__ << ": id " << in_hwAvSyncId;
+    mDriver->updateHwAvSyncId(in_hwAvSyncId);
     return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
 }
 
@@ -652,16 +662,14 @@ template <class Metadata>
 ndk::ScopedAStatus StreamCommonImpl<Metadata>::getVendorParameters(
     const std::vector<std::string>& in_ids,
     std::vector<VendorParameter>* _aidl_return) {
-    LOG(DEBUG) << __func__ << ": id count: " << in_ids.size();
-    (void)_aidl_return;
+        mDriver->getVendorParameters(in_ids,_aidl_return);
     return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
 }
 
 template <class Metadata>
 ndk::ScopedAStatus StreamCommonImpl<Metadata>::setVendorParameters(
     const std::vector<VendorParameter>& in_parameters, bool in_async) {
-    LOG(DEBUG) << __func__ << ": parameters count " << in_parameters.size()
-               << ", async: " << in_async;
+        mDriver->setVendorParameters(in_parameters,in_async);
     return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
 }
 
@@ -675,6 +683,7 @@ ndk::ScopedAStatus StreamCommonImpl<Metadata>::addEffect(
         LOG(DEBUG) << __func__ << ": effect Binder"
                    << in_effect->asBinder().get();
     }
+    mDriver->addEffect(in_effect);
     return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
 }
 
@@ -688,6 +697,7 @@ ndk::ScopedAStatus StreamCommonImpl<Metadata>::removeEffect(
         LOG(DEBUG) << __func__ << ": effect Binder"
                    << in_effect->asBinder().get();
     }
+    mDriver->removeEffect(in_effect);
     return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
 }
 
@@ -701,6 +711,7 @@ ndk::ScopedAStatus StreamCommonImpl<Metadata>::close() {
         LOG(DEBUG) << __func__ << ": worker thread joined";
         mContext.reset();
         mWorker->setClosed();
+        mDriver->close();
         return ndk::ScopedAStatus::ok();
     } else {
         LOG(ERROR) << __func__ << ": stream was already closed";
@@ -712,6 +723,7 @@ template <class Metadata>
 ndk::ScopedAStatus StreamCommonImpl<Metadata>::prepareToClose() {
     LOG(DEBUG) << __func__;
     if (!isClosed()) {
+        mDriver->prepareToClose();
         return ndk::ScopedAStatus::ok();
     }
     LOG(ERROR) << __func__ << ": stream was closed";

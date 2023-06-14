@@ -23,16 +23,15 @@
 /* PAL types */
 #include <PalDefs.h>
 
+// clang-format off
 namespace {
-// see boost::hash_combine
-#if defined(__clang__)
 __attribute__((no_sanitize("unsigned-integer-overflow")))
-#endif
-static size_t
-hash_combine(size_t seed, size_t v) {
-    return std::hash<size_t>{}(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+static void hash_combiner(std::size_t& seed, const std::size_t& v) {
+    // see boost::hash_combine
+    seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 }  // namespace
+// clang-format on
 
 namespace std {
 template <>
@@ -40,10 +39,13 @@ struct hash<::aidl::android::media::audio::common::AudioDeviceDescription> {
     std::size_t operator()(
         const ::aidl::android::media::audio::common::AudioDeviceDescription&
             add) const noexcept {
-        return hash_combine(
+        std::size_t seed = 0;
+        hash_combiner(
+            seed,
             std::hash<::aidl::android::media::audio::common::AudioDeviceType>{}(
-                add.type),
-            std::hash<std::string>{}(add.connection));
+                add.type));
+        hash_combiner(seed, std::hash<std::string>{}(add.connection));
+        return seed;
     }
 };
 
@@ -52,19 +54,19 @@ struct hash<::aidl::android::media::audio::common::AudioFormatDescription> {
     std::size_t operator()(
         const ::aidl::android::media::audio::common::AudioFormatDescription&
             aft) const noexcept {
-        return std::hash<std::string>{}(aft.toString());
+        std::size_t seed = 0;
+        hash_combiner(
+            seed,
+            std::hash<::aidl::android::media::audio::common::AudioFormatType>{}(
+                aft.type));
+        hash_combiner(
+            seed, std::hash<::aidl::android::media::audio::common::PcmType>{}(
+                      aft.pcm));
+        hash_combiner(seed, std::hash<std::string>{}(aft.encoding));
+        return seed;
     }
 };
 }  // namespace std
-
-using AidlToPalDeviceMap = std::unordered_map<
-    ::aidl::android::media::audio::common::AudioDeviceDescription,
-    pal_device_id_t>;
-using AidlToPalAudioFormatMap = std::unordered_map<
-    ::aidl::android::media::audio::common::AudioFormatDescription,
-    pal_audio_fmt_t>;
-using ChannelCountToPalChannelInfoMap =
-    std::unordered_map<int, std::unique_ptr<pal_channel_info>>;
 
 namespace qti::audio::core {
 
@@ -81,8 +83,12 @@ class PlatformConverter {
 
    public:
     static const PlatformConverter& getInstance();
-    const AidlToPalDeviceMap& getAidlToPalDeviceMap() const;
-    const AidlToPalAudioFormatMap& getAidlToPalAudioFormatMap() const;
+    pal_audio_fmt_t getPalFormatId(
+        const ::aidl::android::media::audio::common::AudioFormatDescription&
+            formatDescription) const;
+    pal_device_id_t getPalDeviceId(
+        const ::aidl::android::media::audio::common::AudioDeviceDescription&
+            deviceDescription) const;
 
     uint16_t getBitWidthForAidlPCM(
         const ::aidl::android::media::audio::common::AudioFormatDescription&)
@@ -93,6 +99,12 @@ class PlatformConverter {
     std::string toString() const;
 
    private:
+    using AidlToPalDeviceMap =
+        std::map<::aidl::android::media::audio::common::AudioDeviceDescription,
+                 pal_device_id_t>;
+    using AidlToPalAudioFormatMap =
+        std::map<::aidl::android::media::audio::common::AudioFormatDescription,
+                 pal_audio_fmt_t>;
     AidlToPalDeviceMap mAidlToPalDeviceMap;
     AidlToPalAudioFormatMap mAidlToPalAudioFormatMap;
 };

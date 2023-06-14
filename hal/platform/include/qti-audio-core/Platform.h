@@ -5,17 +5,15 @@
 
 #pragma once
 
-#include <PalDefs.h>
 #include <aidl/android/media/audio/common/AudioDevice.h>
 #include <aidl/android/media/audio/common/AudioFormatDescription.h>
 #include <aidl/android/media/audio/common/AudioPort.h>
 #include <aidl/android/media/audio/common/AudioPortConfig.h>
 
-#include <sstream>
-#include <unordered_map>
-#include <vector>
 
-#include <AudioUsecase.h>
+#include <qti-audio-core/PlatformConverter.h>
+#include <qti-audio-core/AudioUsecase.h>
+#include <PalApi.h>
 
 namespace qti::audio::core {
 // Singleton
@@ -28,13 +26,8 @@ class Platform {
 
     Platform(Platform&& other) = delete;
     Platform& operator=(Platform&& other) = delete;
-
-   public:
-    constexpr static uint32_t kDefaultOutputSampleRate = 48000;
-    constexpr static uint32_t kDefaultPCMBidWidth = 16;
-    constexpr static pal_audio_fmt_t kDefaultPalPCMFormat =
-        PAL_AUDIO_FMT_PCM_S16_LE;
-    std::unordered_map<std::string, std::string> mParameters;
+    static int palGlobalCallback(uint32_t event_id, uint32_t* event_data,
+                                 uint64_t cookie);
 
    public:
     static Platform& getInstance();
@@ -52,16 +45,27 @@ class Platform {
     bool isOutputDevice(
         const ::aidl::android::media::audio::common::AudioDevice&)
         const noexcept;
+    bool isBluetoothDevice(
+        const ::aidl::android::media::audio::common::AudioDevice& d)
+        const noexcept;
+    bool isSoundCardUp() const noexcept;
+    bool isSoundCardDown() const noexcept;
+    size_t getIOBufferSizeInFrames(
+        const ::aidl::android::media::audio::common::AudioPortConfig&
+            mixPortConfig) const;
+    size_t getMinimumStreamSizeFrames(
+        const std::vector<
+            ::aidl::android::media::audio::common::AudioPortConfig*>& sources,
+        const std::vector<
+            ::aidl::android::media::audio::common::AudioPortConfig*>& sinks)
+        const;
     std::unique_ptr<pal_stream_attributes> getPalStreamAttributes(
         const ::aidl::android::media::audio::common::AudioPortConfig&
             portConfig,
         const bool isInput) const;
     std::vector<pal_device> getPalDevices(
-        const ::aidl::android::media::audio::common::AudioPortConfig&
-            portConfig,
         const std::vector<::aidl::android::media::audio::common::AudioDevice>&
-            setDevices,
-        const bool isInput) const;
+            setDevices) const;
     std::vector<uint8_t> getPalVolumeData(
         const std::vector<float>& in_channelVolumes) const;
     std::unique_ptr<pal_buffer_config_t> getPalBufferConfig(
@@ -72,8 +76,22 @@ class Platform {
     bool handleDeviceConnectionChange(
         const ::aidl::android::media::audio::common::AudioPort& deviceAudioPort,
         const bool isConnect) const;
-    std::unique_ptr<AudioUsecase> createAudioUsecase(
-        const ::aidl::android::media::audio::common::AudioPortConfig& mixport,
-        const bool isInput) const;
+    uint32_t getBluetoothLatencyMs(
+        const std::vector<::aidl::android::media::audio::common::AudioDevice>&
+            bluetoothDevices);
+
+   private:
+    bool getBtConfig(pal_param_bta2dp_t* bTConfig);
+
+   public:
+    constexpr static uint32_t kDefaultOutputSampleRate = 48000;
+    constexpr static uint32_t kDefaultPCMBidWidth = 16;
+    constexpr static pal_audio_fmt_t kDefaultPalPCMFormat =
+        PAL_AUDIO_FMT_PCM_S16_LE;
+
+   private:
+    std::map<std::string, std::string> mParameters;
+    card_status_t mSndCardStatus{CARD_STATUS_OFFLINE};
+    const PlatformConverter& mTypeConverter{PlatformConverter::getInstance()};
 };
 }  // namespace qti::audio::core

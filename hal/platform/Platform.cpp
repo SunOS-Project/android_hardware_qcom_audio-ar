@@ -6,9 +6,7 @@
 #define LOG_NDEBUG 0
 #define LOG_TAG "AHAL_Platform"
 
-#include <PalApi.h>
-#include <Platform.h>
-#include <PlatformConverter.h>
+#include <qti-audio-core/Platform.h>
 #include <Utils.h>
 #include <android-base/logging.h>
 
@@ -19,43 +17,86 @@ using ::aidl::android::media::audio::common::AudioDeviceDescription;
 using ::aidl::android::media::audio::common::AudioDeviceType;
 using ::aidl::android::media::audio::common::AudioFormatDescription;
 using ::aidl::android::media::audio::common::AudioFormatType;
+using ::aidl::android::media::audio::common::AudioIoFlags;
+using ::aidl::android::media::audio::common::AudioOutputFlags;
 using ::aidl::android::media::audio::common::AudioPort;
 using ::aidl::android::media::audio::common::AudioPortConfig;
 using ::aidl::android::media::audio::common::AudioPortDeviceExt;
 using ::aidl::android::media::audio::common::AudioPortExt;
 using ::aidl::android::media::audio::common::AudioProfile;
 using ::aidl::android::media::audio::common::PcmType;
-using ::aidl::android::media::audio::common::AudioOutputFlags;
-using ::aidl::android::media::audio::common::AudioIoFlags;
 
 using ::aidl::android::hardware::audio::common::getChannelCount;
 using ::aidl::android::hardware::audio::common::isBitPositionFlagSet;
 
 namespace qti::audio::core {
 
+size_t Platform::getIOBufferSizeInFrames(
+    const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig)
+    const {
+    AudioUsecase::Tag tag = AudioUsecase::getUsecaseTag(mixPortConfig);
+    size_t numFrames = 0;
+    if (tag == AudioUsecase::Tag::DEEP_BUFFER_PLAYBACK) {
+        numFrames = DeepBufferPlayback::kPeriodSize;
+    } else if (tag == AudioUsecase::Tag::LOW_LATENCY_PLAYBACK) {
+        numFrames = LowLatencyPlayback::kPeriodSize;
+    } else if (tag == AudioUsecase::Tag::PCM_RECORD) {
+        constexpr size_t kMillisPerSecond = 1000;
+        numFrames = (PcmRecord::kCaptureDurationMs *
+                     mixPortConfig.sampleRate.value().value) /
+                    kMillisPerSecond;
+    } else if (tag == AudioUsecase::Tag::COMPRESS_OFFLOAD_PLAYBACK) {
+        const size_t numBytes =
+            CompressPlayback::getPeriodBufferSize(mixPortConfig.format.value());
+        constexpr size_t compressFrameSize = 1;
+        numFrames = numBytes / compressFrameSize;
+    }
+    LOG(VERBOSE) << __func__
+                 << " IOBufferSizeInFrames:" << std::to_string(numFrames)
+                 << " for " << AudioUsecase::getName(tag);
+    return numFrames;
+}
+
+size_t Platform::getMinimumStreamSizeFrames(
+    const std::vector<AudioPortConfig*>& sources,
+    const std::vector<AudioPortConfig*>& sinks) const {
+    if (sources.size() > 1) {
+        LOG(WARNING) << __func__
+                     << " unable to decide the minimum stream size for sources "
+                        "more than one; actual size:"
+                     << sources.size();
+        return 0;
+    }
+    // choose the mix port
+    auto isMixPortConfig = [](const auto& audioPortConfig) {
+        return audioPortConfig.ext.getTag() == AudioPortExt::Tag::mix;
+    };
+
+    const auto& mixPortConfig =
+        isMixPortConfig(*sources.at(0)) ? *(sources.at(0)) : *(sinks.at(0));
+    return getIOBufferSizeInFrames(mixPortConfig);
+}
+
 std::unique_ptr<pal_stream_attributes> Platform::getPalStreamAttributes(
     const AudioPortConfig& portConfig, const bool isInput) const {
-    const auto& kPC = PlatformConverter::getInstance();
     const auto& audioFormat = portConfig.format.value();
-    auto palFormat = kPC.getAidlToPalAudioFormatMap().find(audioFormat);
-    if (palFormat == kPC.getAidlToPalAudioFormatMap().end()) {
-        LOG(ERROR) << __func__ << "LINE:" << __LINE__
-                   << " failed to find corresponding pal format for "
-                   << audioFormat.toString();
+    const auto palFormat = mTypeConverter.getPalFormatId(audioFormat);
+    if (palFormat == PAL_AUDIO_FMT_COMPRESSED_RANGE_END) {
         return nullptr;
     }
+
     const auto& audioChannelLayout = portConfig.channelMask.value();
-    auto palChannelInfo = kPC.getPalChannelInfoForChannelCount(
+    auto palChannelInfo = mTypeConverter.getPalChannelInfoForChannelCount(
         getChannelCount(audioChannelLayout));
     if (palChannelInfo == nullptr) {
-        LOG(ERROR) << __func__ << "LINE:" << __LINE__
+        LOG(ERROR) << __func__
                    << " failed to find corresponding pal channel info for "
                    << audioChannelLayout.toString();
         return nullptr;
     }
     const auto sampleRate = portConfig.sampleRate.value().value;
     if (!sampleRate) {
-        LOG(ERROR) << __func__ << "LINE:" << __LINE__ << " invalid sample rate "
+        LOG(ERROR) << __func__ << " invalid sample rate "
                    << std::to_string(sampleRate);
         return nullptr;
     }
@@ -64,42 +105,37 @@ std::unique_ptr<pal_stream_attributes> Platform::getPalStreamAttributes(
     if (!isInput) {
         attributes->direction = PAL_AUDIO_OUTPUT;
         attributes->out_media_config.sample_rate = sampleRate;
-        attributes->out_media_config.aud_fmt_id = palFormat->second;
+        attributes->out_media_config.aud_fmt_id = palFormat;
         attributes->out_media_config.ch_info = *(palChannelInfo);
         attributes->out_media_config.bit_width =
-            kPC.getBitWidthForAidlPCM(audioFormat);
+            mTypeConverter.getBitWidthForAidlPCM(audioFormat);
     } else {
         attributes->direction = PAL_AUDIO_INPUT;
         attributes->in_media_config.sample_rate = sampleRate;
-        attributes->in_media_config.aud_fmt_id = palFormat->second;
+        attributes->in_media_config.aud_fmt_id = palFormat;
         attributes->in_media_config.ch_info = *(palChannelInfo);
         attributes->in_media_config.bit_width =
-            kPC.getBitWidthForAidlPCM(audioFormat);
+            mTypeConverter.getBitWidthForAidlPCM(audioFormat);
     }
     return std::move(attributes);
 }
 
 std::vector<pal_device> Platform::getPalDevices(
-    const AudioPortConfig& portConfig,
-    const std::vector<AudioDevice>& setDevices, const bool isInput) const {
+    const std::vector<AudioDevice>& setDevices) const {
     if (setDevices.size() == 0) {
-        LOG(ERROR) << __func__ << "LINE:" << __LINE__
+        LOG(ERROR) << __func__
                    << " the set devices is empty";
         return {};
     }
-    const auto& kPC = PlatformConverter::getInstance();
     std::vector<pal_device> palDevices{setDevices.size()};
 
     size_t i = 0;
     for (auto& device : setDevices) {
-        auto palDeviceId = kPC.getAidlToPalDeviceMap().find(device.type);
-        if (palDeviceId == kPC.getAidlToPalDeviceMap().cend()) {
-            LOG(ERROR) << __func__ << "LINE:" << __LINE__
-                       << " failed to find corressponding pal format for "
-                       << device.toString();
+        const auto palDeviceId = mTypeConverter.getPalDeviceId(device.type);
+        if (palDeviceId == PAL_DEVICE_OUT_MIN) {
             return {};
         }
-        palDevices[i].id = palDeviceId->second;
+        palDevices[i].id = palDeviceId;
         palDevices[i].config.sample_rate = kDefaultOutputSampleRate;
         palDevices[i].config.bit_width = kDefaultPCMBidWidth;
         palDevices[i].config.aud_fmt_id = kDefaultPalPCMFormat;
@@ -108,7 +144,7 @@ std::vector<pal_device> Platform::getPalDevices(
             const auto& deviceAddress = device.address;
             if (deviceAddress.getTag() != AudioDeviceAddress::Tag::alsa) {
                 LOG(ERROR)
-                    << __func__ << "LINE:" << __LINE__
+                    << __func__
                     << " failed to find alsa address for given usb device "
                     << device.toString();
                 return {};
@@ -127,7 +163,7 @@ std::vector<uint8_t> Platform::getPalVolumeData(
     const std::vector<float>& in_channelVolumes) const {
     const auto volumeSizes = in_channelVolumes.size();
     if (volumeSizes == 0 || volumeSizes > 2) {
-        LOG(ERROR) << __func__ << "LINE:" << __LINE__
+        LOG(ERROR) << __func__
                    << "length channel volumes is"
                    << std::to_string(volumeSizes);
         return {};
@@ -165,26 +201,21 @@ std::vector<AudioProfile> Platform::getDynamicProfiles(
         return {};
     }
 
-    LOG(DEBUG) << __func__ << ": fetching dynamic profiles for "
-               << dynamicDeviceAudioPort.toString();
+    LOG(VERBOSE) << __func__ << ": fetching dynamic profiles for "
+                 << dynamicDeviceAudioPort.toString();
 
     const auto& devicePortExt =
         dynamicDeviceAudioPort.ext.get<AudioPortExt::Tag::device>();
 
     if (!isUsbDevice(devicePortExt.device)) {
-        LOG(ERROR) << __func__ << "LINE:" << __LINE__
-                   << " device is not USB type ";
+        LOG(ERROR) << __func__ << " device is not USB type ";
         return {};
     }
     auto& audioDeviceDesc = devicePortExt.device.type;
-    auto& platformConverter = PlatformConverter::getInstance();
-    auto& deviceMap = platformConverter.getAidlToPalDeviceMap();
-    if (deviceMap.find(audioDeviceDesc) == deviceMap.cend()) {
-        LOG(ERROR) << __func__ << "no compatible PAL device for port "
-                   << dynamicDeviceAudioPort.toString();
+    const auto palDeviceId = mTypeConverter.getPalDeviceId(audioDeviceDesc);
+    if(palDeviceId == PAL_DEVICE_OUT_MIN){
         return {};
     }
-    const auto palDeviceId = deviceMap.at(audioDeviceDesc);
 
     const auto& addressTag = devicePortExt.device.address.getTag();
     if (addressTag != AudioDeviceAddress::Tag::alsa) {
@@ -222,13 +253,13 @@ std::vector<AudioProfile> Platform::getDynamicProfiles(
     if (int32_t ret = pal_get_param(PAL_PARAM_ID_DEVICE_CAPABILITY, &v,
                                     &payload_size, nullptr);
         ret != 0) {
-        LOG(ERROR) << __func__ << "LINE:" << __LINE__
+        LOG(ERROR) << __func__
                    << " PAL get param failed for PAL_PARAM_ID_DEVICE_CAPABILITY"
                    << ret;
         return {};
     }
     if (!dynamicMediaConfig->jack_status) {
-        LOG(ERROR) << __func__ << "LINE:" << __LINE__
+        LOG(ERROR) << __func__
                    << " false usb jack status ";
         return {};
     }
@@ -291,14 +322,10 @@ bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
         deviceAudioPort.ext.get<AudioPortExt::Tag::device>();
 
     auto& audioDeviceDesc = devicePortExt.device.type;
-    auto& platformConverter = PlatformConverter::getInstance();
-    auto& deviceMap = platformConverter.getAidlToPalDeviceMap();
-    if (deviceMap.find(audioDeviceDesc) == deviceMap.cend()) {
-        LOG(ERROR) << __func__ << "no compatible PAL device for port "
-                   << deviceAudioPort.toString();
+    const auto palDeviceId = mTypeConverter.getPalDeviceId(audioDeviceDesc);
+    if(palDeviceId == PAL_DEVICE_OUT_MIN){
         return false;
     }
-    const auto palDeviceId = deviceMap.at(audioDeviceDesc);
 
     void* v = nullptr;
     const auto deviceConnection =
@@ -345,7 +372,7 @@ bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
 bool Platform::setParameter(const std::string& key, const std::string& value) {
     // Todo check for validity of key
     const auto& [first, second] = mParameters.insert_or_assign(key, value);
-    LOG(VERBOSE) << __func__ << "LINE:" << __LINE__
+    LOG(VERBOSE) << __func__
                  << " platform parameter with key:" << key << " "
                  << (second ? "inserted" : "re-assigned")
                  << " with value:" << value;
@@ -387,44 +414,118 @@ bool Platform::isUsbDevice(const AudioDevice& d) const noexcept {
     return false;
 }
 
+bool Platform::isBluetoothDevice(const AudioDevice& d) const noexcept {
+    if (d.type.connection == AudioDeviceDescription::CONNECTION_BT_A2DP ||
+        d.type.connection == AudioDeviceDescription::CONNECTION_BT_LE) {
+        return true;
+    }
+    return false;
+}
+
+bool Platform::isSoundCardUp() const noexcept {
+    if (mSndCardStatus == CARD_STATUS_ONLINE) {
+        return true;
+    }
+    return false;
+}
+
+bool Platform::isSoundCardDown() const noexcept {
+    if (mSndCardStatus == CARD_STATUS_OFFLINE ||
+        mSndCardStatus == CARD_STATUS_STANDBY) {
+        return true;
+    }
+    return false;
+}
+
+uint32_t Platform::getBluetoothLatencyMs(
+    const std::vector<::aidl::android::media::audio::common::AudioDevice>&
+        bluetoothDevices) {
+    pal_param_bta2dp_t btConfig{};
+    for (const auto& device : bluetoothDevices) {
+        if (isBluetoothDevice(device)) {
+            btConfig.dev_id = mTypeConverter.getPalDeviceId(device.type);
+            // first bluetooth device
+            break;
+        }
+    }
+    if (btConfig.dev_id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
+        btConfig.dev_id == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
+        btConfig.dev_id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST) {
+        if (getBtConfig(&btConfig)) {
+            return btConfig.latency;
+        }
+    }
+    return 0;
+}
+
+// start of private
+bool Platform::getBtConfig(pal_param_bta2dp_t* bTConfig) {
+    if (bTConfig == nullptr) {
+        LOG(ERROR) << __func__ << " invalid bt config";
+        return false;
+    }
+    size_t payloadSize = 0;
+    if (int32_t ret = ::pal_get_param(PAL_PARAM_ID_BT_A2DP_ENCODER_LATENCY,
+                                      reinterpret_cast<void**>(&bTConfig),
+                                      &payloadSize, nullptr);
+        ret) {
+        LOG(ERROR) << __func__
+                   << " failure in PAL_PARAM_ID_BT_A2DP_ENCODER_LATENCY, ret :"
+                   << ret;
+        return false;
+    }
+    if (payloadSize == 0) {
+        LOG(ERROR) << __func__ << " empty payload size!!!";
+        return false;
+    }
+    return true;
+}
+// end of private
+
 std::string Platform::toString() const {
     std::ostringstream os;
-    os << " === platform wide parameters ===" << std::endl;
+    os << " === platform start ===" << std::endl;
+    os << "sound card status: " << mSndCardStatus << std::endl;
     for (const auto& [key, value] : mParameters) {
         os << key << "=>" << value << std::endl;
     }
+    os << mTypeConverter.toString() << std::endl;
+    os << " === platform end ===" << std::endl;
     return os.str();
 }
 
-std::unique_ptr<AudioUsecase> Platform::createAudioUsecase(
-    const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
-    const bool isInput) const {
-    auto usecase = std::make_unique<AudioUsecase>();
-    if (isInput) {
-        return nullptr;
-    } else {  // output
-        if (mixPortConfig.flags) {
-            auto& flags = mixPortConfig.flags.value();
-            const bool isDeepBuffer =
-                isBitPositionFlagSet(flags.get<AudioIoFlags::Tag::output>(),
-                                     AudioOutputFlags::DEEP_BUFFER);
-            if (isDeepBuffer) {
-                // create AudioUsecase as Deep buffer
-                usecase->set<AudioUsecase::Tag::DEEPBUFFER_PLAYBACK>(
-                    DeepBufferPlayback());
-                return std::move(usecase);
-            }
-        }
+// static
+int Platform::palGlobalCallback(uint32_t event_id, uint32_t* event_data,
+                                uint64_t cookie) {
+    auto platform = reinterpret_cast<Platform*>(cookie);
+    switch (event_id) {
+        case PAL_SND_CARD_STATE:
+            platform->mSndCardStatus = static_cast<card_status_t>(*event_data);
+            LOG(INFO) << __func__ << " card status changed to "
+                      << platform->mSndCardStatus;
+            break;
+        default:
+            LOG(ERROR) << __func__ << " invalid event id" << event_id;
+            return -EINVAL;
     }
-    return nullptr;
+    return 0;
 }
 
 Platform::Platform() {
     if (int32_t ret = pal_init(); ret) {
-        LOG(ERROR) << __func__ << " LINE:" << __LINE__
-                   << "pal init failed!!! ret:" << std::to_string(ret);
+        LOG(ERROR) << __func__ << "pal init failed!!! ret:" << ret;
+        return;
     }
-    LOG(INFO) << __func__ << " LINE:" << __LINE__ << " pal init successful";
+    LOG(VERBOSE) << __func__ << " pal init successful";
+    if (int32_t ret = pal_register_global_callback(
+            &palGlobalCallback, reinterpret_cast<uint64_t>(this));
+        ret) {
+        LOG(ERROR) << __func__
+                   << "pal register global callback failed!!! ret:" << ret;
+        return;
+    }
+    mSndCardStatus = CARD_STATUS_ONLINE;
+    LOG(VERBOSE) << __func__ << " pal register global callback successful";
 }
 
 // static

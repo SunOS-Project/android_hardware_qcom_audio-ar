@@ -5,7 +5,8 @@ LOCAL_MODULE            := libaudiocorehal.qti
 LOCAL_VENDOR_MODULE     := true
 LOCAL_MODULE_RELATIVE_PATH := hw
 
-LOCAL_C_INCLUDES    := $(LOCAL_PATH)/include
+LOCAL_C_INCLUDES    :=  $(LOCAL_PATH)/include \
+                        $(LOCAL_PATH)/adapter/include
 
 # LOCAL_CFLAGS += -Wall -Wextra -Werror -Wthread-safety
 
@@ -24,8 +25,8 @@ LOCAL_SRC_FILES := \
     aidlservice/SoundDose.cpp \
     aidlservice/Stream.cpp \
     aidlservice/StreamStub.cpp \
+    aidlservice/StreamPrimary.cpp \
     aidlservice/Telephony.cpp \
-    platform/PlatformStream.cpp \
     platform/PlatformBluetooth.cpp \
     platform/PlatformVoice.cpp
 
@@ -44,7 +45,13 @@ LOCAL_HEADER_LIBRARIES :=  \
 #    android.media.audio.common.types-V2-ndk \
 #    android.hardware.audio.core-V1-ndk
 
-LOCAL_STATIC_LIBRARIES := libaudiohalutils libaudiocore.extension libaudioplatform.qti
+LOCAL_STATIC_LIBRARIES := \
+            libaudiohalutils \
+            libaudiocore.extension \
+            libaudioplatform.qti
+
+LOCAL_WHOLE_STATIC_LIBRARIES := \
+            libaudiocore_vendor_extension.qti
 
 LOCAL_SHARED_LIBRARIES := \
     libaudioaidlcommon \
@@ -60,6 +67,7 @@ LOCAL_SHARED_LIBRARIES := \
     libutils \
     libaudioutils \
     libxml2 \
+    av-audio-types-aidl-ndk \
     android.hardware.common-V2-ndk \
     android.hardware.common.fmq-V1-ndk \
     android.media.audio.common.types-V2-ndk \

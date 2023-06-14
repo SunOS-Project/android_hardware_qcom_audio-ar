@@ -7,6 +7,8 @@
 #include <log/log.h>
 #include <extensions/AudioExtension.h>
 
+namespace qti::audio::core {
+
 AudioExtensionBase::AudioExtensionBase(std::string library, bool enabled) :
     mLibraryName(library),
     mEnabled (enabled)
@@ -87,4 +89,5 @@ AudioExtensionBase (kKarokeLibrary) {
     if (mHandle != nullptr) {
 
     }
+}
 }

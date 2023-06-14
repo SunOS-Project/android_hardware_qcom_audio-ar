@@ -23,4 +23,9 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
     <version>1</version>
     <fqname>IConfig/default</fqname>
   </hal>
+  <hal format="aidl">
+    <name>android.media.audio</name>
+    <version>1</version>
+    <fqname>IHalAdapterVendorExtension/default</fqname>
+  </hal>
 </manifest>

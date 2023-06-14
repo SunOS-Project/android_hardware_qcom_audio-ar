@@ -13,6 +13,7 @@
 
 #include <aidlservice/Stream.h>
 #include <aidlservice/ModuleConfig.h>
+#include <qti-audio-core/Platform.h>
 
 namespace qti::audio::core {
 
@@ -158,6 +159,7 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
     ndk::ScopedAStatus getAAudioMixerBurstCount(int32_t* _aidl_return) override;
     ndk::ScopedAStatus getAAudioHardwareBurstMinUsec(
         int32_t* _aidl_return) override;
+    binder_status_t dump(int fd, const char** args, uint32_t numArgs) override;
 
     void cleanUpPatch(int32_t patchId);
     ndk::ScopedAStatus createStreamContext(
@@ -209,7 +211,8 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
     // the returned error code must correspond to the errors of
     // `IModule.connectedExternalDevice` method.
     virtual ndk::ScopedAStatus populateConnectedDevicePort(
-        ::aidl::android::media::audio::common::AudioPort* audioPort);
+        ::aidl::android::media::audio::common::AudioPort* connectedDevicePort,
+        const int32_t templateDevicePortId);
     // If the module finds that the patch endpoints configurations are not
     // matched, the returned error code must correspond to the errors of
     // `IModule.setAudioPatch` method.
@@ -223,9 +226,17 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
         bool connected);
     virtual ndk::ScopedAStatus onMasterMuteChanged(bool mute);
     virtual ndk::ScopedAStatus onMasterVolumeChanged(float volume);
+    void onNewPatchCreation(
+        const std::vector<
+            ::aidl::android::media::audio::common::AudioPortConfig*>& sources,
+        const std::vector<
+            ::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
+        ::aidl::android::hardware::audio::core::AudioPatch& newPatch);
 
     bool mMasterMute = false;
     float mMasterVolume = 1.0f;
+
+    Platform& mPlatform{Platform::getInstance()};
 
    public:
     std::string toStringInternal();
