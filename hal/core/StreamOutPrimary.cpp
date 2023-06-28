@@ -908,6 +908,13 @@ void StreamOutPrimary::configure() {
         attr->type = PAL_STREAM_DEEP_BUFFER;
     } else if (mTag == Usecase::LOW_LATENCY_PLAYBACK) {
         attr->type = PAL_STREAM_LOW_LATENCY;
+
+        auto countProxyDevices = std::count_if(mConnectedDevices.cbegin(), mConnectedDevices.cend(),
+                                                isIPDevice);
+        if (countProxyDevices > 0) {
+            attr->type = PAL_STREAM_PROXY;
+            LOG(INFO) << __func__ << mLogPrefix << ": proxy playback on IPV4";
+        }
     } else if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         attr->type = PAL_STREAM_COMPRESSED;
     } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {

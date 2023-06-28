@@ -43,6 +43,7 @@ const static std::string kVoiceCRSVolume{"CRS_volume"};
 // WFD
 const static std::string kCanOpenProxy{"can_open_proxy"};
 const static std::string kWfdChannelMap{"wfd_channel_cap"};
+const static std::string kWfdProxyRecordActive{"proxyRecordActive"};
 
 // Generic
 const static std::string kInCallMusic{"icmd_playback"};

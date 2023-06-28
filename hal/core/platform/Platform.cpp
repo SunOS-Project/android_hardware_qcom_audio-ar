@@ -553,6 +553,20 @@ uint32_t Platform::getWFDProxyChannels() const noexcept {
     return mWFDProxyChannels;
 }
 
+std::string Platform::IsProxyRecordActive()  const noexcept{
+    int ret = 0;
+    size_t size = 0;
+    char proxy_record_state[6] = "false";
+    ret = pal_get_param(PAL_PARAM_ID_PROXY_RECORD_SESSION, (void **)&proxy_record_state, &size,
+                            nullptr);
+    if (!ret && size > 0) {
+        LOG(INFO) << __func__ << " proxyRecordActive = " << proxy_record_state;
+    } else {
+        LOG(ERROR) << __func__ << " : PAL_PARAM_ID_PROXY_RECORD_SESSION failed: " << ret;
+    }
+    return std::string(proxy_record_state);
+}
+
 void Platform::updateUHQA(const bool enable) noexcept {
     mIsUHQAEnabled = enable;
     pal_param_uhqa_t paramUHQAFlags{.uhqa_state = mIsUHQAEnabled};
