@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "EffectMain"
+#define LOG_TAG "AHAL_EffectMain"
 
 #include "effectFactory-impl/EffectFactory.h"
 
@@ -27,7 +27,7 @@ registerService() {
     }
     LOG(INFO) << __func__ << ": start factory with configFile:" << configFile;
     auto effectFactory =
-            ndk::SharedRefBase::make<aidl::android::hardware::audio::effect::Factory>(configFile);
+            ndk::SharedRefBase::make<aidl::qti::effects::Factory>(configFile);
 
     std::string serviceName = std::string() + effectFactory->descriptor + "/default";
     binder_status_t status =

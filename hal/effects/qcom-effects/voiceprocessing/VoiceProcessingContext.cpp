@@ -12,7 +12,7 @@
 
 using aidl::android::hardware::audio::effect::IEffect;
 
-namespace aidl::android::hardware::audio::effect {
+namespace aidl::qti::effects {
 
 VoiceProcessingContext::VoiceProcessingContext(int statusDepth, const Parameter::Common& common,
                             const VoiceProcessingType & type)
@@ -50,4 +50,4 @@ void VoiceProcessingContext::reset() {
     resetBuffer();
 }
 
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

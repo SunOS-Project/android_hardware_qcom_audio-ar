@@ -9,7 +9,10 @@
 #include "effect-impl/EffectImpl.h"
 #include "effect-impl/EffectUUID.h"
 
-namespace aidl::android::hardware::audio::effect {
+using aidl::android::hardware::audio::effect::Descriptor;
+using aidl::android::hardware::audio::effect::Flags;
+
+namespace aidl::qti::effects {
 
 static const std::string kAlarmVolumeListenerEffectName = "Qti-AlarmVolumeListener";
 static const std::string kMusicVolumeListenerEffectName = "Qti-MusicVolumeListener";
@@ -97,4 +100,4 @@ inline std::ostream& operator<<(std::ostream& out, const VolumeListenerType& typ
     return out << "Enum_VolumeListenerError";
 }
 
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

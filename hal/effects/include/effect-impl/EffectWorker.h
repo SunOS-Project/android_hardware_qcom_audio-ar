@@ -13,7 +13,7 @@
 #include "EffectContext.h"
 #include "EffectThread.h"
 
-namespace aidl::android::hardware::audio::effect {
+namespace aidl::qti::effects {
 
 std::string toString(RetCode& code);
 
@@ -61,4 +61,4 @@ class EffectWorker : public EffectThread {
     std::shared_ptr<EffectContext> mContext;
 };
 
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

@@ -15,7 +15,7 @@
 #include "VoiceProcessingContext.h"
 #include "VoiceProcessingTypes.h"
 
-namespace aidl::android::hardware::audio::effect {
+namespace aidl::qti::effects {
 using VoiceProcessingContextList = std::vector<std::shared_ptr<VoiceProcessingContext>>;
 
 class GlobalVoiceProcessingSession {
@@ -83,4 +83,4 @@ class GlobalVoiceProcessingSession {
     std::unordered_map<int /* session ID */, VoiceProcessingContextList>
             mSessionMap GUARDED_BY(mMutex);
 };
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

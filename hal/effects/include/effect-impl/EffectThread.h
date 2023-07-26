@@ -3,19 +3,20 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-
 #pragma once
 #include <atomic>
+#include <memory>
 #include <string>
 #include <thread>
 
 #include <android-base/thread_annotations.h>
+#include <fmq/EventFlag.h>
 #include <system/thread_defs.h>
 
 #include "effect-impl/EffectContext.h"
 #include "effect-impl/EffectTypes.h"
 
-namespace aidl::android::hardware::audio::effect {
+namespace aidl::qti::effects {
 
 class EffectThread {
   public:
@@ -25,7 +26,7 @@ class EffectThread {
 
     // called by effect implementation.
     RetCode createThread(std::shared_ptr<EffectContext> context, const std::string& name,
-                         const int priority = ANDROID_PRIORITY_URGENT_AUDIO);
+                         int priority = ANDROID_PRIORITY_URGENT_AUDIO);
     RetCode destroyThread();
     RetCode startThread();
     RetCode stopThread();
@@ -62,16 +63,24 @@ class EffectThread {
     virtual void process_l() REQUIRES(mThreadMutex);
 
   private:
-    const int kMaxTaskNameLen = 15;
+    static constexpr int kMaxTaskNameLen = 15;
+
     std::mutex mThreadMutex;
     std::condition_variable mCv;
-    bool mExit GUARDED_BY(mThreadMutex) = false;
     bool mStop GUARDED_BY(mThreadMutex) = true;
+    bool mExit GUARDED_BY(mThreadMutex) = false;
     std::shared_ptr<EffectContext> mThreadContext GUARDED_BY(mThreadMutex);
+
+    struct EventFlagDeleter {
+        void operator()(::android::hardware::EventFlag* flag) const {
+            if (flag) {
+                ::android::hardware::EventFlag::deleteEventFlag(&flag);
+            }
+        }
+    };
+    std::unique_ptr<::android::hardware::EventFlag, EventFlagDeleter> mEfGroup;
     std::thread mThread;
     int mPriority;
     std::string mName;
-
-    RetCode handleStartStop(bool stop);
 };
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

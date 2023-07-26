@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <memory>
-#define LOG_TAG "AHAL_VolumeListener"
+#define LOG_TAG "AHAL_Effect_VolumeListener"
 
 #include <unordered_set>
 #include <Utils.h>
@@ -17,12 +17,12 @@
 using aidl::android::hardware::audio::effect::Descriptor;
 using aidl::android::hardware::audio::effect::IEffect;
 using aidl::android::hardware::audio::effect::State;
-using aidl::android::hardware::audio::effect::kMusicVolumeListenerUUID;
-using aidl::android::hardware::audio::effect::kRingVolumeListenerUUID;
-using aidl::android::hardware::audio::effect::kAlarmVolumeListenerUUID;
-using aidl::android::hardware::audio::effect::kVoiceCallVolumeListenerUUID;
-using aidl::android::hardware::audio::effect::kNotificationVolumeListenerUUID;
-using aidl::android::hardware::audio::effect::VolumeListener;
+using aidl::qti::effects::kMusicVolumeListenerUUID;
+using aidl::qti::effects::kRingVolumeListenerUUID;
+using aidl::qti::effects::kAlarmVolumeListenerUUID;
+using aidl::qti::effects::kVoiceCallVolumeListenerUUID;
+using aidl::qti::effects::kNotificationVolumeListenerUUID;
+using aidl::qti::effects::VolumeListener;
 using aidl::android::media::audio::common::AudioUuid;
 
 bool isUuidSupported(const AudioUuid* uuid) {
@@ -53,20 +53,20 @@ extern "C" binder_exception_t queryEffect(const AudioUuid* uuid, Descriptor* _ai
         return EX_ILLEGAL_ARGUMENT;
     }
     if (*uuid == kAlarmVolumeListenerUUID) {
-        *_aidl_return = aidl::android::hardware::audio::effect::kAlarmVolumeListenerDesc;
+        *_aidl_return = aidl::qti::effects::kAlarmVolumeListenerDesc;
     } else if (*uuid == kMusicVolumeListenerUUID) {
-        *_aidl_return = aidl::android::hardware::audio::effect::kMusicVolumeListenerDesc;
+        *_aidl_return = aidl::qti::effects::kMusicVolumeListenerDesc;
     } else if (*uuid == kNotificationVolumeListenerUUID) {
-        *_aidl_return = aidl::android::hardware::audio::effect::kNotificationVolumeListenerDesc;
+        *_aidl_return = aidl::qti::effects::kNotificationVolumeListenerDesc;
     } else if (*uuid == kVoiceCallVolumeListenerUUID) {
-        *_aidl_return = aidl::android::hardware::audio::effect::kVoiceCallVolumeListenerDesc;
+        *_aidl_return = aidl::qti::effects::kVoiceCallVolumeListenerDesc;
     } else if (*uuid == kRingVolumeListenerUUID) {
-        *_aidl_return = aidl::android::hardware::audio::effect::kRingVolumeListenerDesc;
+        *_aidl_return = aidl::qti::effects::kRingVolumeListenerDesc;
     }
     return EX_NONE;
 }
 
-namespace aidl::android::hardware::audio::effect {
+namespace aidl::qti::effects {
 
 VolumeListener::VolumeListener(const AudioUuid& uuid) {
     LOG(DEBUG) << __func__ << uuid.toString();
@@ -166,4 +166,4 @@ IEffect::Status VolumeListener::effectProcessImpl(float* in, float* out, int sam
     return {STATUS_OK, samples, samples};
 }
 
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

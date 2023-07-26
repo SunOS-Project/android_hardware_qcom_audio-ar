@@ -21,7 +21,14 @@
 extern "C" binder_exception_t destroyEffect(
         const std::shared_ptr<aidl::android::hardware::audio::effect::IEffect>& instanceSp);
 
-namespace aidl::android::hardware::audio::effect {
+using aidl::android::hardware::audio::effect::IEffect;
+using aidl::android::hardware::audio::effect::BnEffect;
+using aidl::android::hardware::audio::effect::Parameter;
+using aidl::android::hardware::audio::effect::CommandId;
+using aidl::android::hardware::audio::effect::Descriptor;
+using aidl::android::hardware::audio::effect::State;
+
+namespace aidl::qti::effects {
 
 class EffectImpl : public BnEffect, public EffectThread {
   public:
@@ -59,6 +66,8 @@ class EffectImpl : public BnEffect, public EffectThread {
     virtual std::shared_ptr<EffectContext> getContext() = 0;
     virtual RetCode releaseContext() = 0;
 
+    virtual ndk::ScopedAStatus addEffect(uint64_t *palHandle) { return ndk::ScopedAStatus::ok(); }
+    virtual ndk::ScopedAStatus removeEffect() {  return ndk::ScopedAStatus::ok();}
   protected:
     State mState = State::INIT;
 
@@ -74,4 +83,4 @@ class EffectImpl : public BnEffect, public EffectThread {
      */
     virtual ndk::ScopedAStatus commandImpl(CommandId id);
 };
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

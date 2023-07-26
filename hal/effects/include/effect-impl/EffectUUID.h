@@ -8,10 +8,19 @@
 #include <map>
 
 #include <aidl/android/media/audio/common/AudioUuid.h>
+#include <android-base/stringprintf.h>
 
-namespace aidl::android::hardware::audio::effect {
+namespace aidl::qti::effects {
 
 using ::aidl::android::media::audio::common::AudioUuid;
+
+
+static inline std::string toString(const AudioUuid& uuid) {
+  return ::android::base::StringPrintf(
+      "%08x-%04x-%04x-%04x-%02x%02x%02x%02x%02x%02x", uuid.timeLow,
+      uuid.timeMid, uuid.timeHiAndVersion, uuid.clockSeq, uuid.node[0],
+      uuid.node[1], uuid.node[2], uuid.node[3], uuid.node[4], uuid.node[5]);
+}
 
 // ec7178ec-e5e1-4432-a3f4-4657e6795210
 static const AudioUuid kEffectNullUuid = {static_cast<int32_t>(0xec7178ec),
@@ -373,16 +382,18 @@ static const AudioUuid kBassBoostOffloadQtiUUID = {static_cast<int32_t>(0x2c4a8c
 
 /* Offload Equalizer UUID: a0dac280-401c-11e3-9379-0002a5d5c51b */
 static const AudioUuid kEqualizerOffloadQtiUUID = {static_cast<int32_t>(0xa0dac280),
-                                                0x1581,
-                                                0x487f,
-                                                0x94f6,
+                                                0x401c,
+                                                0x11e3,
+                                                0x9379,
                                                 {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
 
 /* Offload virtualizer UUID: 2c4a8c24-1581-487f-94f6-0002a5d5c51b */
-static const AudioUuid kVirtualizerOffloadQtiUUID = {static_cast<int32_t>(0x2c4a8c24),
-                                                0x1581,
-                                                0x487f,
-                                                0x94f6,
+
+/* 509a4498-561a-4bea-b3b1-0002a5d5c51b*/
+static const AudioUuid kVirtualizerOffloadQtiUUID = {static_cast<int32_t>(0x509a4498),
+                                                0x561a,
+                                                0x4bea,
+                                                0xb3b1,
                                                 {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
 
 /* Offload auxiliary environmental reverb UUID: 79a18026-18fd-4185-8233-0002a5d5c51b */
@@ -443,6 +454,8 @@ static const std::map<const std::string /* effect type */, const AudioUuid&> kUu
         {"alarm_helper", kAlarmVolumeListenerUUID},
         {"ring_helper", kRingVolumeListenerUUID},
         {"notification_helper", kNotificationVolumeListenerUUID},
+        // {"audiosphere", kNotificationVolumeListenerUUID},
+        // {"quasar", kNotificationVolumeListenerUUID},
 };
 
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

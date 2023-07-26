@@ -16,7 +16,11 @@
 #include <aidl/android/hardware/audio/effect/BnFactory.h>
 #include "EffectConfig.h"
 
-namespace aidl::android::hardware::audio::effect {
+using aidl::android::hardware::audio::effect::IEffect;
+using aidl::android::hardware::audio::effect::BnFactory;
+using aidl::android::hardware::audio::effect::Descriptor;
+using aidl::android::hardware::audio::effect::Processing;
+namespace aidl::qti::effects {
 
 class Factory : public BnFactory {
   public:
@@ -95,11 +99,15 @@ class Factory : public BnFactory {
                            const std::string& path);
     void createIdentityWithConfig(
             const EffectConfig::LibraryUuid& configLib,
-            const ::aidl::android::media::audio::common::AudioUuid& typeUuid,
+            const ::aidl::android::media::audio::common::AudioUuid& typeUuidStr,
             const std::optional<::aidl::android::media::audio::common::AudioUuid> proxyUuid);
+
+    ndk::ScopedAStatus getDescriptorWithUuid(
+            const aidl::android::media::audio::common::AudioUuid& uuid, Descriptor* desc);
+
     void loadEffectLibs();
     /* Get effect_dl_interface_s from library handle */
     void getDlSyms(DlEntry& entry);
 };
 
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

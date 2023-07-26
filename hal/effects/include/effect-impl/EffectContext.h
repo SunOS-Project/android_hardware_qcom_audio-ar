@@ -3,20 +3,21 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-
 #pragma once
-#include <Utils.h>
 #include <memory>
 #include <vector>
 
+#include <Utils.h>
 #include <android-base/logging.h>
 #include <fmq/AidlMessageQueue.h>
 
 #include <aidl/android/hardware/audio/effect/BnEffect.h>
 #include "EffectTypes.h"
 
-namespace aidl::android::hardware::audio::effect {
+using aidl::android::hardware::audio::effect::IEffect;
+using aidl::android::hardware::audio::effect::Parameter;
 
+namespace aidl::qti::effects {
 class EffectContext {
   public:
     typedef ::android::AidlMessageQueue<
@@ -44,6 +45,7 @@ class EffectContext {
         size_t inBufferSizeInFloat = input.frameCount * mInputFrameSize / sizeof(float);
         size_t outBufferSizeInFloat = output.frameCount * mOutputFrameSize / sizeof(float);
 
+        // only status FMQ use the EventFlag
         mStatusMQ = std::make_shared<StatusMQ>(statusDepth, true /*configureEventFlagWord*/);
         mInputMQ = std::make_shared<DataMQ>(inBufferSizeInFloat);
         mOutputMQ = std::make_shared<DataMQ>(outBufferSizeInFloat);
@@ -140,4 +142,4 @@ class EffectContext {
     // work buffer set by effect instances, the access and update are in same thread
     std::vector<float> mWorkBuffer;
 };
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

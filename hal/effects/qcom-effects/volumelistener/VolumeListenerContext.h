@@ -15,7 +15,7 @@
 #define MAX_GAIN_LEVELS 5
 #define DEFAULT_CAL_STEP 0
 
-namespace aidl::android::hardware::audio::effect {
+namespace aidl::qti::effects {
 
 enum class VolumeListenerState {
     UNINITIALIZED,
@@ -60,7 +60,7 @@ private:
 
     VolumeListenerState mState;
     VolumeListenerType mType;
-    Parameter::VolumeStereo mVolumeStereo;
+    //Parameter::VolumeStereo mVolumeStereo;
     int mSessionId;
     // methods moved from Gain.cpp
 
@@ -69,4 +69,4 @@ private:
     void applyUpdatedCalibration(float newVolume);
 };
 
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects
