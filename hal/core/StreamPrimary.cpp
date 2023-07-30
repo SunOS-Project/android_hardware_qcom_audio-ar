@@ -10,8 +10,8 @@
 #include <android-base/logging.h>
 #include <audio_utils/clock.h>
 
-#include <aidlservice/Module.h>
-#include <aidlservice/StreamPrimary.h>
+#include <qti-audio-core/Module.h>
+#include <qti-audio-core/StreamPrimary.h>
 
 using aidl::android::hardware::audio::common::SinkMetadata;
 using aidl::android::hardware::audio::common::SourceMetadata;

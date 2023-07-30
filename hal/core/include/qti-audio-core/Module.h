@@ -11,8 +11,8 @@
 #include <memory>
 #include <set>
 
-#include <aidlservice/Stream.h>
-#include <aidlservice/ModuleConfig.h>
+#include <qti-audio-core/Stream.h>
+#include <qti-audio-core/ModuleConfig.h>
 #include <qti-audio-core/Platform.h>
 
 namespace qti::audio::core {

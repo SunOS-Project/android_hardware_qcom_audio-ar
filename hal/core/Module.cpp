@@ -14,13 +14,13 @@
 #include <aidl/android/media/audio/common/AudioInputFlags.h>
 #include <aidl/android/media/audio/common/AudioOutputFlags.h>
 
-#include <aidlservice/Bluetooth.h>
-#include <aidlservice/Module.h>
-#include <aidlservice/SoundDose.h>
-#include <aidlservice/StreamStub.h>
-#include <aidlservice/StreamPrimary.h>
-#include <aidlservice/Telephony.h>
-#include <utils/utils.h>
+#include <qti-audio-core/Bluetooth.h>
+#include <qti-audio-core/Module.h>
+#include <qti-audio-core/SoundDose.h>
+#include <qti-audio-core/StreamStub.h>
+#include <qti-audio-core/StreamPrimary.h>
+#include <qti-audio-core/Telephony.h>
+#include <qti-audio-core/utils.h>
 
 using aidl::android::hardware::audio::common::getFrameSizeInBytes;
 using aidl::android::hardware::audio::common::isBitPositionFlagSet;

@@ -32,7 +32,7 @@
 #include <variant>
 
 #include <Utils.h>
-#include <utils/utils.h>
+#include <qti-audio-core/utils.h>
 #include <qti-audio-core/Platform.h>
 
 

@@ -1,12 +1,12 @@
 
 cc_library_headers {
-    name: "audiohalutils_headers",
+    name: "qti_module_config_headers",
     vendor: true,
     export_include_dirs: ["include"],
 }
 
 cc_defaults {
-    name: "audiohalutils_defaults",
+    name: "qti_module_config_defaults",
     vendor: true,
     include_dirs: [
         "external/libxml2/include",
@@ -23,20 +23,20 @@ cc_defaults {
         "android.hardware.audio.core-V1-ndk",
     ],
     header_libs: [
-        "audiohalutils_headers",
+        "qti_module_config_headers",
         "libxsdc-utils",
         "libaudio_system_headers",
     ],
 }
 
 cc_library_static {
-    name: "libaudiohalutils",
+    name: "libaudio_module_config.qti",
     vendor: true,
     defaults: [
-        "audiohalutils_defaults",
+        "qti_module_config_defaults",
     ],
     srcs: [
-        "aidlservice/ModuleConfig.cpp",
+        "ModuleConfig.cpp",
     ],
     generated_headers: [
                         "audio_module_config_qti",
@@ -47,7 +47,7 @@ cc_library_static {
                         "audio_policy_engine_configuration",
                         ],
     export_header_lib_headers: [
-                                "audiohalutils_headers",
+                                "qti_module_config_headers",
                                 "libxsdc-utils",
                                 ],
     export_generated_headers: [

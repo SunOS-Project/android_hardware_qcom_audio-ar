@@ -20,15 +20,13 @@ LOCAL_VINTF_FRAGMENTS   := \
 
 LOCAL_SRC_FILES := \
     CoreService.cpp \
-    aidlservice/Bluetooth.cpp \
-    aidlservice/Module.cpp \
-    aidlservice/SoundDose.cpp \
-    aidlservice/Stream.cpp \
-    aidlservice/StreamStub.cpp \
-    aidlservice/StreamPrimary.cpp \
-    aidlservice/Telephony.cpp \
-    platform/PlatformBluetooth.cpp \
-    platform/PlatformVoice.cpp
+    Bluetooth.cpp \
+    Module.cpp \
+    SoundDose.cpp \
+    Stream.cpp \
+    StreamStub.cpp \
+    StreamPrimary.cpp \
+    Telephony.cpp
 
 LOCAL_HEADER_LIBRARIES :=  \
     libaudioclient_headers \
@@ -46,7 +44,7 @@ LOCAL_HEADER_LIBRARIES :=  \
 #    android.hardware.audio.core-V1-ndk
 
 LOCAL_STATIC_LIBRARIES := \
-            libaudiohalutils \
+            libaudio_module_config.qti \
             libaudiocore.extension \
             libaudioplatform.qti
 
@@ -79,3 +77,4 @@ LOCAL_SHARED_LIBRARIES := \
 include $(BUILD_SHARED_LIBRARY)
 
 include $(CURRENT_PATH)/extensions/Android.mk
+include $(CURRENT_PATH)/platform/Android.mk

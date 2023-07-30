@@ -8,7 +8,7 @@
 #include <android-base/logging.h>
 #include <android/binder_to_string.h>
 
-#include <aidlservice/Telephony.h>
+#include <qti-audio-core/Telephony.h>
 
 using aidl::android::hardware::audio::common::isValidAudioMode;
 using aidl::android::media::audio::common::AudioMode;

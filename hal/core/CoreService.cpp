@@ -5,7 +5,7 @@
 
 #define LOG_TAG "AHAL_CoreService"
 
-#include <aidlservice/Module.h>
+#include <qti-audio-core/Module.h>
 #include <android-base/logging.h>
 #include <android-base/properties.h>
 #include <android/binder_ibinder_platform.h>

@@ -6,7 +6,7 @@
 #define LOG_TAG "AHAL_Bluetooth"
 #include <android-base/logging.h>
 
-#include <aidlservice/Bluetooth.h>
+#include <qti-audio-core/Bluetooth.h>
 
 using aidl::android::hardware::audio::core::VendorParameter;
 using aidl::android::media::audio::common::Boolean;

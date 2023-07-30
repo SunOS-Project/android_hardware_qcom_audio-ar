@@ -22,7 +22,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include <aidlservice/ModuleConfig.h>
+#include <qti-audio-core/ModuleConfig.h>
 
 using ::aidl::android::hardware::audio::common::makeBitPositionFlagMask;
 using ::aidl::android::hardware::audio::core::AudioPatch;

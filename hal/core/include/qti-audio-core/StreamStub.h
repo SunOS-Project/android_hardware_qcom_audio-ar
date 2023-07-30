@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <aidlservice/Stream.h>
+#include <qti-audio-core/Stream.h>
 
 namespace qti::audio::core {
 

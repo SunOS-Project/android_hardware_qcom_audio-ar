@@ -10,8 +10,8 @@
 #include <android/binder_ibinder_platform.h>
 #include <utils/SystemClock.h>
 
-#include <aidlservice/Module.h>
-#include <aidlservice/Stream.h>
+#include <qti-audio-core/Module.h>
+#include <qti-audio-core/Stream.h>
 
 using aidl::android::hardware::audio::common::AudioOffloadMetadata;
 using aidl::android::hardware::audio::common::getChannelCount;

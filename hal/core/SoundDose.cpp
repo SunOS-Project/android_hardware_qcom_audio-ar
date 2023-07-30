@@ -5,7 +5,7 @@
 
 #define LOG_TAG "AHAL_SoundDose"
 
-#include <aidlservice/SoundDose.h>
+#include <qti-audio-core/SoundDose.h>
 #include <android-base/logging.h>
 
 namespace qti::audio::core {
