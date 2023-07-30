@@ -9,90 +9,52 @@
 
 namespace qti::audio::core {
 
-class DriverStub : public DriverInterface {
-   public:
-    DriverStub(const StreamContext& context, bool isInput);
+class StreamStub : public StreamCommonImpl {
+  public:
+      StreamStub(StreamContext* context, const Metadata& metadata);
+    // Methods of 'DriverInterface'.
     ::android::status_t init() override;
-    ::android::status_t setConnectedDevices(
-        const std::vector<::aidl::android::media::audio::common::AudioDevice>&
-            connectedDevices) override;
-    ::android::status_t drain(
-        ::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode)
-        override;
+    ::android::status_t drain(::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode) override;
     ::android::status_t flush() override;
     ::android::status_t pause() override;
-    ::android::status_t transfer(void* buffer, size_t frameCount,
-                                 size_t* actualFrameCount,
-                                 int32_t* latencyMs) override;
     ::android::status_t standby() override;
-    ::android::status_t close() override;
-    ::android::status_t prepareToClose() override;
-    ::android::status_t updateHwAvSyncId(int32_t in_hwAvSyncId) override;
-    ::android::status_t getVendorParameters(
-        const std::vector<std::string>& in_ids,
-        std::vector<::aidl::android::hardware::audio::core::VendorParameter>*
-            _aidl_return) override;
-    ::android::status_t setVendorParameters(
-        const std::vector<
-            ::aidl::android::hardware::audio::core::VendorParameter>&
-            in_parameters,
-        bool in_async) override;
-    ::android::status_t addEffect(
-        const std::shared_ptr<
-            ::aidl::android::hardware::audio::effect::IEffect>& in_effect)
-        override;
-    ::android::status_t removeEffect(
-        const std::shared_ptr<
-            ::aidl::android::hardware::audio::effect::IEffect>& in_effect)
-        override;
+    ::android::status_t start() override;
+    ::android::status_t transfer(void* buffer, size_t frameCount, size_t* actualFrameCount,
+                                 int32_t* latencyMs) override;
+    void shutdown() override;
 
-   private:
+  private:
     const size_t mFrameSizeBytes;
     const int mSampleRate;
     const bool mIsAsynchronous;
     const bool mIsInput;
+    bool mIsInitialized = false;  // Used for validating the state machine logic.
+    bool mIsStandby = true;       // Used for validating the state machine logic.
 };
 
-class StreamInStub final : public StreamIn {
-   public:
-    static ndk::ScopedAStatus createInstance(
-        const ::aidl::android::hardware::audio::common::SinkMetadata&
-            sinkMetadata,
-        StreamContext&& context,
-        const std::vector<
-            ::aidl::android::media::audio::common::MicrophoneInfo>& microphones,
-        std::shared_ptr<StreamIn>* result);
-
-   private:
+class StreamInStub final : public StreamIn, public StreamStub {
+  public:
     friend class ndk::SharedRefBase;
-    StreamInStub(const ::aidl::android::hardware::audio::common::SinkMetadata&
-                     sinkMetadata,
-                 StreamContext&& context,
-                 const std::vector<
-                     ::aidl::android::media::audio::common::MicrophoneInfo>&
-                     microphones);
+    StreamInStub(
+            StreamContext&& context,
+            const ::aidl::android::hardware::audio::common::SinkMetadata& sinkMetadata,
+            const std::vector<::aidl::android::media::audio::common::MicrophoneInfo>& microphones);
+
+  private:
+    void onClose() override { defaultOnClose(); }
 };
 
-class StreamOutStub final : public StreamOut {
-   public:
-    static ndk::ScopedAStatus createInstance(
-        const ::aidl::android::hardware::audio::common::SourceMetadata&
-            sourceMetadata,
-        StreamContext&& context,
-        const std::optional<
-            ::aidl::android::media::audio::common::AudioOffloadInfo>&
-            offloadInfo,
-        std::shared_ptr<StreamOut>* result);
-
-   private:
+class StreamOutStub final : public StreamOut, public StreamStub {
+  public:
     friend class ndk::SharedRefBase;
-    StreamOutStub(
-        const ::aidl::android::hardware::audio::common::SourceMetadata&
-            sourceMetadata,
-        StreamContext&& context,
-        const std::optional<
-            ::aidl::android::media::audio::common::AudioOffloadInfo>&
-            offloadInfo);
+    StreamOutStub(StreamContext&& context,
+                  const ::aidl::android::hardware::audio::common::SourceMetadata& sourceMetadata,
+                  const std::optional<::aidl::android::media::audio::common::AudioOffloadInfo>&
+                          offloadInfo);
+
+  private:
+    void onClose() override { defaultOnClose(); }
 };
+
 
 }  // namespace qti::audio::core

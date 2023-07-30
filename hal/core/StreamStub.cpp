@@ -21,43 +21,77 @@ using aidl::android::media::audio::common::MicrophoneInfo;
 
 namespace qti::audio::core {
 
-DriverStub::DriverStub(const StreamContext& context, bool isInput)
-    : mFrameSizeBytes(context.getFrameSize()),
-      mSampleRate(context.getSampleRate()),
-      mIsAsynchronous(!!context.getAsyncCallback()),
-      mIsInput(isInput) {}
+StreamStub::StreamStub(StreamContext* context, const Metadata& metadata)
+    : StreamCommonImpl(context, metadata),
+      mFrameSizeBytes(getContext().getFrameSize()),
+      mSampleRate(getContext().getSampleRate()),
+      mIsAsynchronous(!!getContext().getAsyncCallback()),
+      mIsInput(isInput(metadata)) {}
 
-::android::status_t DriverStub::init() {
+::android::status_t StreamStub::init() {
+    mIsInitialized = true;
     usleep(500);
     return ::android::OK;
 }
 
-::android::status_t DriverStub::drain(
-    ::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode) {
+::android::status_t StreamStub::drain(::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode) {
+    if (!mIsInitialized) {
+        LOG(FATAL) << __func__ << ": must not happen for an uninitialized driver";
+    }
     usleep(500);
     return ::android::OK;
 }
 
-::android::status_t DriverStub::flush() {
+::android::status_t StreamStub::flush() {
+    if (!mIsInitialized) {
+        LOG(FATAL) << __func__ << ": must not happen for an uninitialized driver";
+    }
     usleep(500);
     return ::android::OK;
 }
 
-::android::status_t DriverStub::pause() {
+::android::status_t StreamStub::pause() {
+    if (!mIsInitialized) {
+        LOG(FATAL) << __func__ << ": must not happen for an uninitialized driver";
+    }
     usleep(500);
     return ::android::OK;
 }
 
-::android::status_t DriverStub::transfer(void* buffer, size_t frameCount,
-                                         size_t* actualFrameCount,
+::android::status_t StreamStub::standby() {
+    if (!mIsInitialized) {
+        LOG(FATAL) << __func__ << ": must not happen for an uninitialized driver";
+    }
+    usleep(500);
+    mIsStandby = true;
+    return ::android::OK;
+}
+
+::android::status_t StreamStub::start() {
+    if (!mIsInitialized) {
+        LOG(FATAL) << __func__ << ": must not happen for an uninitialized driver";
+    }
+    usleep(500);
+    mIsStandby = false;
+    return ::android::OK;
+}
+
+
+::android::status_t StreamStub::transfer(void* buffer, size_t frameCount, size_t* actualFrameCount,
                                          int32_t* latencyMs) {
+    if (!mIsInitialized) {
+        LOG(FATAL) << __func__ << ": must not happen for an uninitialized driver";
+    }
+    if (mIsStandby) {
+        LOG(FATAL) << __func__ << ": must not happen while in standby";
+    }
     static constexpr float kMicrosPerSecond = MICROS_PER_SECOND;
     static constexpr float kScaleFactor = .8f;
     if (mIsAsynchronous) {
         usleep(500);
     } else {
-        const size_t delayUs = static_cast<size_t>(std::roundf(
-            kScaleFactor * frameCount * kMicrosPerSecond / mSampleRate));
+        const size_t delayUs = static_cast<size_t>(
+                std::roundf(kScaleFactor * frameCount * kMicrosPerSecond / mSampleRate));
         usleep(delayUs);
     }
     if (mIsInput) {
@@ -71,99 +105,18 @@ DriverStub::DriverStub(const StreamContext& context, bool isInput)
     return ::android::OK;
 }
 
-::android::status_t DriverStub::standby() {
-    usleep(500);
-    return ::android::OK;
+void StreamStub::shutdown() {
+    mIsInitialized = false;
 }
 
-::android::status_t DriverStub::setConnectedDevices(
-    const std::vector<AudioDevice>& connectedDevices __unused) {
-    usleep(500);
-    return ::android::OK;
-}
-
-::android::status_t DriverStub::close() { return 0; }
-::android::status_t DriverStub::prepareToClose() { return 0; }
-::android::status_t DriverStub::updateHwAvSyncId(int32_t in_hwAvSyncId) { return 0; }
-::android::status_t DriverStub::getVendorParameters(
-    const std::vector<std::string>& in_ids,
-    std::vector<::aidl::android::hardware::audio::core::VendorParameter>*
-        _aidl_return) {
-    return 0;
-}
-::android::status_t DriverStub::setVendorParameters(
-    const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
-        in_parameters,
-    bool in_async) {
-    return 0;
-}
-::android::status_t DriverStub::addEffect(
-    const std::shared_ptr<::aidl::android::hardware::audio::effect::IEffect>&
-        in_effect) {
-    return 0;
-}
-::android::status_t DriverStub::removeEffect(
-    const std::shared_ptr<::aidl::android::hardware::audio::effect::IEffect>&
-        in_effect) {
-    return 0;
-}
-
-// static
-ndk::ScopedAStatus StreamInStub::createInstance(
-    const SinkMetadata& sinkMetadata, StreamContext&& context,
-    const std::vector<MicrophoneInfo>& microphones,
-    std::shared_ptr<StreamIn>* result) {
-    std::shared_ptr<StreamIn> stream = ndk::SharedRefBase::make<StreamInStub>(
-        sinkMetadata, std::move(context), microphones);
-    if (auto status = initInstance(stream); !status.isOk()) {
-        return status;
-    }
-    *result = std::move(stream);
-    return ndk::ScopedAStatus::ok();
-}
-
-StreamInStub::StreamInStub(const SinkMetadata& sinkMetadata,
-                           StreamContext&& context,
+StreamInStub::StreamInStub(StreamContext&& context, const SinkMetadata& sinkMetadata,
                            const std::vector<MicrophoneInfo>& microphones)
-    : StreamIn(
-          sinkMetadata, std::move(context),
-          [](const StreamContext& ctx) -> DriverInterface* {
-              return new DriverStub(ctx, true /*isInput*/);
-          },
-          [](const StreamContext& ctx,
-             DriverInterface* driver) -> StreamWorkerInterface* {
-              // The default worker implementation is used.
-              return new StreamInWorker(ctx, driver);
-          },
-          microphones) {}
+    : StreamIn(std::move(context), microphones), StreamStub(&(StreamIn::mContext), sinkMetadata) {}
 
-// static
-ndk::ScopedAStatus StreamOutStub::createInstance(
-    const SourceMetadata& sourceMetadata, StreamContext&& context,
-    const std::optional<AudioOffloadInfo>& offloadInfo,
-    std::shared_ptr<StreamOut>* result) {
-    std::shared_ptr<StreamOut> stream = ndk::SharedRefBase::make<StreamOutStub>(
-        sourceMetadata, std::move(context), offloadInfo);
-    if (auto status = initInstance(stream); !status.isOk()) {
-        return status;
-    }
-    *result = std::move(stream);
-    return ndk::ScopedAStatus::ok();
-}
-
-StreamOutStub::StreamOutStub(const SourceMetadata& sourceMetadata,
-                             StreamContext&& context,
+StreamOutStub::StreamOutStub(StreamContext&& context, const SourceMetadata& sourceMetadata,
                              const std::optional<AudioOffloadInfo>& offloadInfo)
-    : StreamOut(
-          sourceMetadata, std::move(context),
-          [](const StreamContext& ctx) -> DriverInterface* {
-              return new DriverStub(ctx, false /*isInput*/);
-          },
-          [](const StreamContext& ctx,
-             DriverInterface* driver) -> StreamWorkerInterface* {
-              // The default worker implementation is used.
-              return new StreamOutWorker(ctx, driver);
-          },
-          offloadInfo) {}
+    : StreamOut(std::move(context), offloadInfo),
+      StreamStub(&(StreamOut::mContext), sourceMetadata) {}
+
 
 }  // namespace qti::audio::core

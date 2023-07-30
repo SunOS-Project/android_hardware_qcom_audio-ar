@@ -13,6 +13,11 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
     <version>1</version>
     <fqname>IModule/r_submix</fqname>
   </hal>
+  <!-- <hal format="aidl">
+    <name>android.hardware.audio.core</name>
+    <version>1</version>
+    <fqname>IModule/stub</fqname>
+  </hal> -->
   <hal format="aidl">
     <name>android.hardware.audio.core</name>
     <version>1</version>
@@ -23,9 +28,9 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
     <version>1</version>
     <fqname>IConfig/default</fqname>
   </hal>
-  <hal format="aidl">
+  <!-- <hal format="aidl">
     <name>android.media.audio</name>
     <version>1</version>
     <fqname>IHalAdapterVendorExtension/default</fqname>
-  </hal>
+  </hal> -->
 </manifest>

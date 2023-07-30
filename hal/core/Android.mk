@@ -22,18 +22,21 @@ LOCAL_SRC_FILES := \
     CoreService.cpp \
     Bluetooth.cpp \
     Module.cpp \
+    ModulePrimary.cpp \
+    ModuleStub.cpp \
     SoundDose.cpp \
     Stream.cpp \
     StreamStub.cpp \
-    StreamPrimary.cpp \
     Telephony.cpp
 
+#     StreamPrimary.cpp \
+
 LOCAL_HEADER_LIBRARIES :=  \
+    liberror_headers \
     libaudioclient_headers \
     libaudio_system_headers \
-    audiohalutils_headers \
-    libmedia_helper_headers \
-    libexpectedutils_headers
+    libmedia_helper_headers
+
 
 #    defaults: [
 #        "latest_android_media_audio_common_types_ndk_shared",
@@ -44,9 +47,9 @@ LOCAL_HEADER_LIBRARIES :=  \
 #    android.hardware.audio.core-V1-ndk
 
 LOCAL_STATIC_LIBRARIES := \
-            libaudio_module_config.qti \
-            libaudiocore.extension \
-            libaudioplatform.qti
+    libaudio_module_config.qti \
+    libaudiocore.extension \
+    libaudioplatform.qti
 
 LOCAL_WHOLE_STATIC_LIBRARIES := \
             libaudiocore_vendor_extension.qti
