@@ -26,9 +26,9 @@ auto registerBinderAsService = [](auto&& binder,
     binder_exception_t status =
         AServiceManager_addService(binder.get(), serviceName.c_str());
     if (status != EX_NONE) {
-        LOG(FATAL) << __func__ << " failed to register " << serviceName
-                   << "ret:" << status;
-        CHECK_EQ(1, 0);
+        LOG(ERROR) << __func__ << " failed to register " << serviceName
+                   << " ret:" << status;
+        // CHECK_EQ(1, 0);
     }
 };
 
@@ -90,7 +90,7 @@ void registerIConfigAosp() {
     registerBinderAsService(gConfigDefaultAosp->asBinder(), kServiceName);
 }
 
-std::shared_ptr<::qti::audio::core::Module> gModuleDefaultQti;
+std::shared_ptr<::qti::audio::core::ModulePrimary> gModuleDefaultQti;
 void registerIModuleDefaultQti() {
     gModuleDefaultQti =
         ndk::SharedRefBase::make<::qti::audio::core::ModulePrimary>();
@@ -119,7 +119,7 @@ extern "C" __attribute__((visibility("default"))) int32_t registerServices() {
     if (kDefaultModule == "aosp") {
         ::registerIModuleDefaultAosp();
     } else {
-        // ::registerIHalAdapterVendorExtension();
+        ::registerIHalAdapterVendorExtension();
         ::registerIModuleDefaultQti();
     }
 

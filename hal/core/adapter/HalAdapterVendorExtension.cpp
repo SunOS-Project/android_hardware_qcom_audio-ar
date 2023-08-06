@@ -3,13 +3,17 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_NDEBUG 0
-#define LOG_TAG "HalAdapterVendorExtension"
+#define LOG_TAG "QHAVExt"
 
+#include <qti-audio-core/HalAdapterVendorExtension.h>
 #include <aidl/android/media/audio/common/Boolean.h>
 #include <aidl/android/media/audio/common/Int.h>
 #include <android-base/logging.h>
-#include <qti-audio-core/HalAdapterVendorExtension.h>
+
+#include <android/binder_ibinder_platform.h>
+#include <android/binder_manager.h>
+#include <android/binder_process.h>
+#include <system/thread_defs.h>
 
 namespace qti::audio::core {
 
@@ -178,3 +182,28 @@ HalAdapterVendorExtension::parseBluetoothLeReconfigureOffload(
 }
 
 }  // namespace qti::audio::core
+
+
+/**
+ * in case, if someone want to dlopen this library and
+ * register this as AIDL service.
+ **/
+static std::shared_ptr<::qti::audio::core::HalAdapterVendorExtension>
+    gHalAdapterVendorExtension;
+
+extern "C" __attribute__((visibility("default"))) void registerIHAVE() {
+    gHalAdapterVendorExtension = ndk::SharedRefBase::make<
+        ::qti::audio::core::HalAdapterVendorExtension>();
+    const auto kServiceName =
+        std::string(gHalAdapterVendorExtension->descriptor)
+            .append("/")
+            .append("default");
+    AIBinder_setMinSchedulerPolicy(gHalAdapterVendorExtension->asBinder().get(),
+                                   SCHED_NORMAL, ANDROID_PRIORITY_AUDIO);
+    binder_exception_t status = AServiceManager_addService(
+        gHalAdapterVendorExtension->asBinder().get(), kServiceName.c_str());
+    if (status != EX_NONE) {
+        LOG(ERROR) << __func__ << " failed to register " << kServiceName
+                   << " ret:" << status;
+    }
+}

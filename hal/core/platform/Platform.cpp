@@ -7,6 +7,7 @@
 #define LOG_TAG "AHAL_Platform"
 
 #include <qti-audio-core/Platform.h>
+#include <qti-audio-core/AudioUsecase.h>
 #include <Utils.h>
 #include <android-base/logging.h>
 
@@ -34,18 +35,18 @@ namespace qti::audio::core {
 size_t Platform::getIOBufferSizeInFrames(
     const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig)
     const {
-    AudioUsecase::Tag tag = AudioUsecase::getUsecaseTag(mixPortConfig);
+    Usecase tag = getUsecaseTag(mixPortConfig);
     size_t numFrames = 0;
-    if (tag == AudioUsecase::Tag::DEEP_BUFFER_PLAYBACK) {
+    if (tag == Usecase::DEEP_BUFFER_PLAYBACK) {
         numFrames = DeepBufferPlayback::kPeriodSize;
-    } else if (tag == AudioUsecase::Tag::LOW_LATENCY_PLAYBACK) {
+    } else if (tag == Usecase::LOW_LATENCY_PLAYBACK) {
         numFrames = LowLatencyPlayback::kPeriodSize;
-    } else if (tag == AudioUsecase::Tag::PCM_RECORD) {
+    } else if (tag == Usecase::PCM_RECORD) {
         constexpr size_t kMillisPerSecond = 1000;
         numFrames = (PcmRecord::kCaptureDurationMs *
                      mixPortConfig.sampleRate.value().value) /
                     kMillisPerSecond;
-    } else if (tag == AudioUsecase::Tag::COMPRESS_OFFLOAD_PLAYBACK) {
+    } else if (tag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         const size_t numBytes =
             CompressPlayback::getPeriodBufferSize(mixPortConfig.format.value());
         constexpr size_t compressFrameSize = 1;
@@ -53,7 +54,7 @@ size_t Platform::getIOBufferSizeInFrames(
     }
     LOG(VERBOSE) << __func__
                  << " IOBufferSizeInFrames:" << std::to_string(numFrames)
-                 << " for " << AudioUsecase::getName(tag);
+                 << " for " << getName(tag);
     return numFrames;
 }
 
@@ -117,6 +118,12 @@ std::unique_ptr<pal_stream_attributes> Platform::getPalStreamAttributes(
         attributes->in_media_config.bit_width =
             mTypeConverter.getBitWidthForAidlPCM(audioFormat);
     }
+
+    if (attributes->out_media_config.bit_width == 0) {
+        constexpr uint32_t kDefaultCodecBitWidth = 16;
+        attributes->out_media_config.bit_width = kDefaultCodecBitWidth;
+    }
+
     return std::move(attributes);
 }
 

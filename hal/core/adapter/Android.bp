@@ -1,28 +1,4 @@
 aidl_interface {
-    name: "av-audio-types-aidl",
-    unstable: true,
-    host_supported: true,
-    vendor_available: true,
-    double_loadable: true,
-    local_include_dir: "aidl",
-    srcs: [
-        "aidl/android/media/audio/IHalAdapterVendorExtension.aidl",
-    ],
-    imports: [
-        "android.hardware.audio.core-V1",
-    ],
-    backend: {
-        // The C++ backend is disabled transitively due to use of FMQ by the audio core HAL.
-        cpp: {
-            enabled: false,
-        },
-        java: {
-            sdk_version: "module_current",
-        },
-    },
-}
-
-aidl_interface {
     name: "qti-audio-types-aidl",
     unstable: true,
     host_supported: true,
@@ -44,8 +20,7 @@ aidl_interface {
 }
 
 cc_library {
-
-    name: "libaudiocore_vendor_extension.qti",
+    name: "libaudio_have.qti",
     vendor: true,
     owner: "qti",
     srcs: ["HalAdapterVendorExtension.cpp"],
@@ -55,6 +30,10 @@ cc_library {
                         ],
 
     cppflags: ["-fexceptions"],
+
+    header_libs: [
+        "libsystem_headers",
+    ],
 
     shared_libs: [
         "av-audio-types-aidl-ndk",

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL_Stream"
+#define LOG_TAG "AHAL_QStream"
 #include <Utils.h>
 
 #include <android-base/logging.h>
@@ -114,10 +114,12 @@ void StreamWorkerCommonLogic::populateReply(StreamDescriptor::Reply* reply,
     if (isConnected) {
         reply->observable.frames = mContext->getFrameCount();
         reply->observable.timeNs = ::android::elapsedRealtimeNano();
-        if (auto status = mDriver->getPosition(&reply->observable); status == ::android::OK) {
+        if (auto status = mDriver->refinePosition(&reply->observable);
+            status == ::android::OK) {
             return;
         }
     }
+    LOG(ERROR) << __func__ << "unconnected reply status as unknown ";
     reply->observable.frames = StreamDescriptor::Position::UNKNOWN;
     reply->observable.timeNs = StreamDescriptor::Position::UNKNOWN;
 }
@@ -392,6 +394,7 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
     using Tag = StreamDescriptor::Command::Tag;
     switch (command.getTag()) {
         case Tag::halReservedExit:
+            LOG(VERBOSE) << __func__<< ": halReservedExit command received";
             if (const int32_t cookie = command.get<Tag::halReservedExit>();
                 cookie == mContext->getInternalCommandCookie()) {
                 mDriver->shutdown();
@@ -404,9 +407,11 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
             }
             break;
         case Tag::getStatus:
+            LOG(VERBOSE) << __func__<< ": getStatus command received";
             populateReply(&reply, mIsConnected);
             break;
         case Tag::start: {
+            LOG(VERBOSE) << __func__<< ": start command received";
             std::optional<StreamDescriptor::State> nextState;
             switch (mState) {
                 case StreamDescriptor::State::STANDBY:
@@ -440,6 +445,7 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
             }
         } break;
         case Tag::burst:
+            LOG(VERBOSE) << __func__<< ": burst command received";
             if (const int32_t fmqByteCount = command.get<Tag::burst>();
                 fmqByteCount >= 0) {
                 LOG(VERBOSE) << __func__ << ": '" << toString(command.getTag())
@@ -480,6 +486,7 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
             }
             break;
         case Tag::drain:
+            LOG(VERBOSE) << __func__<< ": drain command received";
             if (const auto mode = command.get<Tag::drain>();
                 mode == StreamDescriptor::DrainMode::DRAIN_ALL ||
                 mode == StreamDescriptor::DrainMode::DRAIN_EARLY_NOTIFY) {
@@ -511,6 +518,7 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
             }
             break;
         case Tag::standby:
+            LOG(VERBOSE) << __func__<< ": standy command received";
             if (mState == StreamDescriptor::State::IDLE) {
                 if (::android::status_t status = mDriver->standby();
                     status == ::android::OK) {
@@ -525,6 +533,7 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
             }
             break;
         case Tag::pause: {
+            LOG(VERBOSE) << __func__<< ": pause command received";
             std::optional<StreamDescriptor::State> nextState;
             switch (mState) {
                 case StreamDescriptor::State::ACTIVE:
@@ -551,6 +560,7 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
             }
         } break;
         case Tag::flush:
+            LOG(VERBOSE) << __func__<< ": flush command received";
             if (mState == StreamDescriptor::State::PAUSED ||
                 mState == StreamDescriptor::State::DRAIN_PAUSED ||
                 mState == StreamDescriptor::State::TRANSFER_PAUSED) {
@@ -720,11 +730,11 @@ ndk::ScopedAStatus StreamCommonImpl::prepareToClose() {
 }
 
 void StreamCommonImpl::stopWorker() {
-    if (auto commandMQ = mContext.getCommandMQ(); commandMQ != nullptr) {
+    if (auto commandMQ = mContextRef.getCommandMQ(); commandMQ != nullptr) {
         LOG(DEBUG) << __func__ << ": asking the worker to exit...";
         auto cmd = StreamDescriptor::Command::make<
             StreamDescriptor::Command::Tag::halReservedExit>(
-            mContext.getInternalCommandCookie());
+            mContextRef.getInternalCommandCookie());
         // Note: never call 'pause' and 'resume' methods of StreamWorker
         // in the HAL implementation. These methods are to be used by
         // the client side only. Preventing the worker loop from running

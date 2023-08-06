@@ -16,7 +16,7 @@
 
 #include <vector>
 
-#define LOG_TAG "AHAL_ModuleStub"
+#define LOG_TAG "AHAL_QModuleStub"
 #include <Utils.h>
 #include <android-base/logging.h>
 

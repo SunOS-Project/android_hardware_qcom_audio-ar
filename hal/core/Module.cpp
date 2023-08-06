@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <set>
 
-#define LOG_TAG "AHAL_Module"
+#define LOG_TAG "AHAL_QModule"
 
 #include <Utils.h>
 #include <aidl/android/media/audio/common/AudioInputFlags.h>
@@ -428,6 +428,14 @@ ndk::ScopedAStatus Module::getBluetoothLe(std::shared_ptr<::aidl::android::hardw
     return ndk::ScopedAStatus::ok();
 }
 
+std::vector<::aidl::android::media::audio::common::AudioProfile>
+Module::getDynamicProfiles(
+    const ::aidl::android::media::audio::common::AudioPort& audioPort) {
+    LOG(INFO) << __func__ << " no-op implementation for "
+              << audioPort.toString();
+    return {};
+}
+
 ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdAndAdditionalData,
                                                  AudioPort* _aidl_return) {
     const int32_t templateId = in_templateIdAndAdditionalData.id;
@@ -477,17 +485,10 @@ ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdA
 
     if (!mDebug.simulateDeviceConnections) {
         RETURN_STATUS_IF_ERROR(populateConnectedDevicePort(&connectedPort,templateId));
-        if (mPlatform.isUsbDevice(in_templateIdAndAdditionalData.ext
-                                      .get<AudioPortExt::Tag::device>()
-                                      .device)) {
-            /* As of now, only for usb devices, real time fetching dynamic
-             profiles. */
-            const auto& dynamicProfiles =
-                mPlatform.getDynamicProfiles(in_templateIdAndAdditionalData);
-            dynamicProfiles.size() != 0
+        const auto& dynamicProfiles = getDynamicProfiles(in_templateIdAndAdditionalData);
+        dynamicProfiles.size() != 0
                 ? (void)(connectedPort.profiles = dynamicProfiles)
                 : (void)0;
-        }
     } else {
         auto& connectedProfiles = getConfig().connectedProfiles;
         if (auto connectedProfilesIt = connectedProfiles.find(templateId);
@@ -867,10 +868,8 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
 void Module::onNewPatchCreation(const std::vector<AudioPortConfig*>& sources,
                                 const std::vector<AudioPortConfig*>& sinks,
                                 AudioPatch& newPatch) {
-    auto numFrames = mPlatform.getMinimumStreamSizeFrames(
-        sources, sinks);
-    numFrames != 0 ? (void)(newPatch.minimumStreamBufferSizeFrames = numFrames)
-                   : (void)0;
+    LOG(INFO) << __func__ << " no-op implementation " << newPatch.toString();
+    return;
 }
 
 ndk::ScopedAStatus Module::setAudioPortConfig(const AudioPortConfig& in_requested,
@@ -1383,12 +1382,10 @@ ndk::ScopedAStatus Module::checkAudioPatchEndpointsMatch(
 void Module::onExternalDeviceConnectionChanged(
     const ::aidl::android::media::audio::common::AudioPort& audioPort,
     bool connected) {
-    if (!mPlatform.handleDeviceConnectionChange(audioPort, connected)) {
-        LOG(WARNING) << __func__
-                     << " failed to handle device connection change:"
-                     << (connected ? " connect" : "disconnect") << " for "
-                     << audioPort.toString();
-    }
+    LOG(INFO) << __func__ << " no-op implementation"
+              << (connected ? " connect" : "disconnect") << " for "
+              << audioPort.toString();
+    return;
 }
 
 ndk::ScopedAStatus Module::onMasterMuteChanged(bool mute __unused) {
@@ -1399,51 +1396,6 @@ ndk::ScopedAStatus Module::onMasterMuteChanged(bool mute __unused) {
 ndk::ScopedAStatus Module::onMasterVolumeChanged(float volume __unused) {
     LOG(VERBOSE) << __func__ << ": do nothing and return ok";
     return ndk::ScopedAStatus::ok();
-}
-
-std::string Module::toStringInternal() {
-    std::ostringstream os;
-    os << "--- Module start ---" << std::endl;
-    os << getConfig().toString() << std::endl;
-    os << mPlatform.toString() << std::endl;
-    os << "--- Module end ---" << std::endl;
-    return os.str();
-}
-
-void Module::dumpInternal() {
-    const std::string kDumpPath{"/data/vendor/audio/audio_hal_service.dump"};
-
-    auto fd = ::open(kDumpPath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
-                     S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-    if (fd <= 0) {
-        LOG(ERROR) << ": dump internal failed; fd:" << fd
-                   << " unable to open file:" << kDumpPath;
-        return;
-    }
-    auto dumpData = toStringInternal();
-    auto b = ::write(fd, dumpData.c_str(), dumpData.size());
-    if (b != static_cast<decltype(b)>(dumpData.size())) {
-        LOG(ERROR) << __func__ << ": dump internal failed to write in "
-                   << kDumpPath;
-    }
-    LOG(INFO) << "dump internal successful to " << kDumpPath;
-    ::close(fd);
-    return;
-}
-
-binder_status_t Module::dump(int fd, const char** args, uint32_t numArgs) {
-    if (fd <= 0) {
-        LOG(ERROR) << ": fd:" << fd << " dump error";
-        return -EINVAL;
-    }
-    auto dumpData = toStringInternal();
-    auto b = ::write(fd, dumpData.c_str(), dumpData.size());
-    if (b != static_cast<decltype(b)>(dumpData.size())) {
-        LOG(ERROR) << __func__ << " write error in dump";
-        return -EIO;
-    }
-    LOG(INFO) << "dump success";
-    return 0;
 }
 
 }  // namespace aidl::android::hardware::audio::core

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL_SoundDose"
+#define LOG_TAG "AHAL_QSoundDose"
 
 #include <qti-audio-core/SoundDose.h>
 #include <android-base/logging.h>

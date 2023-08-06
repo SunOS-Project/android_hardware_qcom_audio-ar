@@ -217,10 +217,10 @@ struct DriverInterface {
     virtual ::android::status_t transfer(void* buffer, size_t frameCount,
                                          size_t* actualFrameCount,
                                          int32_t* latencyMs) = 0;
-    // No need to implement 'getPosition' unless the driver can provide more precise
+    // No need to implement 'refinePosition' unless the driver can provide more precise
     // data than just total frame count. For example, the driver may correctly account
     // for any intermediate buffers.
-    virtual ::android::status_t getPosition(::aidl::android::hardware::audio::core::StreamDescriptor::Position* /*position*/) {
+    virtual ::android::status_t refinePosition(::aidl::android::hardware::audio::core::StreamDescriptor::Position* /*position*/) {
         return ::android::OK;
     }
     // This function is only called once.
@@ -387,12 +387,14 @@ struct StreamCommonInterface {
     virtual ndk::ScopedAStatus removeEffect(
         const std::shared_ptr<
             ::aidl::android::hardware::audio::effect::IEffect>& in_effect) = 0;
+
      // Methods below are common for both 'IStreamIn' and 'IStreamOut'. Note that
     // 'updateMetadata' in them uses an individual structure which is wrapped here.
     // The 'Common' suffix is added to distinguish them from the methods from 'IStreamIn/Out'.
     virtual ndk::ScopedAStatus getStreamCommonCommon(
             std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCommon>* _aidl_return) = 0;
     virtual ndk::ScopedAStatus updateMetadataCommon(const Metadata& metadata) = 0;
+
     // Methods below are called by implementation of 'IModule', 'IStreamIn' and 'IStreamOut'.
     virtual ndk::ScopedAStatus initInstance(
             const std::shared_ptr<StreamCommonInterface>& delegate) = 0;
@@ -483,12 +485,12 @@ class StreamCommonImpl : virtual public StreamCommonInterface, virtual public Dr
   public:
     StreamCommonImpl(StreamContext* context, const Metadata& metadata,
                      const StreamWorkerInterface::CreateInstance& createWorker)
-        : mContext(*context), mMetadata(metadata), mWorker(createWorker(context, this)) {}
+        : mContextRef(*context), mMetadata(metadata), mWorker(createWorker(context, this)) {}
     StreamCommonImpl(StreamContext* context, const Metadata& metadata)
         : StreamCommonImpl(
                   context, metadata,
                   isInput(metadata) ? getDefaultInWorkerCreator() : getDefaultOutWorkerCreator()) {}
-    ~StreamCommonImpl();
+    virtual ~StreamCommonImpl();
     ndk::ScopedAStatus close() override;
     ndk::ScopedAStatus prepareToClose() override;
     ndk::ScopedAStatus updateHwAvSyncId(int32_t in_hwAvSyncId) override;
@@ -515,7 +517,7 @@ class StreamCommonImpl : virtual public StreamCommonInterface, virtual public Dr
 
     ndk::ScopedAStatus initInstance(
             const std::shared_ptr<StreamCommonInterface>& delegate) override;
-    const StreamContext& getContext() const override { return mContext; }
+    const StreamContext& getContext() const override { return mContextRef; }
     bool isClosed() const override { return mWorker->isClosed(); }
     const ConnectedDevices& getConnectedDevices() const override { return mConnectedDevices; }
     ndk::ScopedAStatus setConnectedDevices(
@@ -536,7 +538,7 @@ class StreamCommonImpl : virtual public StreamCommonInterface, virtual public Dr
     virtual void onClose() = 0;
     void stopWorker();
 
-    const StreamContext& mContext;
+    const StreamContext& mContextRef;
     Metadata mMetadata;
     std::unique_ptr<StreamWorkerInterface> mWorker;
     ChildInterface<StreamCommonDelegator> mCommon;
@@ -546,6 +548,8 @@ class StreamCommonImpl : virtual public StreamCommonInterface, virtual public Dr
 // Note: 'StreamIn/Out' can not be used on their own. Instead, they must be used for defining
 // concrete input/output stream implementations.
 class StreamIn : virtual public StreamCommonInterface, public ::aidl::android::hardware::audio::core::BnStreamIn {
+  public:
+    virtual ~StreamIn() = default;
   protected:
     void defaultOnClose();
 
@@ -583,6 +587,8 @@ class StreamIn : virtual public StreamCommonInterface, public ::aidl::android::h
 };
 
 class StreamOut : virtual public StreamCommonInterface, public ::aidl::android::hardware::audio::core::BnStreamOut {
+  public:
+virtual ~StreamOut() = default;
   protected:
     void defaultOnClose();
     ndk::ScopedAStatus getStreamCommon(std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCommon>* _aidl_return) override {

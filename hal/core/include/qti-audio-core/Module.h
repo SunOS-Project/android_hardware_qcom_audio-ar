@@ -15,7 +15,7 @@
 #include <qti-audio-core/ChildInterface.h>
 #include <qti-audio-core/Stream.h>
 #include <qti-audio-core/ModuleConfig.h>
-#include <qti-audio-core/Platform.h>
+
 
 namespace qti::audio::core {
 
@@ -132,7 +132,6 @@ protected:
     ndk::ScopedAStatus getAAudioMixerBurstCount(int32_t* _aidl_return) override;
     ndk::ScopedAStatus getAAudioHardwareBurstMinUsec(
         int32_t* _aidl_return) override;
-    binder_status_t dump(int fd, const char** args, uint32_t numArgs) override;
 
 
 
@@ -141,7 +140,7 @@ protected:
     // The maximum stream buffer size is 1 GiB = 2 ** 30 bytes;
     static constexpr int32_t kMaximumStreamBufferSizeBytes = 1 << 30;
 
-    private:
+    protected:
     struct VendorDebug {
         static const std::string kForceTransientBurstName;
         static const std::string kForceSynchronousDrainName;
@@ -185,6 +184,16 @@ protected:
             const std::optional<::aidl::android::media::audio::common::AudioOffloadInfo>&
                     offloadInfo,
             std::shared_ptr<StreamOut>* result) = 0;
+    virtual std::vector<::aidl::android::media::audio::common::AudioProfile>
+    getDynamicProfiles(
+        const ::aidl::android::media::audio::common::AudioPort& audioPort);
+
+    virtual void onNewPatchCreation(
+        const std::vector<
+            ::aidl::android::media::audio::common::AudioPortConfig*>& sources,
+        const std::vector<
+            ::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
+        ::aidl::android::hardware::audio::core::AudioPatch& newPatch);
 
     // If the module is unable to populate the connected device port correctly,
     // the returned error code must correspond to the errors of
@@ -206,12 +215,6 @@ protected:
     virtual ndk::ScopedAStatus onMasterMuteChanged(bool mute);
     virtual ndk::ScopedAStatus onMasterVolumeChanged(float volume);
     virtual std::unique_ptr<ModuleConfig> initializeConfig();
-    void onNewPatchCreation(
-        const std::vector<
-            ::aidl::android::media::audio::common::AudioPortConfig*>& sources,
-        const std::vector<
-            ::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
-        ::aidl::android::hardware::audio::core::AudioPatch& newPatch);
 
     // Utility and helper functions accessible to subclasses.
     void cleanUpPatch(int32_t patchId);
@@ -238,12 +241,6 @@ protected:
     std::set<int32_t> portIdsFromPortConfigIds(C portConfigIds);
     void registerPatch(const ::aidl::android::hardware::audio::core::AudioPatch& patch);
     ndk::ScopedAStatus updateStreamsConnectedState(const ::aidl::android::hardware::audio::core::AudioPatch& oldPatch, const ::aidl::android::hardware::audio::core::AudioPatch& newPatch);
-
-    Platform& mPlatform{Platform::getInstance()};
-
-   public:
-    std::string toStringInternal();
-    void dumpInternal() ;
 };
 
 std::ostream& operator<<(std::ostream& os, Module::Type t);

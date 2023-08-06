@@ -12,10 +12,10 @@ LOCAL_EXPORT_C_INCLUDE_DIRS   := $(LOCAL_PATH)/include
 LOCAL_SRC_FILES := \
     PlatformConverter.cpp \
     Platform.cpp \
-    AudioUsecase.cpp \
-    AudioUsecaseExt.cpp
+    AudioUsecase.cpp
 
 LOCAL_SHARED_LIBRARIES := \
+    libbinder_ndk \
     libbase \
     libstagefright_foundation \
     android.hardware.audio.core-V1-ndk \

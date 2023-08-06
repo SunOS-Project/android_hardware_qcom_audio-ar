@@ -5,7 +5,7 @@
 
 #include <cmath>
 
-#define LOG_TAG "AHAL_Stream"
+#define LOG_TAG "AHAL_QStreamStub"
 
 #include <android-base/logging.h>
 #include <audio_utils/clock.h>

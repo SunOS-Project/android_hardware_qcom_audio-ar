@@ -27,9 +27,9 @@ LOCAL_SRC_FILES := \
     SoundDose.cpp \
     Stream.cpp \
     StreamStub.cpp \
-    Telephony.cpp
-
-#     StreamPrimary.cpp \
+    Telephony.cpp \
+    StreamInPrimary.cpp \
+    StreamOutPrimary.cpp
 
 LOCAL_HEADER_LIBRARIES :=  \
     liberror_headers \
@@ -48,11 +48,11 @@ LOCAL_HEADER_LIBRARIES :=  \
 
 LOCAL_STATIC_LIBRARIES := \
     libaudio_module_config.qti \
-    libaudiocore.extension \
-    libaudioplatform.qti
+    libaudiocore.extension
 
 LOCAL_WHOLE_STATIC_LIBRARIES := \
-            libaudiocore_vendor_extension.qti
+    libaudio_have.qti \
+    libaudioplatform.qti
 
 LOCAL_SHARED_LIBRARIES := \
     libaudioaidlcommon \

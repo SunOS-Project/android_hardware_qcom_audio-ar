@@ -12,7 +12,6 @@
 
 
 #include <qti-audio-core/PlatformConverter.h>
-#include <qti-audio-core/AudioUsecase.h>
 #include <PalApi.h>
 
 namespace qti::audio::core {
