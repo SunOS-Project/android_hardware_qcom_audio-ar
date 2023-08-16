@@ -51,7 +51,6 @@ LOCAL_STATIC_LIBRARIES := \
     libaudiocore.extension
 
 LOCAL_WHOLE_STATIC_LIBRARIES := \
-    libaudio_have.qti \
     libaudioplatform.qti
 
 LOCAL_SHARED_LIBRARIES := \
@@ -75,7 +74,8 @@ LOCAL_SHARED_LIBRARIES := \
     android.hardware.audio.core-V1-ndk \
     android.hardware.audio.core.sounddose-V1-ndk \
     libar-pal \
-    libaudioserviceexampleimpl
+    libaudioserviceexampleimpl \
+    qti-audio-types-aidl-ndk
 
 include $(BUILD_SHARED_LIBRARY)
 

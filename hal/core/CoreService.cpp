@@ -12,7 +12,6 @@
 #include <android/binder_process.h>
 #include <core-impl/Config.h>
 #include <core-impl/ModuleUsb.h>
-#include <qti-audio-core/HalAdapterVendorExtension.h>
 #include <qti-audio-core/Module.h>
 #include <qti-audio-core/ModulePrimary.h>
 
@@ -31,19 +30,6 @@ auto registerBinderAsService = [](auto&& binder,
         // CHECK_EQ(1, 0);
     }
 };
-
-std::shared_ptr<::qti::audio::core::HalAdapterVendorExtension>
-    gHalAdapterVendorExtension;
-void registerIHalAdapterVendorExtension() {
-    gHalAdapterVendorExtension = ndk::SharedRefBase::make<
-        ::qti::audio::core::HalAdapterVendorExtension>();
-    const auto kServiceName =
-        std::string(gHalAdapterVendorExtension->descriptor)
-            .append("/")
-            .append("default");
-    registerBinderAsService(gHalAdapterVendorExtension->asBinder(),
-                            kServiceName);
-}
 
 std::shared_ptr<::aidl::android::hardware::audio::core::Module>
     gModuleDefaultAosp;
@@ -119,7 +105,6 @@ extern "C" __attribute__((visibility("default"))) int32_t registerServices() {
     if (kDefaultModule == "aosp") {
         ::registerIModuleDefaultAosp();
     } else {
-        ::registerIHalAdapterVendorExtension();
         ::registerIModuleDefaultQti();
     }
 
