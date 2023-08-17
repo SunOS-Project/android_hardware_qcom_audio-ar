@@ -32,6 +32,8 @@ using ::aidl::android::hardware::audio::core::IStreamCommon;
 using ::aidl::android::hardware::audio::core::StreamDescriptor;
 using ::aidl::android::hardware::audio::core::VendorParameter;
 
+using aidl::android::media::audio::common::AudioPortExt;
+
 namespace qti::audio::core {
 
 StreamOutPrimary::StreamOutPrimary(
@@ -58,9 +60,16 @@ StreamOutPrimary::StreamOutPrimary(
     } else if (mTag == Usecase::SPATIAL_PLAYBACK) {
         mExt.emplace<SpatialPlayback>();
     }
+
+    if (mMixPortConfig.ext.getTag() == AudioPortExt::Tag::mix) {
+        auto mixExt = mMixPortConfig.ext.get<AudioPortExt::Tag::mix>();
+        mIoHandle = mixExt.handle;
+        LOG(INFO) << __func__ << "mIoHandle " << mIoHandle;
+    }
 }
 
 StreamOutPrimary::~StreamOutPrimary() {
+    LOG(INFO) << __func__ << "destroy stream with handle " << mIoHandle;
     if (mPalHandle != nullptr) {
         ::pal_stream_stop(mPalHandle);
         ::pal_stream_close(mPalHandle);
@@ -157,6 +166,7 @@ void StreamOutPrimary::resume() {
 
 ::android::status_t StreamOutPrimary::standby() {
     mIsStandby = true;
+    enableOffloadEffects(false);
     return ::android::OK;
 }
 
@@ -215,6 +225,7 @@ void StreamOutPrimary::resume() {
 void StreamOutPrimary::shutdown() {
     mIsInitialized = false;
     if (mPalHandle != nullptr) {
+        enableOffloadEffects(false);
         ::pal_stream_stop(mPalHandle);
         ::pal_stream_close(mPalHandle);
     }
@@ -526,6 +537,7 @@ void StreamOutPrimary::configure() {
     }
 
     LOG(INFO) << __func__ << ": stream is configured for " << getName(mTag);
+    enableOffloadEffects(true);
     mIsConfigured = true;
 
     // after configuration operations
@@ -533,6 +545,16 @@ void StreamOutPrimary::configure() {
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         // if any cached volume update
         mVolumes.size() > 0 ? (void)setHwVolume(mVolumes) : (void)0;
+    }
+}
+
+void StreamOutPrimary::enableOffloadEffects(bool enable) {
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK || mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
+        if (enable) {
+            mHalEffects.startEffect(mIoHandle, mPalHandle);
+        } else {
+            mHalEffects.stopEffect(mIoHandle);
+        }
     }
 }
 

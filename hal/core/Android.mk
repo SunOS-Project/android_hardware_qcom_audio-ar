@@ -29,7 +29,8 @@ LOCAL_SRC_FILES := \
     StreamStub.cpp \
     Telephony.cpp \
     StreamInPrimary.cpp \
-    StreamOutPrimary.cpp
+    StreamOutPrimary.cpp \
+    HalOffloadEffects.cpp
 
 LOCAL_HEADER_LIBRARIES :=  \
     liberror_headers \

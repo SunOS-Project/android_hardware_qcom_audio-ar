@@ -7,6 +7,7 @@
 
 #include <qti-audio-core/Stream.h>
 #include <qti-audio-core/AudioUsecase.h>
+#include <qti-audio-core/HalOffloadEffects.h>
 
 namespace qti::audio::core {
 
@@ -102,6 +103,12 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
     // references
     Platform& mPlatform {Platform::getInstance()};
     const ::aidl::android::media::audio::common::AudioPortConfig& mMixPortConfig{mContext.getMixPortConfig()};
+    int mIoHandle;
+
+    HalOffloadEffects& mHalEffects {HalOffloadEffects::getInstance()};
+
+    // This API calls startEffect/stopEffect only on offload/pcm offload outputs.
+    void enableOffloadEffects(bool enable);
 };
 
 
