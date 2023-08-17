@@ -223,16 +223,31 @@ void PcmRecord::configurePalDevices(
 
 // start of compress playback
 CompressPlayback::CompressPlayback(
-    int32_t sampleRate,
-    const ::aidl::android::media::audio::common::AudioFormatDescription& format,
     const ::aidl::android::media::audio::common::AudioOffloadInfo& offloadInfo,
     std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback>
         asyncCallback)
-    : mSampleRate(sampleRate),
-      mCompressFormat(format),
-      mOffloadInfo(offloadInfo),
-      mAsyncCallback(asyncCallback) {
-    LOG(INFO) << __func__ << ": " << offloadInfo.toString();
+    : mOffloadInfo(offloadInfo), mAsyncCallback(asyncCallback) {
+    configureDefault();
+}
+
+void CompressPlayback::configureDefault() {
+
+    mSampleRate = mOffloadInfo.base.sampleRate;
+    mCompressFormat = mOffloadInfo.base.format;
+    mChannelLayout = mOffloadInfo.base.channelMask;
+    mBitWidth = mOffloadInfo.bitWidth;
+
+    if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_MP4 ||
+        mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADIF ||
+        mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS ||
+        mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC ||
+        mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_LC) {
+        mPalSndDec.aac_dec.audio_obj_type = 29;
+        mPalSndDec.aac_dec.pce_bits_size = 0;
+    }
+
+    LOG(INFO) << __func__ << ": " << mOffloadInfo.toString();
+    return;
 }
 
 void CompressPlayback::setPalHandle(pal_stream_handle_t* handle) {
@@ -488,10 +503,23 @@ ndk::ScopedAStatus CompressPlayback::setVendorParameters(
     return ndk::ScopedAStatus::ok();
 }
 
-void CompressPlayback::updateViaOffloadMetadata(
+void CompressPlayback::updateOffloadMetadata(
     const ::aidl::android::hardware::audio::common::AudioOffloadMetadata&
         offloadMetaData) {
-    // Todo implement
+    mOffloadMetadata = &offloadMetaData;
+    mSampleRate = mOffloadMetadata->sampleRate;
+    mChannelLayout = mOffloadMetadata->channelMask;
+    // TODO check for any pal update
+    LOG(INFO) << __func__ << ": " << mOffloadMetadata->toString();
+    return;
+}
+
+void CompressPlayback::updateSourceMetadata(
+    const ::aidl::android::hardware::audio::common::SourceMetadata&
+        sourceMetaData) {
+    mSourceMetadata = &sourceMetaData;
+    // TODO check for any pal update
+    LOG(INFO) << __func__ << ": " << mSourceMetadata->toString();
     return;
 }
 

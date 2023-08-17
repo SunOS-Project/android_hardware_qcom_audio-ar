@@ -49,11 +49,8 @@ StreamOutPrimary::StreamOutPrimary(
     } else if (mTag == Usecase::DEEP_BUFFER_PLAYBACK) {
         mExt.emplace<DeepBufferPlayback>();
     } else if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        if (offloadInfo.has_value()) {
-            mExt.emplace<CompressPlayback>(mMixPortConfig.sampleRate.value().value,
-                                           mMixPortConfig.format.value(),
-                                           offloadInfo.value(), getContext().getAsyncCallback());
-        }
+        mExt.emplace<CompressPlayback>(offloadInfo.value(),
+                                       getContext().getAsyncCallback());
     } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
         mExt.emplace<PcmOffloadPlayback>();
     } else if (mTag == Usecase::VOIP_PLAYBACK) {
@@ -181,14 +178,14 @@ void StreamOutPrimary::resume() {
     pal_buffer palBuffer{};
     palBuffer.buffer = static_cast<uint8_t*>(buffer);
     palBuffer.size = frameCount * mFrameSizeBytes;
-    int32_t dataWritten = ::pal_stream_write(mPalHandle, &palBuffer);
-    if (dataWritten < 0) {
-        LOG(ERROR) << __func__ << " write failed, ret:" << dataWritten;
+    ssize_t bytesWritten = ::pal_stream_write(mPalHandle, &palBuffer);
+    if (bytesWritten < 0) {
+        LOG(ERROR) << __func__ << " write failed, ret:" << bytesWritten;
         return ::android::FAILED_TRANSACTION;
     }
 
-    *actualFrameCount = frameCount;
-    // Todo fix later
+    *actualFrameCount = static_cast<size_t>(bytesWritten / mFrameSizeBytes);
+    // Todo findout write latency
     *latencyMs = Module::kLatencyMs;
     return ::android::OK;
 }
@@ -227,21 +224,111 @@ void StreamOutPrimary::shutdown() {
 
 // end of DriverInterface Methods
 
+// start of IStreamOut Methods
+ndk::ScopedAStatus StreamOutPrimary::updateOffloadMetadata(
+    const AudioOffloadMetadata& in_offloadMetadata) {
+    LOG(DEBUG) << __func__;
+    if (isClosed()) {
+        LOG(ERROR) << __func__ << ": stream was closed";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+    }
+    if (!mOffloadInfo.has_value()) {
+        LOG(ERROR) << __func__ << ": not a compressed offload stream";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+    }
+    if (in_offloadMetadata.sampleRate < 0) {
+        LOG(ERROR) << __func__ << ": invalid sample rate value: "
+                   << in_offloadMetadata.sampleRate;
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+    if (in_offloadMetadata.averageBitRatePerSecond < 0) {
+        LOG(ERROR) << __func__ << ": invalid average BPS value: "
+                   << in_offloadMetadata.averageBitRatePerSecond;
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+    if (in_offloadMetadata.delayFrames < 0) {
+        LOG(ERROR) << __func__ << ": invalid delay frames value: "
+                   << in_offloadMetadata.delayFrames;
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+    if (in_offloadMetadata.paddingFrames < 0) {
+        LOG(ERROR) << __func__ << ": invalid padding frames value: "
+                   << in_offloadMetadata.paddingFrames;
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+    if (mTag != Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        LOG(WARNING) << __func__
+                     << ": expected COMPRESS_OFFLOAD_PLAYBACK instead of "
+                     << getName(mTag);
+        return ndk::ScopedAStatus::ok();
+    }
+
+    mOffloadMetadata = in_offloadMetadata;
+    auto& compressPlayback = std::get<CompressPlayback>(mExt);
+    compressPlayback.updateOffloadMetadata(mOffloadMetadata.value());
+
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus StreamOutPrimary::getHwVolume(std::vector<float>* _aidl_return) {
+    LOG(DEBUG) << __func__;
+    *_aidl_return = mVolumes;
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus StreamOutPrimary::setHwVolume(
+    const std::vector<float>& in_channelVolumes) {
+
+    if (!mIsConfigured) {
+        mVolumes = in_channelVolumes;
+        return ndk::ScopedAStatus::ok();
+    }
+
+    auto palVolumes = mPlatform.getPalVolumeData(in_channelVolumes);
+    if (palVolumes.size() == 0) {
+        mVolumes = {};
+        LOG(ERROR) << __func__ << ": unable to fetch volumes";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+    }
+
+    if (int32_t ret = ::pal_stream_set_volume(
+            mPalHandle, reinterpret_cast<pal_volume_data*>(palVolumes.data()));
+        ret) {
+        mVolumes = {};
+        LOG(ERROR) << __func__ << ": pal_stream_set_volume failed!!!";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+    }
+
+    mVolumes = in_channelVolumes;
+
+    LOG(VERBOSE) << __func__ << ": stream volume updated";
+    return ndk::ScopedAStatus::ok();
+}
+
+// end of IStreamOut Methods
+
 // start of StreamCommonInterface Methods
 
 ndk::ScopedAStatus StreamOutPrimary::updateMetadataCommon(
     const Metadata& metadata) {
-    LOG(DEBUG) << __func__;
-    if (!isClosed()) {
-        if (metadata.index() != mMetadata.index()) {
-            LOG(FATAL) << __func__
-                       << ": changing metadata variant is not allowed";
-        }
-        mMetadata = metadata;
-        return ndk::ScopedAStatus::ok();
+
+    if (isClosed()) {
+        LOG(ERROR) << __func__ << ": stream was closed";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
-    LOG(ERROR) << __func__ << ": stream was closed";
-    return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+
+    if (metadata.index() != mMetadata.index()) {
+        LOG(FATAL) << __func__ << ": changing metadata variant is not allowed";
+    }
+    mMetadata = metadata;
+
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        auto& compressPlayback = std::get<CompressPlayback>(mExt);
+        compressPlayback.updateSourceMetadata(
+            std::get<SourceMetadata>(mMetadata));
+    }
+
+    return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus StreamOutPrimary::getVendorParameters(
@@ -289,10 +376,6 @@ ndk::ScopedAStatus StreamOutPrimary::removeEffect(
 }
 
 // end of StreamCommonInterface Methods
-
-// start of IStreamOut methods
-
-// end of IStreamOut methods
 
 size_t StreamOutPrimary::getPeriodSize() const noexcept {
     if (mTag == Usecase::PRIMARY_PLAYBACK) {
@@ -382,7 +465,11 @@ void StreamOutPrimary::configure() {
         auto& compressPlayback = std::get<CompressPlayback>(mExt);
         cookie = reinterpret_cast<uint64_t>(&compressPlayback);
         palFn = CompressPlayback::palCallback;
-        attr->flags = static_cast<pal_stream_flags_t>(PAL_STREAM_FLAG_NON_BLOCKING);
+        /* TODO check any dynamic update as per offload metadata or source
+         * metadata */
+        attr->out_media_config.bit_width = mOffloadInfo.value().bitWidth;
+        attr->flags =
+            static_cast<pal_stream_flags_t>(PAL_STREAM_FLAG_NON_BLOCKING);
     }
 
     if (int32_t ret =
@@ -412,9 +499,6 @@ void StreamOutPrimary::configure() {
     LOG(VERBOSE) << __func__ << " pal stream set buffer size successful";
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         auto& compressPlayback = std::get<CompressPlayback>(mExt);
-        mOffloadMetadata ? compressPlayback.updateViaOffloadMetadata(
-                               mOffloadMetadata.value())
-                         : (void)0;
         auto palParamPayload = compressPlayback.getPayloadCodecInfo();
         if (int32_t ret = ::pal_stream_set_param(
                 this->mPalHandle, PAL_PARAM_ID_CODEC_CONFIGURATION,
@@ -424,6 +508,9 @@ void StreamOutPrimary::configure() {
                          << " pal stream set param failed!!! ret:" << ret;
             return;
         }
+        LOG(VERBOSE) << __func__
+                     << " pal stream set param: "
+                        "PAL_PARAM_ID_CODEC_CONFIGURATION successful";
     }
 
     if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
@@ -440,6 +527,13 @@ void StreamOutPrimary::configure() {
 
     LOG(INFO) << __func__ << ": stream is configured for " << getName(mTag);
     mIsConfigured = true;
+
+    // after configuration operations
+
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        // if any cached volume update
+        mVolumes.size() > 0 ? (void)setHwVolume(mVolumes) : (void)0;
+    }
 }
 
 }  // namespace qti::audio::core

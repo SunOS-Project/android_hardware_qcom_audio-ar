@@ -6,6 +6,8 @@
 #pragma once
 
 #include <PalDefs.h>
+#include <aidl/android/hardware/audio/common/SinkMetadata.h>
+#include <aidl/android/hardware/audio/common/SourceMetadata.h>
 #include <aidl/android/hardware/audio/core/IStreamCallback.h>
 #include <aidl/android/hardware/audio/core/IStreamOutEventCallback.h>
 #include <aidl/android/hardware/audio/core/VendorParameter.h>
@@ -211,9 +213,14 @@ class CompressPlayback final{
      static size_t getPeriodBufferSize(
          const ::aidl::android::media::audio::common::AudioFormatDescription&
              format);
-     explicit CompressPlayback(int32_t sampleRate,
-         const ::aidl::android::media::audio::common::AudioFormatDescription& format,const ::aidl::android::media::audio::common::AudioOffloadInfo& offloadInfo,std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> asyncCallback);
-    void setPalHandle(pal_stream_handle_t* handle);
+     explicit CompressPlayback(
+         const ::aidl::android::media::audio::common::AudioOffloadInfo&
+             offloadInfo,
+         std::shared_ptr<
+             ::aidl::android::hardware::audio::core::IStreamCallback>
+             asyncCallback);
+     void configureDefault();
+     void setPalHandle(pal_stream_handle_t* handle);
      ndk::ScopedAStatus getVendorParameters(
          const std::vector<std::string>& in_ids,
          std::vector<::aidl::android::hardware::audio::core::VendorParameter>*
@@ -222,27 +229,38 @@ class CompressPlayback final{
          const std::vector<
              ::aidl::android::hardware::audio::core::VendorParameter>&
              in_parameters,
-         bool in_async);
+         bool in_async); 
      void getPositionInFrames(int64_t* dspFrames);
-     void updateViaOffloadMetadata(
+     void updateOffloadMetadata(
          const ::aidl::android::hardware::audio::common::AudioOffloadMetadata&
              offloadMetaData);
+     void updateSourceMetadata(
+         const ::aidl::android::hardware::audio::common::SourceMetadata&
+             sourceMetaData);
      std::unique_ptr<uint8_t[]> getPayloadCodecInfo();
      bool isCodecConfigured() const { return mIsCodecConfigured; }
      pal_snd_dec_t getPalSndDec();
 
 
     private:
-         pal_snd_dec_t mPalSndDec{};
-     const ::aidl::android::media::audio::common::AudioFormatDescription&
-         mCompressFormat;
+    // dynamic compress info
+     const ::aidl::android::hardware::audio::common::AudioOffloadMetadata*
+         mOffloadMetadata{nullptr};
+     const ::aidl::android::hardware::audio::common::SourceMetadata*
+         mSourceMetadata{nullptr};
+    // this is static info at the stream creation, for dynamic info check AudioOffloadMetadata
      const ::aidl::android::media::audio::common::AudioOffloadInfo& mOffloadInfo;
      std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback>
          mAsyncCallback;
-    int32_t mSampleRate;
      uint16_t mCompressBitWidth{0};
      bool mIsCodecConfigured{false};
      pal_stream_handle_t* mCompressPlaybackHandle{nullptr};
+     pal_snd_dec_t mPalSndDec{};
+     int32_t mSampleRate;
+     ::aidl::android::media::audio::common::AudioFormatDescription
+         mCompressFormat;
+     ::aidl::android::media::audio::common::AudioChannelLayout mChannelLayout;
+     int32_t mBitWidth;
 };
 
 class CompressCapture final{

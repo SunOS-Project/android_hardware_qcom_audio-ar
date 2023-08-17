@@ -59,6 +59,13 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
     ndk::ScopedAStatus updateMetadataCommon(const Metadata& metadata) override;
 
     // Methods of IStreamOut
+    ndk::ScopedAStatus updateOffloadMetadata(
+        const ::aidl::android::hardware::audio::common::AudioOffloadMetadata&
+            in_offloadMetadata) override;
+
+    ndk::ScopedAStatus getHwVolume(std::vector<float>* _aidl_return) override;
+    ndk::ScopedAStatus setHwVolume(
+        const std::vector<float>& in_channelVolumes) override;
 
     // Methods called IModule
     ndk::ScopedAStatus setConnectedDevices(
@@ -84,6 +91,7 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
     bool mIsInitialized{false};  // Used for validating the state machine logic.
     bool mIsStandby{true};       // Used for validating the state machine logic.
     bool mIsPaused{false};
+    std::vector<float> mVolumes{};
     pal_stream_handle_t* mPalHandle{nullptr};
     // used to verify a successful configuration of pal stream
     bool mIsConfigured{false};
