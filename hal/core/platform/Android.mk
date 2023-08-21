@@ -21,6 +21,7 @@ LOCAL_SHARED_LIBRARIES := \
     android.hardware.audio.core-V1-ndk \
     android.media.audio.common.types-V2-ndk \
     libaudioaidlcommon \
+    qti-audio-types-aidl-V1-ndk \
     libar-pal
 
 include $(BUILD_STATIC_LIBRARY)

@@ -570,7 +570,8 @@ ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdA
         }
     }
     *_aidl_return = std::move(connectedPort);
-
+    LOG(VERBOSE) << __func__ << ": created external device port "
+                 << _aidl_return->toString();
     return ndk::ScopedAStatus::ok();
 }
 

@@ -11,6 +11,7 @@
 #include <android-base/logging.h>
 #include <android-base/properties.h>
 #include <media/stagefright/foundation/MediaDefs.h>
+#include <aidl/qti/audio/core/VString.h>
 
 using ::aidl::android::hardware::audio::common::getChannelCount;
 using ::aidl::android::media::audio::common::AudioIoFlags;
@@ -293,84 +294,79 @@ int32_t CompressPlayback::palCallback(pal_stream_handle_t* palHandle,
     return 0;
 }
 
+auto getIntValueFromVString =
+    [](const std::vector<
+           ::aidl::android::hardware::audio::core::VendorParameter>& parameters,
+       const std::string& searchKey) -> std::optional<int32_t> {
+    std::optional<::aidl::qti::audio::core::VString> parcel;
+    for (const auto& p : parameters) {
+        if (p.id == searchKey && p.ext.getParcelable(&parcel) == ::android::OK &&
+            parcel.has_value()) {
+            int32_t value = strtol(parcel.value().value.c_str(), nullptr, 10);
+            return value;
+        }
+    }
+    return std::nullopt;
+};
+
 ndk::ScopedAStatus CompressPlayback::setVendorParameters(
     const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
         in_parameters,
     bool in_async) {
-    auto getValueInt = [&](const std::string& searchKey)
-        -> std::optional<::aidl::android::media::audio::common::Int> {
-        for (const auto& v : in_parameters) {
-            std::optional<::aidl::android::media::audio::common::Int> value;
-            if (v.id == searchKey && v.ext.getParcelable(&value) == STATUS_OK &&
-                value.has_value()) {
-                return value;
-            }
-        }
-        return std::nullopt;
-    };
-    LOG(VERBOSE) << __func__ << " parsing for " << mCompressFormat.encoding;
+    LOG(VERBOSE) << __func__ << ": parameter count" << in_parameters.size()
+                 << " parsing for " << mCompressFormat.encoding;
     if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_FLAC) {
-        if (auto value = getValueInt(Flac::kMinBlockSize); value) {
-            mPalSndDec.flac_dec.min_blk_size = value.value().value;
-            LOG(VERBOSE) << __func__ << Flac::kMinBlockSize << ":"
-                         << value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Flac::kMinBlockSize); value) {
+            mPalSndDec.flac_dec.min_blk_size = value.value();
         }
-        if (auto value = getValueInt(Flac::kMaxBlockSize); value) {
-            mPalSndDec.flac_dec.max_blk_size = value.value().value;
-            LOG(VERBOSE) << __func__ << Flac::kMaxBlockSize << ":"
-                         << value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Flac::kMaxBlockSize); value) {
+            mPalSndDec.flac_dec.max_blk_size = value.value();
         }
-        if (auto value = getValueInt(Flac::kMinFrameSize); value) {
-            mPalSndDec.flac_dec.min_frame_size = value.value().value;
-            LOG(VERBOSE) << __func__ << Flac::kMinFrameSize << ":"
-                         << value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Flac::kMinFrameSize); value) {
+            mPalSndDec.flac_dec.min_frame_size = value.value();
         }
-        if (auto value = getValueInt(Flac::kMaxFrameSize); value) {
-            mPalSndDec.flac_dec.max_frame_size = value.value().value;
-            LOG(VERBOSE) << __func__ << Flac::kMaxFrameSize << ":"
-                         << value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Flac::kMaxFrameSize); value) {
+            mPalSndDec.flac_dec.max_frame_size = value.value();
         }
         // exception
         auto bitWidth = mCompressBitWidth == 32 ? 24 : mCompressBitWidth;
-        LOG(VERBOSE) << __func__ << "BitWidth"
-                     << ":" << bitWidth;
     } else if (mCompressFormat.encoding ==
                ::android::MEDIA_MIMETYPE_AUDIO_ALAC) {
-        if (auto value = getValueInt(Alac::kFrameLength); value) {
-            mPalSndDec.alac_dec.frame_length = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Alac::kFrameLength); value) {
+            mPalSndDec.alac_dec.frame_length = value.value();
         }
-        if (auto value = getValueInt(Alac::kCompatVer); value) {
-            mPalSndDec.alac_dec.compatible_version = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Alac::kCompatVer); value) {
+            mPalSndDec.alac_dec.compatible_version = value.value();
         }
-        if (auto value = getValueInt(Alac::kBitDepth); value) {
-            mPalSndDec.alac_dec.bit_depth = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Alac::kBitDepth); value) {
+            mPalSndDec.alac_dec.bit_depth = value.value();
         }
-        if (auto value = getValueInt(Alac::kPb); value) {
-            mPalSndDec.alac_dec.pb = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Alac::kPb); value) {
+            mPalSndDec.alac_dec.pb = value.value();
         }
-        if (auto value = getValueInt(Alac::kMb); value) {
-            mPalSndDec.alac_dec.mb = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Alac::kMb); value) {
+            mPalSndDec.alac_dec.mb = value.value();
         }
-        if (auto value = getValueInt(Alac::kKb); value) {
-            mPalSndDec.alac_dec.kb = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Alac::kKb); value) {
+            mPalSndDec.alac_dec.kb = value.value();
         }
-        if (auto value = getValueInt(Alac::kNumChannels); value) {
-            mPalSndDec.alac_dec.num_channels = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Alac::kNumChannels); value) {
+            mPalSndDec.alac_dec.num_channels = value.value();
         }
-        if (auto value = getValueInt(Alac::kMaxRun); value) {
-            mPalSndDec.alac_dec.max_run = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Alac::kMaxRun); value) {
+            mPalSndDec.alac_dec.max_run = value.value();
         }
-        if (auto value = getValueInt(Alac::kMaxFrameBytes); value) {
-            mPalSndDec.alac_dec.max_frame_bytes = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Alac::kMaxFrameBytes); value) {
+            mPalSndDec.alac_dec.max_frame_bytes = value.value();
         }
-        if (auto value = getValueInt(Alac::kBitRate); value) {
-            mPalSndDec.alac_dec.avg_bit_rate = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Alac::kBitRate); value) {
+            mPalSndDec.alac_dec.avg_bit_rate = value.value();
         }
-        if (auto value = getValueInt(Alac::kSamplingRate); value) {
-            mPalSndDec.alac_dec.sample_rate = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Alac::kSamplingRate); value) {
+            mPalSndDec.alac_dec.sample_rate = value.value();
         }
-        if (auto value = getValueInt(Alac::kChannelLayoutTag); value) {
-            mPalSndDec.alac_dec.channel_layout_tag = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Alac::kChannelLayoutTag); value) {
+            mPalSndDec.alac_dec.channel_layout_tag = value.value();
         }
     } else if (mCompressFormat.encoding ==
                    ::android::MEDIA_MIMETYPE_AUDIO_AAC_MP4 ||
@@ -384,119 +380,119 @@ ndk::ScopedAStatus CompressPlayback::setVendorParameters(
         mPalSndDec.aac_dec.pce_bits_size = 0;
     } else if (mCompressFormat.encoding ==
                ::android::MEDIA_MIMETYPE_AUDIO_VORBIS) {
-        if (auto value = getValueInt(Vorbis::kBitStreamFormat); value) {
-            mPalSndDec.vorbis_dec.bit_stream_fmt = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Vorbis::kBitStreamFormat); value) {
+            mPalSndDec.vorbis_dec.bit_stream_fmt = value.value();
         }
     } else if (mCompressFormat.encoding == "audio/x-ape") {
-        if (auto value = getValueInt(Ape::kCompatibleVersion); value) {
-            mPalSndDec.ape_dec.compatible_version = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Ape::kCompatibleVersion); value) {
+            mPalSndDec.ape_dec.compatible_version = value.value();
         }
-        if (auto value = getValueInt(Ape::kCompressionLevel); value) {
-            mPalSndDec.ape_dec.compression_level = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Ape::kCompressionLevel); value) {
+            mPalSndDec.ape_dec.compression_level = value.value();
         }
-        if (auto value = getValueInt(Ape::kFormatFlags); value) {
-            mPalSndDec.ape_dec.format_flags = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Ape::kFormatFlags); value) {
+            mPalSndDec.ape_dec.format_flags = value.value();
         }
-        if (auto value = getValueInt(Ape::kBlocksPerFrame); value) {
-            mPalSndDec.ape_dec.blocks_per_frame = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Ape::kBlocksPerFrame); value) {
+            mPalSndDec.ape_dec.blocks_per_frame = value.value();
         }
-        if (auto value = getValueInt(Ape::kFinalFrameBlocks); value) {
-            mPalSndDec.ape_dec.final_frame_blocks = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Ape::kFinalFrameBlocks); value) {
+            mPalSndDec.ape_dec.final_frame_blocks = value.value();
         }
-        if (auto value = getValueInt(Ape::kTotalFrames); value) {
-            mPalSndDec.ape_dec.total_frames = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Ape::kTotalFrames); value) {
+            mPalSndDec.ape_dec.total_frames = value.value();
         }
-        if (auto value = getValueInt(Ape::kBitsPerSample); value) {
-            mPalSndDec.ape_dec.bits_per_sample = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Ape::kBitsPerSample); value) {
+            mPalSndDec.ape_dec.bits_per_sample = value.value();
         }
-        if (auto value = getValueInt(Ape::kNumChannels); value) {
-            mPalSndDec.ape_dec.num_channels = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Ape::kNumChannels); value) {
+            mPalSndDec.ape_dec.num_channels = value.value();
         }
-        if (auto value = getValueInt(Ape::kSampleRate); value) {
-            mPalSndDec.ape_dec.sample_rate = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Ape::kSampleRate); value) {
+            mPalSndDec.ape_dec.sample_rate = value.value();
         }
-        if (auto value = getValueInt(Ape::kSeekTablePresent); value) {
-            mPalSndDec.ape_dec.seek_table_present = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Ape::kSeekTablePresent); value) {
+            mPalSndDec.ape_dec.seek_table_present = value.value();
         }
     } else if (mCompressFormat.encoding ==
                    ::android::MEDIA_MIMETYPE_AUDIO_WMA ||
                mCompressFormat.encoding == "audio/x-ms-wma.pro") {
-        if (auto value = getValueInt(Wma::kFormatTag); value) {
-            mPalSndDec.wma_dec.fmt_tag = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Wma::kFormatTag); value) {
+            mPalSndDec.wma_dec.fmt_tag = value.value();
         }
-        if (auto value = getValueInt(kAvgBitRate); value) {
-            mPalSndDec.wma_dec.avg_bit_rate = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,kAvgBitRate); value) {
+            mPalSndDec.wma_dec.avg_bit_rate = value.value();
         }
-        if (auto value = getValueInt(Wma::kBlockAlign); value) {
-            mPalSndDec.wma_dec.super_block_align = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Wma::kBlockAlign); value) {
+            mPalSndDec.wma_dec.super_block_align = value.value();
         }
-        if (auto value = getValueInt(Wma::kBitPerSample); value) {
-            mPalSndDec.wma_dec.bits_per_sample = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Wma::kBitPerSample); value) {
+            mPalSndDec.wma_dec.bits_per_sample = value.value();
         }
-        if (auto value = getValueInt(Wma::kChannelMask); value) {
-            mPalSndDec.wma_dec.channelmask = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Wma::kChannelMask); value) {
+            mPalSndDec.wma_dec.channelmask = value.value();
         }
-        if (auto value = getValueInt(Wma::kEncodeOption); value) {
-            mPalSndDec.wma_dec.encodeopt = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Wma::kEncodeOption); value) {
+            mPalSndDec.wma_dec.encodeopt = value.value();
         }
-        if (auto value = getValueInt(Wma::kEncodeOption1); value) {
-            mPalSndDec.wma_dec.encodeopt1 = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Wma::kEncodeOption1); value) {
+            mPalSndDec.wma_dec.encodeopt1 = value.value();
         }
-        if (auto value = getValueInt(Wma::kEncodeOption2); value) {
-            mPalSndDec.wma_dec.encodeopt2 = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Wma::kEncodeOption2); value) {
+            mPalSndDec.wma_dec.encodeopt2 = value.value();
         }
     } else if (mCompressFormat.encoding ==
                ::android::MEDIA_MIMETYPE_AUDIO_OPUS) {
-        if (auto value = getValueInt(Opus::kBitStreamFormat); value) {
-            mPalSndDec.opus_dec.bitstream_format = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Opus::kBitStreamFormat); value) {
+            mPalSndDec.opus_dec.bitstream_format = value.value();
         }
-        if (auto value = getValueInt(Opus::kPayloadType); value) {
-            mPalSndDec.opus_dec.payload_type = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Opus::kPayloadType); value) {
+            mPalSndDec.opus_dec.payload_type = value.value();
         }
-        if (auto value = getValueInt(Opus::kVersion); value) {
-            mPalSndDec.opus_dec.version = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Opus::kVersion); value) {
+            mPalSndDec.opus_dec.version = value.value();
         }
-        if (auto value = getValueInt(Opus::kNumChannels); value) {
-            mPalSndDec.opus_dec.num_channels = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Opus::kNumChannels); value) {
+            mPalSndDec.opus_dec.num_channels = value.value();
         }
-        if (auto value = getValueInt(Opus::kPreSkip); value) {
-            mPalSndDec.opus_dec.pre_skip = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Opus::kPreSkip); value) {
+            mPalSndDec.opus_dec.pre_skip = value.value();
         }
-        if (auto value = getValueInt(Opus::kOutputGain); value) {
-            mPalSndDec.opus_dec.output_gain = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Opus::kOutputGain); value) {
+            mPalSndDec.opus_dec.output_gain = value.value();
         }
-        if (auto value = getValueInt(Opus::kMappingFamily); value) {
-            mPalSndDec.opus_dec.mapping_family = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Opus::kMappingFamily); value) {
+            mPalSndDec.opus_dec.mapping_family = value.value();
         }
-        if (auto value = getValueInt(Opus::kStreamCount); value) {
-            mPalSndDec.opus_dec.stream_count = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Opus::kStreamCount); value) {
+            mPalSndDec.opus_dec.stream_count = value.value();
         }
-        if (auto value = getValueInt(Opus::kCoupledCount); value) {
-            mPalSndDec.opus_dec.coupled_count = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Opus::kCoupledCount); value) {
+            mPalSndDec.opus_dec.coupled_count = value.value();
         }
-        if (auto value = getValueInt(Opus::kChannelMap0); value) {
-            mPalSndDec.opus_dec.channel_map[0] = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Opus::kChannelMap0); value) {
+            mPalSndDec.opus_dec.channel_map[0] = value.value();
         }
-        if (auto value = getValueInt(Opus::kChannelMap1); value) {
-            mPalSndDec.opus_dec.channel_map[1] = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Opus::kChannelMap1); value) {
+            mPalSndDec.opus_dec.channel_map[1] = value.value();
         }
-        if (auto value = getValueInt(Opus::kChannelMap2); value) {
-            mPalSndDec.opus_dec.channel_map[2] = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Opus::kChannelMap2); value) {
+            mPalSndDec.opus_dec.channel_map[2] = value.value();
         }
-        if (auto value = getValueInt(Opus::kChannelMap3); value) {
-            mPalSndDec.opus_dec.channel_map[3] = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Opus::kChannelMap3); value) {
+            mPalSndDec.opus_dec.channel_map[3] = value.value();
         }
-        if (auto value = getValueInt(Opus::kChannelMap4); value) {
-            mPalSndDec.opus_dec.channel_map[4] = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Opus::kChannelMap4); value) {
+            mPalSndDec.opus_dec.channel_map[4] = value.value();
         }
-        if (auto value = getValueInt(Opus::kChannelMap5); value) {
-            mPalSndDec.opus_dec.channel_map[5] = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Opus::kChannelMap5); value) {
+            mPalSndDec.opus_dec.channel_map[5] = value.value();
         }
-        if (auto value = getValueInt(Opus::kChannelMap6); value) {
-            mPalSndDec.opus_dec.channel_map[6] = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Opus::kChannelMap6); value) {
+            mPalSndDec.opus_dec.channel_map[6] = value.value();
         }
-        if (auto value = getValueInt(Opus::kChannelMap7); value) {
-            mPalSndDec.opus_dec.channel_map[7] = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Opus::kChannelMap7); value) {
+            mPalSndDec.opus_dec.channel_map[7] = value.value();
         }
         mPalSndDec.opus_dec.sample_rate = mSampleRate;
     }
@@ -622,17 +618,6 @@ ndk::ScopedAStatus CompressCapture::setVendorParameters(
     const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
         in_parameters,
     bool in_async) {
-    auto getValueInt = [&](const std::string& searchKey)
-        -> std::optional<::aidl::android::media::audio::common::Int> {
-        for (const auto& v : in_parameters) {
-            std::optional<::aidl::android::media::audio::common::Int> value;
-            if (v.id == searchKey && v.ext.getParcelable(&value) == STATUS_OK &&
-                value.has_value()) {
-                return value;
-            }
-        }
-        return std::nullopt;
-    };
     LOG(VERBOSE) << __func__ << " parsing for " << mCompressFormat.encoding;
     if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_LC ||
         mCompressFormat.encoding ==
@@ -641,19 +626,19 @@ ndk::ScopedAStatus CompressCapture::setVendorParameters(
             ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V2 ||
         mCompressFormat.encoding ==
             ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_LC) {
-        if (auto value = getValueInt(Aac::kDSPAacBitRate); value) {
-            auto requested = value.value().value;
+        if (auto value = getIntValueFromVString(in_parameters,Aac::kDSPAacBitRate); value) {
+            auto requested = value.value();
             const auto min = getAACMinBitrateValue();
             const auto max = getAACMaxBitrateValue();
             mPalSndEnc.aac_enc.aac_bit_rate =
                 requested < min ? min : (requested > max ? max : requested);
             mCompressHandle != nullptr ? (void)setAACDSPBitRate() : (void)0;
         }
-        if (auto value = getValueInt(Aac::kDSPAacGlobalCutoffFrequency);
+        if (auto value = getIntValueFromVString(in_parameters,Aac::kDSPAacGlobalCutoffFrequency);
             value) {
             if (mCompressFormat.encoding ==
                 ::android::MEDIA_MIMETYPE_AUDIO_AAC_LC) {
-                mPalSndEnc.aac_enc.global_cutoff_freq = value.value().value;
+                mPalSndEnc.aac_enc.global_cutoff_freq = value.value();
             }
         }
     }

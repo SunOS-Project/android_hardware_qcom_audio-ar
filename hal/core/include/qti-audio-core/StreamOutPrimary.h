@@ -19,7 +19,7 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
                   const std::optional<::aidl::android::media::audio::common::AudioOffloadInfo>&
                           offloadInfo);
     
-    virtual ~StreamOutPrimary();
+    virtual ~StreamOutPrimary() override;
 
     std::string toString() const noexcept;
 
@@ -94,7 +94,11 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
     bool mIsPaused{false};
     std::vector<float> mVolumes{};
     pal_stream_handle_t* mPalHandle{nullptr};
-    // used to verify a successful configuration of pal stream
+    /**
+     * used to verify a successful configuration of pal stream
+     * on true expected mPalHandle is valid pal stream handle (hardware up)
+     * on false expected mPalHandle is nullptr (hardware down)
+     **/
     bool mIsConfigured{false};
     std::variant<std::monostate, PrimaryPlayback, DeepBufferPlayback,
                  CompressPlayback, PcmOffloadPlayback, VoipPlayback,

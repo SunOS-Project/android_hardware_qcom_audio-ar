@@ -130,10 +130,17 @@ StreamInStub::StreamInStub(StreamContext&& context, const SinkMetadata& sinkMeta
                            const std::vector<MicrophoneInfo>& microphones)
     : StreamIn(std::move(context), microphones), StreamStub(&(StreamIn::mContext), sinkMetadata) {}
 
+StreamInStub::~StreamInStub(){
+    LOG(DEBUG)<<__func__<<": destroy";
+}
+
 StreamOutStub::StreamOutStub(StreamContext&& context, const SourceMetadata& sourceMetadata,
                              const std::optional<AudioOffloadInfo>& offloadInfo)
     : StreamOut(std::move(context), offloadInfo),
       StreamStub(&(StreamOut::mContext), sourceMetadata) {}
 
+StreamOutStub::~StreamOutStub(){
+    LOG(DEBUG)<<__func__<<": destroy";
+}
 
 }  // namespace qti::audio::core

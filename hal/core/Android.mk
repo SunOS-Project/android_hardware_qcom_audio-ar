@@ -76,7 +76,7 @@ LOCAL_SHARED_LIBRARIES := \
     android.hardware.audio.core.sounddose-V1-ndk \
     libar-pal \
     libaudioserviceexampleimpl \
-    qti-audio-types-aidl-ndk
+    qti-audio-types-aidl-V1-ndk
 
 include $(BUILD_SHARED_LIBRARY)
 

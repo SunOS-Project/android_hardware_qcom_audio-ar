@@ -64,16 +64,20 @@ StreamOutPrimary::StreamOutPrimary(
     if (mMixPortConfig.ext.getTag() == AudioPortExt::Tag::mix) {
         auto mixExt = mMixPortConfig.ext.get<AudioPortExt::Tag::mix>();
         mIoHandle = mixExt.handle;
-        LOG(INFO) << __func__ << "mIoHandle " << mIoHandle;
+        LOG(INFO) << __func__ << " mIoHandle " << mIoHandle;
     }
+    LOG(VERBOSE) << __func__ << ": create " << getName(mTag) << " " << std::hex
+                 << this;
 }
 
 StreamOutPrimary::~StreamOutPrimary() {
-    LOG(INFO) << __func__ << "destroy stream with handle " << mIoHandle;
+    LOG(INFO) << __func__ << ": destroy stream with handle " << mIoHandle;
     if (mPalHandle != nullptr) {
         ::pal_stream_stop(mPalHandle);
         ::pal_stream_close(mPalHandle);
     }
+    LOG(VERBOSE) << __func__ << ": destroy " << getName(mTag) << " " << std::hex
+                 << this;
 }
 
 std::string StreamOutPrimary::toString() const noexcept {
@@ -87,24 +91,36 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
         devices) {
     mWorker->setIsConnected(!devices.empty());
     mConnectedDevices = devices;
-    auto connectedPalDevices = mPlatform.getPalDevices(mConnectedDevices);
 
-    if (this->mPalHandle != nullptr && connectedPalDevices.size() > 0) {
-        if (int32_t ret = ::pal_stream_set_device(this->mPalHandle,
-                                                  connectedPalDevices.size(),
-                                                  connectedPalDevices.data());
-            ret) {
-            LOG(ERROR) << __func__
-                       << " failed to set devices on stream, ret:" << ret;
-            return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
-        }
+    if(!mIsConfigured){
+        LOG(WARNING)<<__func__<<": stream not configured";
+        return ndk::ScopedAStatus::ok();
+    }
+    if(mConnectedDevices.empty()){
+        LOG(VERBOSE)<<__func__<<": stream is not connected";
+        return ndk::ScopedAStatus::ok();
     }
 
-    auto devicesString = [](std::string prev, const auto& device) {
-        return std::move(prev) + ';' + device.toString();
+    auto connectedPalDevices = mPlatform.getPalDevices(mConnectedDevices);
+
+    if (connectedPalDevices.size() != mConnectedDevices.size()) {
+        LOG(ERROR) << __func__ << ": pal devices size != aidl devices size";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+    }
+
+    if (int32_t ret = ::pal_stream_set_device(
+            mPalHandle, connectedPalDevices.size(), connectedPalDevices.data());
+        ret) {
+        LOG(ERROR) << __func__
+                   << " failed to set devices on stream, ret:" << ret;
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+    }
+
+    auto devicesString = [](std::string& prev, const auto& device) {
+        return std::move(prev.append(" | ").append(device.toString()));
     };
 
-    LOG(VERBOSE) << __func__ << " stream is connected to devices:"
+    LOG(VERBOSE) << __func__ << ": stream is connected to "
                  << std::accumulate(mConnectedDevices.cbegin(),
                                     mConnectedDevices.cend(), std::string(""),
                                     devicesString);
@@ -131,7 +147,7 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
         LOG(ERROR) << __func__ << " failed to drain the stream, ret:" << ret;
         return ret;
     }
-    LOG(VERBOSE) << __func__ << " drain successful";
+    LOG(VERBOSE) << __func__ << " drained "<<getName(mTag);
     return ::android::OK;
 }
 
@@ -140,7 +156,7 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
         LOG(ERROR) << __func__ << " failed to flush the stream, ret:" << ret;
         return ret;
     }
-    LOG(VERBOSE) << __func__ << " flush successful";
+    LOG(VERBOSE) << __func__ << " "<<getName(mTag);
     return ::android::OK;
 }
 
@@ -152,7 +168,7 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
         return ret;
     }
     mIsPaused = true;
-    LOG(VERBOSE) << __func__ << " pause successful";
+    LOG(VERBOSE) << __func__ << " "<<getName(mTag) ;
     return ::android::OK;
 }
 
@@ -160,18 +176,20 @@ void StreamOutPrimary::resume() {
     if (int32_t ret = ::pal_stream_resume(mPalHandle); ret) {
         LOG(ERROR) << __func__ << " failed to resume the stream, ret:" << ret;
     }
-    LOG(VERBOSE) << __func__ << " resume successful";
+    LOG(VERBOSE) << __func__ << " " << getName(mTag);
     mIsPaused = false;
 }
 
 ::android::status_t StreamOutPrimary::standby() {
-    mIsStandby = true;
-    enableOffloadEffects(false);
+    shutdown();
+    LOG(VERBOSE) <<__func__ <<" "<< getName(mTag);
     return ::android::OK;
 }
 
 ::android::status_t StreamOutPrimary::start() {
-    mIsStandby = false;
+    // hardware is expected to up on start
+    // but we are doing on first write
+    LOG(VERBOSE) <<__func__ <<" "<< getName(mTag);
     return ::android::OK;
 }
 
@@ -179,7 +197,7 @@ void StreamOutPrimary::resume() {
                                                size_t* actualFrameCount,
                                                int32_t* latencyMs) {
     if (!mIsConfigured) {
-        // configure on first transfer
+        // configure on first transfer or after stand by
         configure();
     }
     if(mIsPaused){
@@ -188,12 +206,16 @@ void StreamOutPrimary::resume() {
     pal_buffer palBuffer{};
     palBuffer.buffer = static_cast<uint8_t*>(buffer);
     palBuffer.size = frameCount * mFrameSizeBytes;
+    if (palBuffer.size == 0) {
+        // resume comes with 0 frameCount
+        return ::android::OK;
+    }
     ssize_t bytesWritten = ::pal_stream_write(mPalHandle, &palBuffer);
     if (bytesWritten < 0) {
         LOG(ERROR) << __func__ << " write failed, ret:" << bytesWritten;
         return ::android::FAILED_TRANSACTION;
     }
-
+    LOG(DEBUG) << __func__ << ": byteswritten:" << bytesWritten;
     *actualFrameCount = static_cast<size_t>(bytesWritten / mFrameSizeBytes);
     // Todo findout write latency
     *latencyMs = Module::kLatencyMs;
@@ -223,14 +245,15 @@ void StreamOutPrimary::resume() {
 }
 
 void StreamOutPrimary::shutdown() {
-    mIsInitialized = false;
     if (mPalHandle != nullptr) {
         enableOffloadEffects(false);
         ::pal_stream_stop(mPalHandle);
         ::pal_stream_close(mPalHandle);
     }
     mIsConfigured = false;
+    mIsPaused = false;
     mPalHandle = nullptr;
+    LOG(VERBOSE) <<__func__ <<" "<< getName(mTag);
 }
 
 // end of DriverInterface Methods
@@ -478,7 +501,9 @@ void StreamOutPrimary::configure() {
         palFn = CompressPlayback::palCallback;
         /* TODO check any dynamic update as per offload metadata or source
          * metadata */
-        attr->out_media_config.bit_width = mOffloadInfo.value().bitWidth;
+        if (mOffloadInfo.value().bitWidth != 0) {
+            attr->out_media_config.bit_width = mOffloadInfo.value().bitWidth;
+        }
         attr->flags =
             static_cast<pal_stream_flags_t>(PAL_STREAM_FLAG_NON_BLOCKING);
     }

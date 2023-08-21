@@ -51,6 +51,9 @@ size_t Platform::getIOBufferSizeInFrames(
             CompressPlayback::getPeriodBufferSize(mixPortConfig.format.value());
         constexpr size_t compressFrameSize = 1;
         numFrames = numBytes / compressFrameSize;
+    } else if (tag == Usecase::COMPRESS_CAPTURE) {
+        numFrames =
+            CompressCapture::getPeriodBufferSize(mixPortConfig.format.value());
     }
     LOG(VERBOSE) << __func__
                  << " IOBufferSizeInFrames:" << std::to_string(numFrames)
@@ -103,25 +106,21 @@ std::unique_ptr<pal_stream_attributes> Platform::getPalStreamAttributes(
     }
 
     auto attributes = std::make_unique<pal_stream_attributes>();
+    auto bitWidth = mTypeConverter.getBitWidthForAidlPCM(audioFormat);
+    bitWidth == 0 ? (void)(bitWidth = kDefaultPCMBidWidth) : (void)0;
+
     if (!isInput) {
         attributes->direction = PAL_AUDIO_OUTPUT;
         attributes->out_media_config.sample_rate = sampleRate;
         attributes->out_media_config.aud_fmt_id = palFormat;
         attributes->out_media_config.ch_info = *(palChannelInfo);
-        attributes->out_media_config.bit_width =
-            mTypeConverter.getBitWidthForAidlPCM(audioFormat);
+        attributes->out_media_config.bit_width = bitWidth;
     } else {
         attributes->direction = PAL_AUDIO_INPUT;
         attributes->in_media_config.sample_rate = sampleRate;
         attributes->in_media_config.aud_fmt_id = palFormat;
         attributes->in_media_config.ch_info = *(palChannelInfo);
-        attributes->in_media_config.bit_width =
-            mTypeConverter.getBitWidthForAidlPCM(audioFormat);
-    }
-
-    if (attributes->out_media_config.bit_width == 0) {
-        constexpr uint32_t kDefaultCodecBitWidth = 16;
-        attributes->out_media_config.bit_width = kDefaultCodecBitWidth;
+        attributes->in_media_config.bit_width = bitWidth;
     }
 
     return std::move(attributes);
@@ -362,8 +361,8 @@ bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
     }
 
     v = deviceConnection.get();
-    if (int32_t ret = pal_set_param(PAL_PARAM_ID_DEVICE_CONNECTION, &v,
-                                    sizeof(pal_param_device_connection_t));
+    if (int32_t ret = ::pal_set_param(PAL_PARAM_ID_DEVICE_CONNECTION, v,
+                                      sizeof(pal_param_device_connection_t));
         ret != 0) {
         LOG(ERROR)
             << __func__

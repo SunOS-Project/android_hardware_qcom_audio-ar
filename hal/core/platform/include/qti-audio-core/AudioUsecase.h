@@ -18,7 +18,6 @@
 #include <aidl/android/hardware/audio/common/AudioOffloadMetadata.h>
 #include <aidl/android/media/audio/common/AudioPortConfig.h>
 #include <aidl/android/media/audio/common/Int.h>
-
 #include <android/binder_auto_utils.h>
 
 #include <algorithm>

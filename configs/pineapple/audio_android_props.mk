@@ -29,12 +29,12 @@ vendor.audio.offload.buffer.size.kb=32
 
 #compress offload
 AUDIO_HAL_PROP += \
-audio.offload.disable=1
+audio.offload.disable=0
 
 # compress capture feature related
 AUDIO_HAL_PROP += \
-vendor.audio.compress_capture.enabled=false \
-vendor.audio.compress_capture.aac=false
+vendor.audio.compress_capture.enabled=true \
+vendor.audio.compress_capture.aac=true
 # compress capture end
 
 

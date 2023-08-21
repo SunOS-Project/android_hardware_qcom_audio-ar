@@ -136,7 +136,7 @@ void StreamWorkerCommonLogic::populateReply(StreamDescriptor::Reply* reply,
             return;
         }
     }
-    LOG(ERROR) << __func__ << "unconnected reply status as unknown ";
+    LOG(ERROR) << __func__ << ": stream is not connected to any device";
     reply->observable.frames = StreamDescriptor::Position::UNKNOWN;
     reply->observable.timeNs = StreamDescriptor::Position::UNKNOWN;
 }
@@ -369,13 +369,16 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
                 // unconditionally.
                 if (mState == StreamDescriptor::State::DRAINING) {
                     mState = StreamDescriptor::State::IDLE;
+                    /*
                     ndk::ScopedAStatus status = asyncCallback->onDrainReady();
                     if (!status.isOk()) {
                         LOG(ERROR) << __func__
                                    << ": error from onDrainReady: " << status;
                     }
+                    */
                 } else {
                     mState = StreamDescriptor::State::ACTIVE;
+                    /*
                     ndk::ScopedAStatus status =
                         asyncCallback->onTransferReady();
                     if (!status.isOk()) {
@@ -383,6 +386,7 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
                             << __func__
                             << ": error from onTransferReady: " << status;
                     }
+                    */
                 }
             }
             if (mTransientStateDelayMs.count() != 0) {
@@ -408,10 +412,11 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
                   << " in " << kThreadName;
     StreamDescriptor::Reply reply{};
     reply.status = STATUS_BAD_VALUE;
+    // DEBUG, provide a default latency for any command
+    reply.latencyMs = 10;
     using Tag = StreamDescriptor::Command::Tag;
     switch (command.getTag()) {
         case Tag::halReservedExit:
-            LOG(VERBOSE) << __func__<< ": halReservedExit command received";
             if (const int32_t cookie = command.get<Tag::halReservedExit>();
                 cookie == mContext->getInternalCommandCookie()) {
                 mDriver->shutdown();
@@ -424,11 +429,9 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
             }
             break;
         case Tag::getStatus:
-            LOG(VERBOSE) << __func__<< ": getStatus command received";
             populateReply(&reply, mIsConnected);
             break;
         case Tag::start: {
-            LOG(VERBOSE) << __func__<< ": start command received";
             std::optional<StreamDescriptor::State> nextState;
             switch (mState) {
                 case StreamDescriptor::State::STANDBY:
@@ -462,7 +465,6 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
             }
         } break;
         case Tag::burst:
-            LOG(VERBOSE) << __func__<< ": burst command received";
             if (const int32_t fmqByteCount = command.get<Tag::burst>();
                 fmqByteCount >= 0) {
                 LOG(VERBOSE) << __func__ << ": '" << toString(command.getTag())
@@ -503,7 +505,6 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
             }
             break;
         case Tag::drain:
-            LOG(VERBOSE) << __func__<< ": drain command received";
             if (const auto mode = command.get<Tag::drain>();
                 mode == StreamDescriptor::DrainMode::DRAIN_ALL ||
                 mode == StreamDescriptor::DrainMode::DRAIN_EARLY_NOTIFY) {
@@ -535,7 +536,6 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
             }
             break;
         case Tag::standby:
-            LOG(VERBOSE) << __func__<< ": standy command received";
             if (mState == StreamDescriptor::State::IDLE) {
                 if (::android::status_t status = mDriver->standby();
                     status == ::android::OK) {
@@ -550,7 +550,6 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
             }
             break;
         case Tag::pause: {
-            LOG(VERBOSE) << __func__<< ": pause command received";
             std::optional<StreamDescriptor::State> nextState;
             switch (mState) {
                 case StreamDescriptor::State::ACTIVE:
@@ -577,7 +576,6 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
             }
         } break;
         case Tag::flush:
-            LOG(VERBOSE) << __func__<< ": flush command received";
             if (mState == StreamDescriptor::State::PAUSED ||
                 mState == StreamDescriptor::State::DRAIN_PAUSED ||
                 mState == StreamDescriptor::State::TRANSFER_PAUSED) {
@@ -660,6 +658,7 @@ StreamCommonImpl::~StreamCommonImpl() {
         // The worker and the context should clean up by themselves via
         // destructors.
     }
+    LOG(VERBOSE) << __func__ << ": destroy " << std::hex << this;
 }
 
 ndk::ScopedAStatus StreamCommonImpl::initInstance(

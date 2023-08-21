@@ -55,6 +55,12 @@ class ModulePrimary final : public Module {
             ::aidl::android::media::audio::common::AudioOffloadInfo>&
             offloadInfo,
         std::shared_ptr<StreamOut>* result) override;
+    ndk::ScopedAStatus setVendorParameters(
+        const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& in_parameters,
+        bool in_async) override;
+    ndk::ScopedAStatus getVendorParameters(
+        const std::vector<std::string>& in_ids,
+        std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return) override;
     std::vector<::aidl::android::media::audio::common::AudioProfile>
     getDynamicProfiles(
         const ::aidl::android::media::audio::common::AudioPort& audioPort) override;

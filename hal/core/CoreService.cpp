@@ -14,6 +14,7 @@
 #include <core-impl/ModuleUsb.h>
 #include <qti-audio-core/Module.h>
 #include <qti-audio-core/ModulePrimary.h>
+#include <qti-audio-core/ModuleStub.h>
 
 #include <cstdlib>
 #include <ctime>

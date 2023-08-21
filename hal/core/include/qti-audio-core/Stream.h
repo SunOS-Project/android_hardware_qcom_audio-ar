@@ -507,7 +507,7 @@ class StreamCommonImpl : virtual public StreamCommonInterface, virtual public Dr
         : StreamCommonImpl(
                   context, metadata,
                   isInput(metadata) ? getDefaultInWorkerCreator() : getDefaultOutWorkerCreator()) {}
-    virtual ~StreamCommonImpl();
+    virtual ~StreamCommonImpl() override;
     ndk::ScopedAStatus close() override;
     ndk::ScopedAStatus prepareToClose() override;
     ndk::ScopedAStatus updateHwAvSyncId(int32_t in_hwAvSyncId) override;
@@ -566,7 +566,7 @@ class StreamCommonImpl : virtual public StreamCommonInterface, virtual public Dr
 // concrete input/output stream implementations.
 class StreamIn : virtual public StreamCommonInterface, public ::aidl::android::hardware::audio::core::BnStreamIn {
   public:
-    virtual ~StreamIn() = default;
+    virtual ~StreamIn() override = default;
   protected:
     void defaultOnClose();
 
@@ -605,7 +605,7 @@ class StreamIn : virtual public StreamCommonInterface, public ::aidl::android::h
 
 class StreamOut : virtual public StreamCommonInterface, public ::aidl::android::hardware::audio::core::BnStreamOut {
   public:
-virtual ~StreamOut() = default;
+virtual ~StreamOut() override = default;
   protected:
     void defaultOnClose();
     ndk::ScopedAStatus getStreamCommon(std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCommon>* _aidl_return) override {

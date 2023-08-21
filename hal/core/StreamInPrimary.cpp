@@ -200,10 +200,8 @@ void StreamInPrimary::resume() {
     if (mTag == Usecase::COMPRESS_CAPTURE) {
         auto& compressCapture = std::get<CompressCapture>(mExt);
         compressCapture.mNumReadCalls++;
-        *actualFrameCount = compressCapture.mPCMSamplesPerFrame;
-    } else {
-        *actualFrameCount = static_cast<size_t>(bytesRead) / mFrameSizeBytes;
     }
+    *actualFrameCount = static_cast<size_t>(bytesRead) / mFrameSizeBytes;
 
     // Todo fix latency
     *latencyMs = Module::kLatencyMs;
