@@ -19,19 +19,16 @@ class VisualizerOffload final : public EffectImpl {
     static const std::string kEffectName;
     static const Capability kCapability;
     static const Descriptor kDescriptor;
-    VisualizerOffload() { LOG(DEBUG) << __func__; }
-    ~VisualizerOffload() {
-        //cleanUp();
-        LOG(DEBUG) << __func__;
-    }
+    VisualizerOffload();
+    ~VisualizerOffload() { LOG(DEBUG) << __func__; }
 
     ndk::ScopedAStatus commandImpl(CommandId command) override;
     ndk::ScopedAStatus getDescriptor(Descriptor* _aidl_return) override;
     ndk::ScopedAStatus setParameterSpecific(const Parameter::Specific& specific) override;
     ndk::ScopedAStatus getParameterSpecific(const Parameter::Id& id,
                                             Parameter::Specific* specific) override;
-    IEffect::Status effectProcessImpl(float* in, float* out, int process) override;
-    std::shared_ptr<EffectContext> createContext(const Parameter::Common& common) override;
+    std::shared_ptr<EffectContext> createContext(const Parameter::Common& common,
+                                                 bool processData) override;
     RetCode releaseContext() override;
 
     std::shared_ptr<EffectContext> getContext() override { return mContext; }
@@ -41,7 +38,7 @@ class VisualizerOffload final : public EffectImpl {
     static const std::vector<Range::VisualizerRange> kRanges;
     std::shared_ptr<VisualizerOffloadContext> mContext;
     ndk::ScopedAStatus getParameterVisualizer(const Visualizer::Tag& tag,
-                                                    Parameter::Specific* specific);
+                                              Parameter::Specific* specific);
 };
 
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects
