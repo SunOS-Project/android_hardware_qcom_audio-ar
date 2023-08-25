@@ -7,6 +7,10 @@ LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_RELATIVE_PATH := soundfx
 LOCAL_MODULE_OWNER := qti
 
+LOCAL_CLANG             := true
+LOCAL_TIDY              := true
+LOCAL_CFLAGS            += -v -Wall -Wthread-safety
+
 LOCAL_SRC_FILES:= \
         VolumeListener.cpp \
         VolumeListenerContext.cpp \

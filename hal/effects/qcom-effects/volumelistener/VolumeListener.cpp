@@ -8,9 +8,9 @@
 #include <memory>
 #define LOG_TAG "AHAL_Effect_VolumeListener"
 
-#include <unordered_set>
 #include <Utils.h>
 #include <android-base/logging.h>
+#include <unordered_set>
 
 #include "VolumeListener.h"
 
@@ -128,8 +128,8 @@ std::shared_ptr<EffectContext> VolumeListener::createContext(const Parameter::Co
         LOG(DEBUG) << __func__ << " context already exist";
     } else {
         // GlobalVolumeListenerSession is a singleton
-        mContext = GlobalVolumeListenerSession::getSession().createSession(mType, 1 /* statusFmqDepth */,
-                                                                   common);
+        mContext = GlobalVolumeListenerSession::getSession().createSession(
+                mType, 1 /* statusFmqDepth */, common);
     }
     return mContext;
 }
@@ -139,7 +139,6 @@ std::shared_ptr<EffectContext> VolumeListener::getContext() {
 }
 
 RetCode VolumeListener::releaseContext() {
-    LOG(VERBOSE) << __func__;
     if (mContext) {
         GlobalVolumeListenerSession::getSession().releaseSession(mContext->getSessionId());
         mContext.reset();
@@ -148,14 +147,43 @@ RetCode VolumeListener::releaseContext() {
 }
 
 ndk::ScopedAStatus VolumeListener::setParameterSpecific(const Parameter::Specific& specific) {
-    LOG(VERBOSE) << __func__;
     return ndk::ScopedAStatus::ok();
 }
 
-
 ndk::ScopedAStatus VolumeListener::getParameterSpecific(const Parameter::Id& id,
-                                                      Parameter::Specific* specific) {
-    LOG(VERBOSE) << __func__;
+                                                        Parameter::Specific* specific) {
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus VolumeListener::setParameterCommon(const Parameter& param) {
+    RETURN_IF(!mContext, EX_NULL_POINTER, "nullContext");
+
+    auto tag = param.getTag();
+    switch (tag) {
+        case Parameter::common:
+            RETURN_IF(mContext->setCommon(param.get<Parameter::common>()) != RetCode::SUCCESS,
+                      EX_ILLEGAL_ARGUMENT, "setCommFailed");
+            break;
+        case Parameter::deviceDescription: {
+            auto ret = GlobalVolumeListenerSession::getSession().setOutputDevice(
+                    mContext->getSessionId(), param.get<Parameter::deviceDescription>());
+            RETURN_IF(ret != RetCode::SUCCESS, EX_ILLEGAL_ARGUMENT, "setDeviceFailed");
+        } break;
+        case Parameter::volumeStereo: {
+            auto ret = GlobalVolumeListenerSession::getSession().setVolumeStereo(
+                    mContext->getSessionId(), param.get<Parameter::volumeStereo>());
+            RETURN_IF(ret != RetCode::SUCCESS, EX_ILLEGAL_ARGUMENT, "setDeviceFailed");
+        }
+            RETURN_IF(mContext->setVolumeStereo(param.get<Parameter::volumeStereo>()) !=
+                              RetCode::SUCCESS,
+                      EX_ILLEGAL_ARGUMENT, "setVolumeStereoFailed");
+            break;
+        default: {
+            LOG(ERROR) << __func__ << " unsupportedParameterTag " << toString(tag);
+            return ndk::ScopedAStatus::fromExceptionCodeWithMessage(EX_ILLEGAL_ARGUMENT,
+                                                                    "commonParamNotSupported");
+        }
+    }
     return ndk::ScopedAStatus::ok();
 }
 
@@ -166,4 +194,4 @@ IEffect::Status VolumeListener::effectProcessImpl(float* in, float* out, int sam
     return {STATUS_OK, samples, samples};
 }
 
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects

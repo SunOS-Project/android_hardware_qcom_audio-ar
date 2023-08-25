@@ -13,9 +13,9 @@
 #include "effect-impl/EffectImpl.h"
 #include "effect-impl/EffectUUID.h"
 
+#include "GlobalVolumeListenerSession.h"
 #include "VolumeListenerContext.h"
 #include "VolumeListenerTypes.h"
-#include "GlobalVolumeListenerSession.h"
 namespace aidl::qti::effects {
 
 class VolumeListener final : public EffectImpl {
@@ -37,16 +37,15 @@ class VolumeListener final : public EffectImpl {
     std::shared_ptr<EffectContext> getContext() override;
     RetCode releaseContext() override;
 
+    ndk::ScopedAStatus setParameterCommon(const Parameter& param) override;
     ndk::ScopedAStatus setParameterSpecific(const Parameter::Specific& specific) override;
     ndk::ScopedAStatus getParameterSpecific(const Parameter::Id& id,
                                             Parameter::Specific* specific) override;
 
-
-    std::string getEffectName() override { return * mEffectName; };
+    std::string getEffectName() override { return *mEffectName; };
     IEffect::Status effectProcessImpl(float* in, float* out, int samples) override;
 
   private:
     std::shared_ptr<VolumeListenerContext> mContext;
-
 };
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects
