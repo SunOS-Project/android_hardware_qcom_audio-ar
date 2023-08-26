@@ -123,6 +123,32 @@ std::unique_ptr<pal_stream_attributes> Platform::getPalStreamAttributes(
     return std::move(attributes);
 }
 
+std::unique_ptr<pal_stream_attributes> Platform::getDefaultTelephonyAttributes()
+    const {
+    auto attributes = std::make_unique<pal_stream_attributes>();
+    auto inChannelInfo = mTypeConverter.getPalChannelInfoForChannelCount(1);
+    auto outChannelInfo = mTypeConverter.getPalChannelInfoForChannelCount(2);
+    attributes->type = PAL_STREAM_VOICE_CALL;
+    attributes->direction = PAL_AUDIO_INPUT_OUTPUT;
+    attributes->in_media_config.sample_rate = kDefaultOutputSampleRate;
+    attributes->in_media_config.ch_info = *inChannelInfo;
+    attributes->in_media_config.bit_width = kDefaultPCMBidWidth;
+    attributes->in_media_config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
+    attributes->out_media_config.sample_rate = kDefaultOutputSampleRate;
+    attributes->out_media_config.ch_info = *outChannelInfo;
+    attributes->out_media_config.bit_width = kDefaultPCMBidWidth;
+    attributes->out_media_config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
+    return std::move(attributes);
+}
+
+void Platform::configurePalDevicesCustomKey(
+    std::vector<pal_device>& palDevices, const std::string& key) const {
+    for (auto& palDevice : palDevices) {
+        strlcpy(palDevice.custom_config.custom_key, key.c_str(), key.size());
+    }
+    return;
+}
+
 std::vector<pal_device> Platform::getPalDevices(
     const std::vector<AudioDevice>& setDevices) const {
     if (setDevices.size() == 0) {

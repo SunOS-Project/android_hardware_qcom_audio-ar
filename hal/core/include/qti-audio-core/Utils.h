@@ -26,8 +26,66 @@
 #include <map>
 #include <set>
 #include <vector>
+#include <numeric>
+#include <aidl/android/media/audio/common/AudioPortConfig.h>
+#include <aidl/android/media/audio/common/AudioDevice.h>
+#include <aidl/android/hardware/audio/core/VendorParameter.h>
+#include <aidl/qti/audio/core/VString.h>
 
 namespace qti::audio::core {
+
+bool isMixPortConfig(
+    const ::aidl::android::media::audio::common::AudioPortConfig&) noexcept;
+
+bool isDevicePortConfig(
+    const ::aidl::android::media::audio::common::AudioPortConfig&) noexcept;
+
+bool isTelephonyRXDevice(
+    const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
+
+bool isTelephonyTXDevice(
+    const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
+
+template <class T>
+std::ostream& operator<<(std::ostream& os,
+                         const std::vector<T>& list) noexcept {
+    os << std::accumulate(
+        list.cbegin(), list.cend(), std::string(""),
+        [](auto&& prev, const auto& l) {
+            return std::move(prev.append(",").append(l.toString()));
+        });
+    return os;
+}
+
+template <class T>
+bool operator==(const std::vector<T>& left, const std::vector<T>& right) noexcept {
+    if (left.size() != right.size()) {
+        return false;
+    }
+    return std::equal(left.cbegin(), left.cend(), right.cbegin());
+}
+
+int64_t getInt64FromString(const std::string& s) noexcept;
+
+void extractBoolFromVString(const ::aidl::qti::audio::core::VString& vs,
+                            bool& out) noexcept;
+
+bool setParameter(const ::aidl::qti::audio::core::VString& parcel,
+                  ::aidl::android::hardware::audio::core::VendorParameter&
+                      parameter) noexcept;
+
+template <typename W>
+bool extractParameter(
+    const ::aidl::android::hardware::audio::core::VendorParameter& p,
+    decltype(W::value)* v) {
+    std::optional<W> value;
+    int32_t result = p.ext.getParcelable(&value);
+    if (result == 0 && value.has_value()) {
+        *v = value.value().value;
+        return true;
+    }
+    return false;
+}
 
 // Return whether all the elements in the vector are unique.
 template <typename T>

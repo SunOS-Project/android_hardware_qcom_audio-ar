@@ -212,6 +212,13 @@ protected:
             ::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
         ::aidl::android::hardware::audio::core::AudioPatch& newPatch);
 
+    virtual void updateTelephonyPatch(
+        const std::vector<
+            ::aidl::android::media::audio::common::AudioPortConfig*>& sources,
+        const std::vector<
+            ::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
+        const ::aidl::android::hardware::audio::core::AudioPatch& patch);
+
     // If the module is unable to populate the connected device port correctly,
     // the returned error code must correspond to the errors of
     // `IModule.connectedExternalDevice` method.

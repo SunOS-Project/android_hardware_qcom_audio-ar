@@ -46,7 +46,7 @@ struct ChildInterface : private std::pair<std::shared_ptr<C>, ndk::SpAIBinder> {
     }
     explicit operator bool() const { return !!this->first; }
     C& operator*() const { return *(this->first); }
-    C* operator->() const { return this->first; }
+    C* operator->() const { return this->first.get(); }
     // Use 'getInstance' when returning the interface instance.
     std::shared_ptr<C> getInstance() {
         if (this->second.get() == nullptr) {

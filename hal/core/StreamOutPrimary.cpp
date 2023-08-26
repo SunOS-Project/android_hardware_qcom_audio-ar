@@ -92,8 +92,14 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
     mWorker->setIsConnected(!devices.empty());
     mConnectedDevices = devices;
 
-    if(!mIsConfigured){
-        LOG(WARNING)<<__func__<<": stream not configured";
+    if (mTag == Usecase::PRIMARY_PLAYBACK) {
+        mPlatform.setPrimaryPlaybackDevices(mConnectedDevices);
+        LOG(VERBOSE) << __func__ << ": primary playback devices updated "
+                     << mConnectedDevices;
+    }
+
+    if (!mIsConfigured) {
+        LOG(WARNING) << __func__ << ": stream not configured";
         return ndk::ScopedAStatus::ok();
     }
     if(mConnectedDevices.empty()){

@@ -51,7 +51,7 @@
 
 #include <Utils.h>
 #include <qti-audio-core/ChildInterface.h>
-#include <qti-audio-core/utils.h>
+#include <qti-audio-core/Utils.h>
 #include <qti-audio-core/Platform.h>
 
 

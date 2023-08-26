@@ -35,7 +35,7 @@
 
 #include <qti-audio-core/Module.h>
 #include <qti-audio-core/SoundDose.h>
-#include <qti-audio-core/utils.h>
+#include <qti-audio-core/Utils.h>
 
 using aidl::android::hardware::audio::common::getFrameSizeInBytes;
 using aidl::android::hardware::audio::common::isBitPositionFlagSet;
@@ -868,7 +868,12 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
     }
     patchesBackup = mPatches;
     registerPatch(*_aidl_return);
-    if (auto status = updateStreamsConnectedState(oldPatch, *_aidl_return); !status.isOk()) {
+    auto status = updateStreamsConnectedState(oldPatch, *_aidl_return);
+
+    // call this after streams devices got updated
+    updateTelephonyPatch(sources, sinks, *_aidl_return);
+
+    if (!status.isOk()) {
         mPatches = std::move(*patchesBackup);
         if (existing == patches.end()) {
             patches.pop_back();
@@ -887,6 +892,16 @@ void Module::onNewPatchCreation(const std::vector<AudioPortConfig*>& sources,
                                 const std::vector<AudioPortConfig*>& sinks,
                                 AudioPatch& newPatch) {
     LOG(INFO) << __func__ << " no-op implementation " << newPatch.toString();
+    return;
+}
+
+void Module::updateTelephonyPatch(
+    const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>&
+        sources,
+    const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>&
+        sinks,
+    const ::aidl::android::hardware::audio::core::AudioPatch& patch) {
+    LOG(INFO) << __func__ << " no-op implementation ";
     return;
 }
 
@@ -1202,23 +1217,6 @@ ndk::ScopedAStatus Module::getVendorParameters(const std::vector<std::string>& i
     if (allParametersKnown) return ndk::ScopedAStatus::ok();
     return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
 }
-
-namespace {
-
-template <typename W>
-bool extractParameter(const VendorParameter& p, decltype(W::value)* v) {
-    std::optional<W> value;
-    binder_status_t result = p.ext.getParcelable(&value);
-    if (result == STATUS_OK && value.has_value()) {
-        *v = value.value().value;
-        return true;
-    }
-    LOG(ERROR) << __func__ << ": failed to read the value of the parameter \"" << p.id
-               << "\": " << result;
-    return false;
-}
-
-}  // namespace
 
 ndk::ScopedAStatus Module::setVendorParameters(const std::vector<VendorParameter>& in_parameters,
                                                bool in_async) {
