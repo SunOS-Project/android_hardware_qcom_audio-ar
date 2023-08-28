@@ -39,18 +39,28 @@ Bluetooth::Bluetooth() {
     mHfpConfig.isEnabled = Boolean{false};
     mHfpConfig.sampleRate = Int{8000};
     mHfpConfig.volume = Float{HfpConfig::VOLUME_MAX};
+    mPlatform.a2dp_source_feature_init();
+//    mPlatform.setBluetoothParameters("BT_SCO=on");
 }
 
 ndk::ScopedAStatus Bluetooth::setScoConfig(const ScoConfig& in_config,
                                            ScoConfig* _aidl_return) {
     if (in_config.isEnabled.has_value()) {
         mScoConfig.isEnabled = in_config.isEnabled;
+        mScoConfig.isEnabled.value().value == true ? mPlatform.setBluetoothParameters("BT_SCO=on") : mPlatform.setBluetoothParameters("BT_SCO=off");
     }
     if (in_config.isNrecEnabled.has_value()) {
         mScoConfig.isNrecEnabled = in_config.isNrecEnabled;
+        mScoConfig.isNrecEnabled.value().value == true ? mPlatform.setBluetoothParameters("bt_headset_nrec=on") : mPlatform.setBluetoothParameters("bt_headset_nrec=off");
     }
     if (in_config.mode != ScoConfig::Mode::UNSPECIFIED) {
         mScoConfig.mode = in_config.mode;
+        if (mScoConfig.mode == ScoConfig::Mode::SCO_WB) {
+            mPlatform.setBluetoothParameters("bt_wbs=on");
+        }
+        else if (mScoConfig.mode == ScoConfig::Mode::SCO_SWB) {
+            mPlatform.setBluetoothParameters("bt_swb=1");
+        }
     }
     if (in_config.debugName.has_value()) {
         mScoConfig.debugName = in_config.debugName;
@@ -100,6 +110,7 @@ ndk::ScopedAStatus BluetoothA2dp::isEnabled(bool* _aidl_return) {
 
 ndk::ScopedAStatus BluetoothA2dp::setEnabled(bool in_enabled) {
     mEnabled = in_enabled;
+    mEnabled == true ? mPlatform.setBluetoothParameters("A2dpSuspended=false") : mPlatform.setBluetoothParameters("A2dpSuspended=true");
     LOG(DEBUG) << __func__ << ": " << mEnabled;
     return ndk::ScopedAStatus::ok();
 }
@@ -116,6 +127,7 @@ ndk::ScopedAStatus BluetoothA2dp::reconfigureOffload(
         in_parameters __unused) {
     LOG(DEBUG) << __func__ << ": "
                << ::android::internal::ToString(in_parameters);
+    mPlatform.setBluetoothParameters("reconfigA2dp=true");
     return ndk::ScopedAStatus::ok();
 }
 

@@ -10,7 +10,10 @@
 #include <android-base/logging.h>
 #include <audio_utils/clock.h>
 #include <qti-audio-core/Module.h>
+#include <qti-audio-core/ModulePrimary.h>
 #include <qti-audio-core/StreamOutPrimary.h>
+#include <hardware/audio.h>
+#include <system/audio.h>
 
 using aidl::android::hardware::audio::common::AudioOffloadMetadata;
 using aidl::android::hardware::audio::common::getChannelCount;
@@ -367,7 +370,57 @@ ndk::ScopedAStatus StreamOutPrimary::updateMetadataCommon(
         compressPlayback.updateSourceMetadata(
             std::get<SourceMetadata>(mMetadata));
     }
+    setAggregateSourceMetadata();
+    return ndk::ScopedAStatus::ok();
+}
 
+ndk::ScopedAStatus StreamOutPrimary::setAggregateSourceMetadata() {
+    std::vector<std::weak_ptr<StreamOut>> outStreams = ModulePrimary::getOutStreams();
+    ssize_t track_count_total = 0;
+
+    std::vector<playback_track_metadata_t> total_tracks;
+    source_metadata_t btSourceMetadata;
+
+    if (outStreams.empty()) return ndk::ScopedAStatus::ok();
+
+    LOG(DEBUG) << __func__ << "out streams not empty size is" << outStreams.size();
+
+    for (auto it = outStreams.begin(); it != outStreams.end() ; it++ ) {
+         if (it->lock() && !it->lock()->isClosed()) {
+             ::aidl::android::hardware::audio::common::SourceMetadata srcMetadata;
+             it->lock()->getMetadata(srcMetadata);
+             track_count_total += srcMetadata.tracks.size();
+         }
+         else {
+            outStreams.erase(it);
+         }
+    }
+    LOG(DEBUG) << __func__ << "total tracks count is" << track_count_total;
+
+    if (track_count_total <= 0) return ndk::ScopedAStatus::ok();
+
+    total_tracks.resize(track_count_total);
+    btSourceMetadata.track_count = track_count_total;
+    btSourceMetadata.tracks = total_tracks.data();
+
+    for (auto it = outStreams.begin(); it != outStreams.end() ; it++ ) {
+          ::aidl::android::hardware::audio::common::SourceMetadata srcMetadata;
+          if (it->lock()) {
+              it->lock()->getMetadata(srcMetadata);
+              for (auto& item : srcMetadata.tracks) {
+                   btSourceMetadata.tracks->usage =static_cast<audio_usage_t>(item.usage);
+                   btSourceMetadata.tracks->content_type = static_cast<audio_content_type_t>(item.contentType);
+                   LOG(DEBUG) << __func__ << "source metadata usage is " << btSourceMetadata.tracks->usage <<
+                                              "content is " << btSourceMetadata.tracks->content_type;
+                   ++btSourceMetadata.tracks;
+              }
+         }
+    }
+    btSourceMetadata.tracks = total_tracks.data();
+    LOG(DEBUG) << __func__ << "sending source metadata to PAL";
+    pal_set_param(PAL_PARAM_ID_SET_SOURCE_METADATA,
+             (void*)&btSourceMetadata, 0);
+    LOG(DEBUG) << __func__ << "after sending source metadata to PAL";
     return ndk::ScopedAStatus::ok();
 }
 

@@ -33,7 +33,7 @@
 #include <qti-audio-core/Telephony.h>
 #include <qti-audio-core/Parameters.h>
 #include <qti-audio-core/Utils.h>
-
+#include <qti-audio-core/Bluetooth.h>
 #include <aidl/qti/audio/core/VString.h>
 
 using aidl::android::hardware::audio::common::SinkMetadata;
@@ -59,8 +59,14 @@ using ::aidl::android::hardware::audio::core::IStreamOut;
 using ::aidl::android::hardware::audio::core::ITelephony;
 using ::aidl::android::hardware::audio::core::VendorParameter;
 using ::aidl::qti::audio::core::VString;
+using ::aidl::android::hardware::audio::core::IBluetooth;
+using ::aidl::android::hardware::audio::core::IBluetoothA2dp;
+using ::aidl::android::hardware::audio::core::IBluetoothLe;
 
 namespace qti::audio::core {
+
+std::vector<std::weak_ptr<::qti::audio::core::StreamOut>> ModulePrimary::mStreamsOut;
+std::vector<std::weak_ptr<::qti::audio::core::StreamIn>> ModulePrimary::mStreamsIn;
 
 std::string ModulePrimary::toStringInternal() {
     std::ostringstream os;
@@ -126,6 +132,39 @@ binder_status_t ModulePrimary::dump(int fd, const char** args, uint32_t numArgs)
     return 0;
 }
 
+ndk::ScopedAStatus ModulePrimary::getBluetooth(
+    std::shared_ptr<IBluetooth>* _aidl_return) {
+    if (!mBluetooth) {
+        mBluetooth = ndk::SharedRefBase::make<::qti::audio::core::Bluetooth>();
+    }
+    *_aidl_return = mBluetooth.getInstance();
+    LOG(DEBUG) << __func__
+               << ": returning instance of IBluetooth: " << _aidl_return->get()->asBinder().get();
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus ModulePrimary::getBluetoothA2dp(
+    std::shared_ptr<IBluetoothA2dp>* _aidl_return) {
+    if (!mBluetoothA2dp) {
+        mBluetoothA2dp = ndk::SharedRefBase::make<::qti::audio::core::BluetoothA2dp>();
+    }
+    *_aidl_return = mBluetoothA2dp.getInstance();
+    LOG(DEBUG) << __func__ << ": returning instance of IBluetoothA2dp: "
+               << _aidl_return->get()->asBinder().get();
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus ModulePrimary::getBluetoothLe(
+    std::shared_ptr<IBluetoothLe>* _aidl_return) {
+    if (!mBluetoothLe) {
+        mBluetoothLe = ndk::SharedRefBase::make<::qti::audio::core::BluetoothLe>();
+    }
+    *_aidl_return = mBluetoothLe.getInstance();
+    LOG(DEBUG) << __func__
+               << ": returning instance of IBluetoothLe: " << _aidl_return->get()->asBinder().get();
+    return ndk::ScopedAStatus::ok();
+}
+
 ndk::ScopedAStatus ModulePrimary::getTelephony(
     std::shared_ptr<ITelephony>* _aidl_return) {
     if (!mTelephony) {
@@ -141,15 +180,19 @@ ndk::ScopedAStatus ModulePrimary::createInputStream(StreamContext&& context,
                                                     const SinkMetadata& sinkMetadata,
                                                     const std::vector<MicrophoneInfo>& microphones,
                                                     std::shared_ptr<StreamIn>* result) {
-    return createStreamInstance<StreamInPrimary>(result, std::move(context), sinkMetadata,
+    createStreamInstance<StreamInPrimary>(result, std::move(context), sinkMetadata,
                                               microphones);
+    ModulePrimary::updateStreamInList(*result);
+    return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus ModulePrimary::createOutputStream(
         StreamContext&& context, const SourceMetadata& sourceMetadata,
         const std::optional<AudioOffloadInfo>& offloadInfo, std::shared_ptr<StreamOut>* result) {
-    return createStreamInstance<StreamOutPrimary>(result, std::move(context), sourceMetadata,
+    createStreamInstance<StreamOutPrimary>(result, std::move(context), sourceMetadata,
                                                offloadInfo);
+    ModulePrimary::updateStreamOutList(*result);
+    return ndk::ScopedAStatus::ok();
 }
 
 std::vector<::aidl::android::media::audio::common::AudioProfile>
@@ -252,7 +295,11 @@ ndk::ScopedAStatus ModulePrimary::setVendorParameters(
             if (!extractParameter<Boolean>(p, &mVendorDebug.forceSynchronousDrain)) {
                 return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
             }
-        } 
+        } else {
+            mPlatform.setVendorParameters(in_parameters,in_async);
+            allParametersKnown = false;
+            LOG(ERROR) << __func__ << ": unrecognized parameter \"" << p.id << "\"";
+        }
     }
     processSetVendorParameters(in_parameters);
     if (allParametersKnown) return ndk::ScopedAStatus::ok();

@@ -765,6 +765,7 @@ ndk::ScopedAStatus Module::openOutputStream(const OpenOutputStreamArguments& in_
     AIBinder_setMinSchedulerPolicy(streamWrapper.getBinder().get(), SCHED_NORMAL,
                                    ANDROID_PRIORITY_AUDIO);
     mStreams.insert(port->id, in_args.portConfigId, std::move(streamWrapper));
+//    Module::updateStreamOutList(stream);
     _aidl_return->stream = std::move(stream);
     return ndk::ScopedAStatus::ok();
 }
@@ -1432,4 +1433,4 @@ ndk::ScopedAStatus Module::onMasterVolumeChanged(float volume __unused) {
     return ndk::ScopedAStatus::ok();
 }
 
-}  // namespace aidl::android::hardware::audio::core
+}  // namespace qti::audio::core

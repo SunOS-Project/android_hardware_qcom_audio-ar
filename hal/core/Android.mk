@@ -6,7 +6,8 @@ LOCAL_VENDOR_MODULE     := true
 LOCAL_MODULE_RELATIVE_PATH := hw
 
 LOCAL_C_INCLUDES    :=  $(LOCAL_PATH)/include \
-                        $(LOCAL_PATH)/adapter/include
+                        system/media/audio/include \
+                        hardware/libhardware/include
 
 # LOCAL_CFLAGS += -Wall -Wextra -Werror -Wthread-safety
 

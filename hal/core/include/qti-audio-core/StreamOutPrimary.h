@@ -18,8 +18,9 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
                   const ::aidl::android::hardware::audio::common::SourceMetadata& sourceMetadata,
                   const std::optional<::aidl::android::media::audio::common::AudioOffloadInfo>&
                           offloadInfo);
-    
+
     virtual ~StreamOutPrimary() override;
+    ndk::ScopedAStatus setAggregateSourceMetadata();
 
     std::string toString() const noexcept;
 

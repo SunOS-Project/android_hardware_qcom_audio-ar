@@ -21,7 +21,7 @@ class StreamInPrimary: public StreamIn, public StreamCommonImpl {
     virtual ~StreamInPrimary() override;
 
     std::string toString() const noexcept;
-
+    ndk::ScopedAStatus setAggregateSinkMetadata();
     // Methods of 'DriverInterface'.
     ::android::status_t init() override;
     ::android::status_t drain(::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode) override;

@@ -31,6 +31,7 @@ class ModuleStub final : public Module {
     ModuleStub() : Module(Type::STUB) {}
 
    protected:
+
     ndk::ScopedAStatus getBluetooth(
         std::shared_ptr<::aidl::android::hardware::audio::core::IBluetooth>*
             _aidl_return) override;
@@ -40,7 +41,6 @@ class ModuleStub final : public Module {
     ndk::ScopedAStatus getBluetoothLe(
         std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothLe>*
             _aidl_return) override;
-
     ndk::ScopedAStatus createInputStream(
         StreamContext&& context,
         const ::aidl::android::hardware::audio::common::SinkMetadata&
@@ -56,7 +56,6 @@ class ModuleStub final : public Module {
             ::aidl::android::media::audio::common::AudioOffloadInfo>&
             offloadInfo,
         std::shared_ptr<StreamOut>* result) override;
-
    private:
     ChildInterface<::aidl::android::hardware::audio::core::IBluetooth>
         mBluetooth;
@@ -64,6 +63,7 @@ class ModuleStub final : public Module {
         mBluetoothA2dp;
     ChildInterface<::aidl::android::hardware::audio::core::IBluetoothLe>
         mBluetoothLe;
+
 };
 
 }  // namespace qti::audio::core

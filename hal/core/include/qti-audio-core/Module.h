@@ -28,7 +28,6 @@
 #include <set>
 
 #include <aidl/android/hardware/audio/core/BnModule.h>
-
 #include <qti-audio-core/ChildInterface.h>
 #include <qti-audio-core/Stream.h>
 #include <qti-audio-core/ModuleConfig.h>
