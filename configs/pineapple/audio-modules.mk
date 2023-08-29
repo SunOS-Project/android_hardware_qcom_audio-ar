@@ -10,9 +10,7 @@ ifneq ($(TARGET_IS_HEADLESS),true)
 
 #AGM
 AUDIO_AGM := libagmclient
-AUDIO_AGM += vendor.qti.hardware.AGMIPC@1.0-impl
-#not needed for pineapple products
-#AUDIO_AGM += vendor.qti.hardware.AGMIPC@1.0-service
+AUDIO_AGM += libagmipcservice
 AUDIO_AGM += libagm
 AUDIO_AGM += agmplay
 AUDIO_AGM += agmcap
