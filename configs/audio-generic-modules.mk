@@ -17,15 +17,24 @@ MM_AUDIO += libcapiv2svarnnvendor
 MM_AUDIO += libcapiv2udk7vendor
 MM_AUDIO += libdsd2pcm
 MM_AUDIO += libFlacSwDec
-MM_AUDIO += libasphere
+MM_AUDIO += libbatterylistener
+MM_AUDIO += audioflacapp
+
+#AOSP effects
+MM_AUDIO += libbundleaidl
+MM_AUDIO += libdownmixaidl
+MM_AUDIO += libdynamicsprocessingaidl
+MM_AUDIO += libhapticgeneratoraidl
+MM_AUDIO += libloudnessenhanceraidl
+MM_AUDIO += libreverbaidl
+MM_AUDIO += libvisualizeraidl
+#QTI effects
+MM_AUDIO += libvolumelistener
+MM_AUDIO += libshoebox
 MM_AUDIO += libqcompostprocbundle
 MM_AUDIO += libqcomvisualizer
 MM_AUDIO += libqcomvoiceprocessing
-MM_AUDIO += libshoebox
-MM_AUDIO += libbatterylistener
-MM_AUDIO += audioflacapp
-MM_AUDIO += libvolumelistener
-
+MM_AUDIO += libasphere
 #KERNEL_TESTS
 #KERNEL_TESTS := mm-audio-native-test
 
