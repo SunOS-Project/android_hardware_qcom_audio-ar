@@ -9,7 +9,14 @@
 
 #include "effect-impl/EffectContext.h"
 
-namespace aidl::android::hardware::audio::effect {
+using aidl::android::hardware::audio::effect::Parameter;
+using aidl::android::hardware::audio::effect::CommandId;
+using aidl::android::hardware::audio::effect::Capability;
+using aidl::android::hardware::audio::effect::Descriptor;
+using aidl::android::hardware::audio::effect::Range;
+using aidl::android::hardware::audio::effect::Visualizer;
+
+namespace aidl::qti::effects {
 
 class VisualizerOffloadContext final : public EffectContext {
   public:
@@ -87,4 +94,4 @@ class VisualizerOffloadContext final : public EffectContext {
 
     uint32_t getDeltaTimeMsFromUpdatedTime_l() REQUIRES(mMutex);
 };
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

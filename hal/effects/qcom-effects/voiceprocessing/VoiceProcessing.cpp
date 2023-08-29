@@ -11,10 +11,10 @@
 
 using aidl::android::hardware::audio::effect::Descriptor;
 using aidl::android::hardware::audio::effect::IEffect;
-using aidl::android::hardware::audio::effect::kAcousticEchoCancelerQtiUUID;
-using aidl::android::hardware::audio::effect::kNoiseSuppressionQtiUUID;
+using aidl::qti::effects::kAcousticEchoCancelerQtiUUID;
+using  aidl::qti::effects::kNoiseSuppressionQtiUUID;
 using aidl::android::media::audio::common::AudioUuid;
-using aidl::android::hardware::audio::effect::VoiceProcessing;
+using aidl::qti::effects::VoiceProcessing;
 
 bool isUuidSupported(const AudioUuid* uuid) {
     return (*uuid == kAcousticEchoCancelerQtiUUID || *uuid == kNoiseSuppressionQtiUUID);
@@ -42,17 +42,17 @@ extern "C" binder_exception_t queryEffect(const AudioUuid* uuid, Descriptor* _ai
         return EX_ILLEGAL_ARGUMENT;
     }
     if (*uuid == kAcousticEchoCancelerQtiUUID) {
-        *_aidl_return = aidl::android::hardware::audio::effect::kAcousticEchoCancelerDesc;
+        *_aidl_return = aidl::qti::effects::kAcousticEchoCancelerDesc;
     } else if (*uuid == kNoiseSuppressionQtiUUID) {
-        *_aidl_return = aidl::android::hardware::audio::effect::kNoiseSuppressionDesc;
+        *_aidl_return = aidl::qti::effects::kNoiseSuppressionDesc;
     }
     return EX_NONE;
 }
 
-namespace aidl::android::hardware::audio::effect {
+namespace aidl::qti::effects {
 
 VoiceProcessing::VoiceProcessing(const AudioUuid& uuid) {
-    LOG(DEBUG) << __func__ << uuid.toString();
+    LOG(DEBUG) << __func__ << toString(uuid);
     if (uuid == kAcousticEchoCancelerQtiUUID) {
         mType = VoiceProcessingType::AcousticEchoCanceler;
         mDescriptor = &kAcousticEchoCancelerDesc;
@@ -118,13 +118,83 @@ RetCode VoiceProcessing::releaseContext() {
 }
 
 ndk::ScopedAStatus VoiceProcessing::setParameterSpecific(const Parameter::Specific& specific) {
+    return ndk::ScopedAStatus::fromExceptionCodeWithMessage(EX_ILLEGAL_ARGUMENT,
+                                                            "ParamUnsupported");
+}
+
+ndk::ScopedAStatus VoiceProcessing::getParameterNoiseSuppression(const NoiseSuppression::Id& id,
+                                                     Parameter::Specific* specific) {
+    RETURN_IF(id.getTag() != NoiseSuppression::Id::commonTag, EX_ILLEGAL_ARGUMENT,
+              "NoiseSuppressionTagNotSupported");
+    RETURN_IF(!mContext, EX_NULL_POINTER, "nullContext");
+    NoiseSuppression param;
+ 
+     auto tag = id.get<NoiseSuppression::Id::commonTag>();
+     switch (tag) {
+         case NoiseSuppression::level: {
+             param.set<NoiseSuppression::level>(mContext->getNoiseSuppressionLevel());
+             break;
+         }
+         default: {
+             LOG(ERROR) << __func__ << " unsupported tag: " << toString(tag);
+             return ndk::ScopedAStatus::fromExceptionCodeWithMessage(
+                     EX_ILLEGAL_ARGUMENT, "NoiseSuppressionTagNotSupported");
+         }
+     }
+ 
+     specific->set<Parameter::Specific::noiseSuppression>(param);
+     return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus VoiceProcessing::getParameterAcousticEchoCanceler(
+        const AcousticEchoCanceler::Id& id, Parameter::Specific* specific) {
+    RETURN_IF(id.getTag() != AcousticEchoCanceler::Id::commonTag, EX_ILLEGAL_ARGUMENT,
+              "AcousticEchoCancelerTagNotSupported");
+    RETURN_IF(!mContext, EX_NULL_POINTER, "nullContext");
+    AcousticEchoCanceler param;
+    auto tag = id.get<AcousticEchoCanceler::Id::commonTag>();
+    switch (tag) {
+        case AcousticEchoCanceler::echoDelayUs: {
+            param.set<AcousticEchoCanceler::echoDelayUs>(
+                    mContext->getAcousticEchoCancelerEchoDelay());
+            break;
+        }
+        case AcousticEchoCanceler::mobileMode: {
+            param.set<AcousticEchoCanceler::mobileMode>(
+                    mContext->getAcousticEchoCancelerMobileMode());
+            break;
+        }
+        default: {
+            LOG(ERROR) << __func__ << " unsupported tag: " << toString(tag);
+            return ndk::ScopedAStatus::fromExceptionCodeWithMessage(
+                    EX_ILLEGAL_ARGUMENT, "AcousticEchoCancelerTagNotSupported");
+        }
+    }
+
+    specific->set<Parameter::Specific::acousticEchoCanceler>(param);
     return ndk::ScopedAStatus::ok();
 }
 
-
 ndk::ScopedAStatus VoiceProcessing::getParameterSpecific(const Parameter::Id& id,
                                                       Parameter::Specific* specific) {
-    return ndk::ScopedAStatus::ok();
+
+     RETURN_IF(!specific, EX_NULL_POINTER, "nullPtr");
+     auto tag = id.getTag();
+
+     switch (tag) {
+         case Parameter::Id::acousticEchoCancelerTag:
+             return getParameterAcousticEchoCanceler(
+                     id.get<Parameter::Id::acousticEchoCancelerTag>(), specific);
+         case Parameter::Id::noiseSuppressionTag:
+             return getParameterNoiseSuppression(id.get<Parameter::Id::noiseSuppressionTag>(),
+                                                 specific);
+         default:
+             LOG(ERROR) << __func__ << " unsupported tag: " << toString(tag);
+             return ndk::ScopedAStatus::fromExceptionCodeWithMessage(EX_ILLEGAL_ARGUMENT,
+                                                                     "wrongIdTag");
+     }
+    return ndk::ScopedAStatus::fromExceptionCodeWithMessage(EX_ILLEGAL_ARGUMENT,
+                                                            "ParamUnsupported");
 }
 
 // Processing method running in EffectWorker thread.
@@ -133,7 +203,11 @@ IEffect::Status VoiceProcessing::effectProcessImpl(float* in, float* out, int sa
         LOG(ERROR) << __func__ << " nullContext";
         return {EX_NULL_POINTER, 0, 0};
     }
-    return {EX_NONE, 0, 0};
+    for (int i = 0; i < sampleToProcess; i++) {
+        *out++ = *in++;
+    }
+    return {STATUS_OK, sampleToProcess, sampleToProcess};
+
 }
 
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

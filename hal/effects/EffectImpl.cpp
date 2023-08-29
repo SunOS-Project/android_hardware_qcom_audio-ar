@@ -24,12 +24,12 @@ extern "C" binder_exception_t destroyEffect(const std::shared_ptr<IEffect>& inst
     return EX_NONE;
 }
 
-namespace aidl::android::hardware::audio::effect {
+namespace aidl::qti::effects {
 
 ndk::ScopedAStatus EffectImpl::open(const Parameter::Common& common,
                                     const std::optional<Parameter::Specific>& specific,
                                     OpenEffectReturn* ret) {
-    LOG(DEBUG) << __func__;
+    LOG(DEBUG) << getEffectName() <<"  " <<  __func__;
     // effect only support 32bits float
     RETURN_IF(common.input.base.format.pcm != common.output.base.format.pcm ||
                       common.input.base.format.pcm != PcmType::FLOAT_32_BIT,
@@ -60,12 +60,12 @@ ndk::ScopedAStatus EffectImpl::close() {
     RETURN_IF(releaseContext() != RetCode::SUCCESS, EX_UNSUPPORTED_OPERATION,
               "FailedToCreateWorker");
 
-    LOG(DEBUG) << __func__;
+    LOG(DEBUG) << getEffectName() <<"  " << __func__;
     return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus EffectImpl::setParameter(const Parameter& param) {
-    LOG(DEBUG) << __func__ << " with: " << param.toString();
+    LOG(DEBUG) << getEffectName() <<"  " << __func__ << " with: " << param.toString();
 
     const auto tag = param.getTag();
     switch (tag) {
@@ -80,7 +80,8 @@ ndk::ScopedAStatus EffectImpl::setParameter(const Parameter& param) {
             return setParameterSpecific(param.get<Parameter::specific>());
         }
         default: {
-            LOG(ERROR) << __func__ << " unsupportedParameterTag " << toString(tag);
+            LOG(DEBUG) << getEffectName() <<"  " << __func__ << " unsupportedParameterTag "
+                       << toString(tag);
             return ndk::ScopedAStatus::fromExceptionCodeWithMessage(EX_ILLEGAL_ARGUMENT,
                                                                     "ParameterNotSupported");
         }
@@ -88,7 +89,7 @@ ndk::ScopedAStatus EffectImpl::setParameter(const Parameter& param) {
 }
 
 ndk::ScopedAStatus EffectImpl::getParameter(const Parameter::Id& id, Parameter* param) {
-    LOG(DEBUG) << __func__ << id.toString();
+    LOG(DEBUG) << getEffectName() <<"  " << __func__ << id.toString();
     auto tag = id.getTag();
     switch (tag) {
         case Parameter::Id::commonTag: {
@@ -105,7 +106,7 @@ ndk::ScopedAStatus EffectImpl::getParameter(const Parameter::Id& id, Parameter* 
             break;
         }
     }
-    LOG(DEBUG) << __func__ << param->toString();
+    LOG(DEBUG) << getEffectName() <<"  " << __func__ << param->toString();
     return ndk::ScopedAStatus::ok();
 }
 
@@ -138,7 +139,8 @@ ndk::ScopedAStatus EffectImpl::setParameterCommon(const Parameter& param) {
                       EX_ILLEGAL_ARGUMENT, "setVolumeStereoFailed");
             break;
         default: {
-            LOG(ERROR) << __func__ << " unsupportedParameterTag " << toString(tag);
+            LOG(DEBUG) << getEffectName() <<"  " << __func__ << " unsupportedParameterTag "
+                       << toString(tag);
             return ndk::ScopedAStatus::fromExceptionCodeWithMessage(EX_ILLEGAL_ARGUMENT,
                                                                     "commonParamNotSupported");
         }
@@ -172,7 +174,7 @@ ndk::ScopedAStatus EffectImpl::getParameterCommon(const Parameter::Tag& tag, Par
             break;
         }
         default: {
-            LOG(DEBUG) << __func__ << " unsupported tag " << toString(tag);
+            LOG(DEBUG) << getEffectName() <<"  " << __func__ << " unsupported tag " << toString(tag);
             return ndk::ScopedAStatus::fromExceptionCodeWithMessage(EX_ILLEGAL_ARGUMENT,
                                                                     "tagNotSupported");
         }
@@ -187,8 +189,8 @@ ndk::ScopedAStatus EffectImpl::getState(State* state) {
 
 ndk::ScopedAStatus EffectImpl::command(CommandId command) {
     RETURN_IF(mState == State::INIT, EX_ILLEGAL_STATE, "CommandStateError");
-    LOG(DEBUG) << __func__ << ": receive command: " << toString(command) << " at state "
-               << toString(mState);
+    LOG(DEBUG) << getEffectName() <<"  " << __func__ << ": receive command: " << toString(command)
+               << " at state " << toString(mState);
 
     switch (command) {
         case CommandId::START:
@@ -206,11 +208,11 @@ ndk::ScopedAStatus EffectImpl::command(CommandId command) {
             mState = State::IDLE;
             break;
         default:
-            LOG(ERROR) << __func__ << " instance still processing";
+            LOG(DEBUG) << getEffectName() <<"  " << __func__ << " instance still processing";
             return ndk::ScopedAStatus::fromExceptionCodeWithMessage(EX_ILLEGAL_ARGUMENT,
                                                                     "CommandIdNotSupported");
     }
-    LOG(DEBUG) << __func__ << " transfer to state: " << toString(mState);
+    LOG(DEBUG) << getEffectName() <<"  " << __func__ << " transfer to state: " << toString(mState);
     return ndk::ScopedAStatus::ok();
 }
 
@@ -241,8 +243,8 @@ IEffect::Status EffectImpl::effectProcessImpl(float* in, float* out, int samples
     for (int i = 0; i < samples; i++) {
         *out++ = *in++;
     }
-    LOG(DEBUG) << __func__ << " done processing " << samples << " samples";
+    LOG(DEBUG) << getEffectName() << __func__ << " done processing " << samples << " samples";
     return {STATUS_OK, samples, samples};
 }
 
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

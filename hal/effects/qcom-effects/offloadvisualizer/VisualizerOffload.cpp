@@ -3,22 +3,38 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL_VisualizerLibEffects"
+#define LOG_TAG "AHAL_Visualizer"
 
 #include <android-base/logging.h>
 #include "VisualizerOffload.h"
 
 using aidl::android::hardware::audio::effect::Descriptor;
+using aidl::android::hardware::audio::effect::Capability;
+using aidl::android::hardware::audio::effect::Range;
 using aidl::android::hardware::audio::effect::IEffect;
-using aidl::android::hardware::audio::effect::VisualizerOffload;
-using aidl::android::hardware::audio::effect::kVisualizerSwImplUUID;
+using aidl::android::hardware::audio::effect::Flags;
+using aidl::qti::effects::VisualizerOffload;
+using aidl::qti::effects::kVisualizerOffloadQtiUUID;
 using aidl::android::hardware::audio::effect::State;
 using aidl::android::media::audio::common::AudioUuid;
 
+// static std::string printAudioUuid(const AudioUuid &uuid) {
+//     std::ostringstream os;
+//     char str[64];
+//     snprintf(str, sizeof(str), "%08x-%04x-%04x-%04x-%02x%02x%02x%02x%02x%02x",
+//              uuid.timeLow, uuid.timeMid, uuid.timeHiAndVersion, uuid.clockSeq,
+//              uuid.node[0], uuid.node[1], uuid.node[2], uuid.node[3], uuid.node[4], uuid.node[5]);
+
+//     os << "Uuid : [";
+//     os << str;
+//     os << "]";
+//     return os.str();
+// }
+
 extern "C" binder_exception_t createEffect(const AudioUuid* in_impl_uuid,
                                            std::shared_ptr<IEffect>* instanceSpp) {
-    if (!in_impl_uuid || *in_impl_uuid != kVisualizerSwImplUUID) {
-        LOG(ERROR) << __func__ << "uuid not supported";
+    if (!in_impl_uuid || *in_impl_uuid != kVisualizerOffloadQtiUUID) {
+        LOG(ERROR) << __func__ << "uuid not supported" << aidl::qti::effects::toString (*in_impl_uuid) << "vs " << aidl::qti::effects::toString (kVisualizerOffloadQtiUUID);
         return EX_ILLEGAL_ARGUMENT;
     }
     if (instanceSpp) {
@@ -32,15 +48,15 @@ extern "C" binder_exception_t createEffect(const AudioUuid* in_impl_uuid,
 }
 
 extern "C" binder_exception_t queryEffect(const AudioUuid* in_impl_uuid, Descriptor* _aidl_return) {
-    if (!in_impl_uuid || *in_impl_uuid != kVisualizerSwImplUUID) {
-        LOG(ERROR) << __func__ << "uuid not supported";
+    if (!in_impl_uuid || *in_impl_uuid != kVisualizerOffloadQtiUUID) {
+        LOG(ERROR) << __func__ << "uuid not supported" << aidl::qti::effects::toString (*in_impl_uuid) << "vs " << aidl::qti::effects::toString (kVisualizerOffloadQtiUUID);
         return EX_ILLEGAL_ARGUMENT;
     }
     *_aidl_return = VisualizerOffload::kDescriptor;
     return EX_NONE;
 }
 
-namespace aidl::android::hardware::audio::effect {
+namespace aidl::qti::effects {
 
 const std::string VisualizerOffload::kEffectName = "Visualizer";
 const std::vector<Range::VisualizerRange> VisualizerOffload::kRanges = {
@@ -55,7 +71,7 @@ const Capability VisualizerOffload::kCapability = {
         .range = Range::make<Range::visualizer>(VisualizerOffload::kRanges)};
 const Descriptor VisualizerOffload::kDescriptor = {
         .common = {.id = {.type = kVisualizerTypeUUID,
-                          .uuid = kVisualizerSwImplUUID,
+                          .uuid = kVisualizerOffloadQtiUUID,
                           .proxy = std::nullopt},
                    .flags = {.type = Flags::Type::INSERT,
                              .insert = Flags::Insert::LAST,
@@ -98,7 +114,7 @@ ndk::ScopedAStatus VisualizerOffload::setParameterSpecific(const Parameter::Spec
     RETURN_IF(!mContext, EX_NULL_POINTER, "nullContext");
 
     auto& param = specific.get<Parameter::Specific::visualizer>();
-    //RETURN_IF(!inRange(param, kRanges), EX_ILLEGAL_ARGUMENT, "outOfRange");
+    RETURN_IF(!inRange(param, kRanges), EX_ILLEGAL_ARGUMENT, "outOfRange");
     const auto tag = param.getTag();
     switch (tag) {
         case Visualizer::captureSamples: {
@@ -220,4 +236,4 @@ IEffect::Status VisualizerOffload::effectProcessImpl(float* in, float* out, int 
     return mContext->process(in, out, samples);
 }
 
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

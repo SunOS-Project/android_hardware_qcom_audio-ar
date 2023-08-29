@@ -9,7 +9,14 @@
 #include "effect-impl/EffectImpl.h"
 #include "effect-impl/EffectUUID.h"
 
-namespace aidl::android::hardware::audio::effect {
+using aidl::android::hardware::audio::effect::Descriptor;
+using aidl::android::hardware::audio::effect::Capability;
+using aidl::android::hardware::audio::effect::Flags;
+using aidl::android::hardware::audio::effect::Range;
+using aidl::android::hardware::audio::effect::AcousticEchoCanceler;
+using aidl::android::hardware::audio::effect::NoiseSuppression;
+
+namespace aidl::qti::effects {
 
 enum class VoiceProcessingType {
     AcousticEchoCanceler,
@@ -33,6 +40,13 @@ static Flags kVoiceProcessingFlags = {
                       .offloadIndication = true,
                     };
 
+static const std::vector<Range::AcousticEchoCancelerRange> kAcousticEchoCancelerRanges = {
+        MAKE_RANGE(AcousticEchoCanceler, echoDelayUs, 0, -1),
+        MAKE_RANGE(AcousticEchoCanceler, mobileMode, true, false),
+        };
+
+static const Capability kAcousticEchoCancelerCap = {.range = kAcousticEchoCancelerRanges};
+
 static const Descriptor kAcousticEchoCancelerDesc = {
         .common = {.id = {.type = kAcousticEchoCancelerTypeUUID,
                           .uuid = kAcousticEchoCancelerQtiUUID,
@@ -40,8 +54,16 @@ static const Descriptor kAcousticEchoCancelerDesc = {
                    .flags = kVoiceProcessingFlags,
                    .name = kAcousticEchoCancelerEffectName,
                    .implementor = "Qualcomm Technologies Inc"
-                   }
+                   },
+        .capability = kAcousticEchoCancelerCap,
 };
+
+static const std::vector<Range::NoiseSuppressionRange> kNoiseSuppressionRanges = {
+        MAKE_RANGE(NoiseSuppression, level, NoiseSuppression::Level::MEDIUM, NoiseSuppression::Level::LOW),
+        MAKE_RANGE(NoiseSuppression, type, NoiseSuppression::Type::MULTI_CHANNEL, NoiseSuppression::Type::SINGLE_CHANNEL),
+        };
+
+static const Capability kNoiseSuppresionCap = {.range = kNoiseSuppressionRanges};
 
 static const Descriptor kNoiseSuppressionDesc = {
         .common = {.id = {.type = kNoiseSuppressionTypeUUID,
@@ -50,7 +72,8 @@ static const Descriptor kNoiseSuppressionDesc = {
                    .flags = kVoiceProcessingFlags,
                    .name = kNoiseSuppressionEffectName,
                    .implementor = "Qualcomm Technologies Inc"
-                   }
+                   },
+        .capability = kNoiseSuppresionCap,
 };
 
 inline std::ostream& operator<<(std::ostream& out, const VoiceProcessingType& type) {
@@ -63,4 +86,4 @@ inline std::ostream& operator<<(std::ostream& out, const VoiceProcessingType& ty
     return out << "Enum_VoiceProcessingError";
 }
 
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

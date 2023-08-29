@@ -6,13 +6,13 @@
 #include <algorithm>
 #include <cstddef>
 #include <memory>
-#define LOG_TAG "AHAL_VolumeListener"
+#define LOG_TAG "AHAL_Effect_VolumeListener"
 #include <unordered_set>
 #include <cutils/properties.h>
 
 #include "GlobalVolumeListenerSession.h"
 
-namespace aidl::android::hardware::audio::effect {
+namespace aidl::qti::effects {
 
 GlobalConfigs::GlobalConfigs() {
     initGainMappings();
@@ -25,6 +25,8 @@ void GlobalConfigs::initGainMappings() {
     gainLevelMap.mapping_tbl = mGainMappingTable;
     gainLevelMap.table_size  = MAX_VOLUME_CAL_STEPS;
     gainLevelMap.filled_size = 0;
+
+    printVolumeTable();
 
     int ret = pal_get_param(PAL_PARAM_ID_GAIN_LVL_MAP,
             (void **)&gainLevelMap,
@@ -55,7 +57,7 @@ void GlobalConfigs::initGainMappings() {
 
 void GlobalConfigs::printVolumeTable() {
     for (int i = 0; i < mTotalVolumeCalSteps; i++) {
-        LOG(VERBOSE) << "Index: " << i << " (amp, db, level)" << mGainMappingTable[i].amp << " " << mGainMappingTable[i].db << " "<<mGainMappingTable[i].level;
+        LOG(DEBUG) << "Index: " << i << " (amp, db, level)" << mGainMappingTable[i].amp << " " << mGainMappingTable[i].db << " "<<mGainMappingTable[i].level;
     }
 }
 
@@ -115,4 +117,4 @@ void GlobalVolumeListenerSession::dumpSessions() {
     }
 }
 
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

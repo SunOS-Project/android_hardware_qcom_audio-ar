@@ -15,9 +15,9 @@
 
 using ::aidl::android::hardware::audio::common::getChannelCount;
 
-namespace aidl::android::hardware::audio::effect {
+namespace aidl::qti::effects {
 
-VisualizerOffloadContext::VisualizerOffloadContext(int statusDepth, const Parameter::Common& common)
+VisualizerOffloadContext::VisualizerOffloadContext(int statusDepth, const aidl::android::hardware::audio::effect::Parameter::Common& common)
     : EffectContext(statusDepth, common) {
 }
 
@@ -27,7 +27,7 @@ VisualizerOffloadContext::~VisualizerOffloadContext() {
     mState = State::UNINITIALIZED;
 }
 
-RetCode VisualizerOffloadContext::initParams(const Parameter::Common& common) {
+RetCode VisualizerOffloadContext::initParams(const aidl::android::hardware::audio::effect::Parameter::Common& common) {
     std::lock_guard lg(mMutex);
     LOG(DEBUG) << __func__;
     if (common.input != common.output) {
@@ -81,7 +81,7 @@ int VisualizerOffloadContext::getCaptureSamples() {
     return mCaptureSamples;
 }
 
-RetCode VisualizerOffloadContext::setMeasurementMode(Visualizer::MeasurementMode mode) {
+RetCode VisualizerOffloadContext::setMeasurementMode(aidl::android::hardware::audio::effect::Visualizer::MeasurementMode mode) {
     std::lock_guard lg(mMutex);
     mMeasurementMode = mode;
     return RetCode::SUCCESS;
@@ -176,7 +176,13 @@ Visualizer::Measurement VisualizerOffloadContext::getMeasure() {
 std::vector<uint8_t> VisualizerOffloadContext::capture() {
     std::vector<uint8_t> result;
     std::lock_guard lg(mMutex);
-    RETURN_VALUE_IF(mState != State::ACTIVE, result, "illegalState");
+    // RETURN_VALUE_IF(mState != State::ACTIVE, result, "illegalState");
+    if (mState != State::ACTIVE) {
+        result.resize(mCaptureSamples);
+        memset(result.data(), 0x80, mCaptureSamples);
+        return result;
+    }
+
     const uint32_t deltaMs = getDeltaTimeMsFromUpdatedTime_l();
 
     // if audio framework has stopped playing audio although the effect is still active we must
@@ -308,4 +314,4 @@ IEffect::Status VisualizerOffloadContext::process(float* in, float* out, int sam
     return {STATUS_OK, samples, samples};
 }
 
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

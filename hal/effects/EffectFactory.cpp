@@ -3,29 +3,28 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
+#include <dlfcn.h>
 #include <iterator>
 #include <memory>
 #include <tuple>
-#include "include/effect-impl/EffectTypes.h"
-#define LOG_TAG "AHAL_EffectFactory"
-#include <dlfcn.h>
 #include <unordered_set>
+#define LOG_TAG "AHAL_EffectFactory"
 
 #include <android-base/logging.h>
 #include <android/binder_ibinder_platform.h>
+#include <system/audio_effects/effect_uuid.h>
 #include <system/thread_defs.h>
 
 #include "effect-impl/EffectTypes.h"
-#include "effect-impl/EffectUUID.h"
 #include "effectFactory-impl/EffectFactory.h"
 
 using aidl::android::media::audio::common::AudioUuid;
 
-namespace aidl::android::hardware::audio::effect {
+namespace aidl::qti::effects {
 
 Factory::Factory(const std::string& file) : mConfig(EffectConfig(file)) {
     LOG(DEBUG) << __func__ << " with config file: " << file;
-    //loadEffectLibs();
+    loadEffectLibs();
 }
 
 Factory::~Factory() {
@@ -42,6 +41,21 @@ Factory::~Factory() {
     }
 }
 
+ndk::ScopedAStatus Factory::getDescriptorWithUuid(const AudioUuid& uuid, Descriptor* desc) {
+    RETURN_IF(!desc, EX_NULL_POINTER, "nullDescriptor");
+
+    if (mEffectLibMap.count(uuid)) {
+        auto& entry = mEffectLibMap[uuid];
+        getDlSyms(entry);
+        auto& libInterface = std::get<kMapEntryInterfaceIndex>(entry);
+        RETURN_IF(!libInterface || !libInterface->queryEffectFunc, EX_NULL_POINTER,
+                  "dlNullQueryEffectFunc");
+        RETURN_IF_BINDER_EXCEPTION(libInterface->queryEffectFunc(&uuid, desc));
+        return ndk::ScopedAStatus::ok();
+    }
+
+    return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+}
 ndk::ScopedAStatus Factory::queryEffects(const std::optional<AudioUuid>& in_type_uuid,
                                          const std::optional<AudioUuid>& in_impl_uuid,
                                          const std::optional<AudioUuid>& in_proxy_uuid,
@@ -59,12 +73,9 @@ ndk::ScopedAStatus Factory::queryEffects(const std::optional<AudioUuid>& in_type
     for (const auto& id : idList) {
         if (mEffectLibMap.count(id.uuid)) {
             Descriptor desc;
-            auto& entry = mEffectLibMap[id.uuid];
-            getDlSyms(entry);
-            auto& libInterface = std::get<kMapEntryInterfaceIndex>(entry);
-            RETURN_IF(!libInterface || !libInterface->queryEffectFunc, EX_NULL_POINTER,
-                      "dlNullQueryEffectFunc");
-            RETURN_IF_BINDER_EXCEPTION(libInterface->queryEffectFunc(&id.uuid, &desc));
+            RETURN_IF_ASTATUS_NOT_OK(getDescriptorWithUuid(id.uuid, &desc), "getDescriptorFailed");
+            // update proxy UUID with information from config xml
+            desc.common.id.proxy = id.proxy;
             _aidl_return->emplace_back(std::move(desc));
         }
     }
@@ -73,10 +84,25 @@ ndk::ScopedAStatus Factory::queryEffects(const std::optional<AudioUuid>& in_type
 
 ndk::ScopedAStatus Factory::queryProcessing(const std::optional<Processing::Type>& in_type,
                                             std::vector<Processing>* _aidl_return) {
-    // TODO: implement this with audio_effect.xml.
-    if (in_type.has_value()) {
-        // return all matching process filter
-        LOG(DEBUG) << __func__ << " process type: " << in_type.value().toString();
+    const auto& processings = mConfig.getProcessingMap();
+    // Processing stream type
+    for (const auto& procIter : processings) {
+        if (!in_type.has_value() || in_type.value() == procIter.first) {
+            Processing process = {.type = procIter.first /* Processing::Type */};
+            for (const auto& libs : procIter.second /* std::vector<struct EffectLibraries> */) {
+                for (const auto& lib : libs.libraries /* std::vector<struct LibraryUuid> */) {
+                    Descriptor desc;
+                    if (libs.proxyLibrary.has_value()) {
+                        desc.common.id.proxy = libs.proxyLibrary.value().uuid;
+                    }
+                    RETURN_IF_ASTATUS_NOT_OK(getDescriptorWithUuid(lib.uuid, &desc),
+                                             "getDescriptorFailed");
+                    process.ids.emplace_back(desc);
+                }
+            }
+            LOG(DEBUG) << __func__ << " insert processing " << process.toString() ;
+            _aidl_return->emplace_back(process);
+        }
     }
     LOG(DEBUG) << __func__ << " return " << _aidl_return->size();
     return ndk::ScopedAStatus::ok();
@@ -84,7 +110,7 @@ ndk::ScopedAStatus Factory::queryProcessing(const std::optional<Processing::Type
 
 ndk::ScopedAStatus Factory::createEffect(const AudioUuid& in_impl_uuid,
                                          std::shared_ptr<IEffect>* _aidl_return) {
-    LOG(DEBUG) << __func__ << ": UUID " << in_impl_uuid.toString();
+    LOG(DEBUG) << __func__ << ": UUID " << toString(in_impl_uuid);
     if (mEffectLibMap.count(in_impl_uuid)) {
         auto& entry = mEffectLibMap[in_impl_uuid];
         getDlSyms(entry);
@@ -106,7 +132,7 @@ ndk::ScopedAStatus Factory::createEffect(const AudioUuid& in_impl_uuid,
         LOG(DEBUG) << __func__ << ": instance " << effectSp.get() << " created successfully";
         return ndk::ScopedAStatus::ok();
     } else {
-        LOG(ERROR) << __func__ << ": library doesn't exist";
+        LOG(ERROR) << __func__ << ": library doesn't exist for uuid" << toString(in_impl_uuid);
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
     return ndk::ScopedAStatus::ok();
@@ -154,20 +180,6 @@ ndk::ScopedAStatus Factory::destroyEffect(const std::shared_ptr<IEffect>& in_han
     return status;
 }
 
-// TODO move to utils
-std::string printAudioUuid(const AudioUuid &uuid) {
-    std::ostringstream os;
-    char str[64];
-    snprintf(str, sizeof(str), "%08x-%04x-%04x-%04x-%02x%02x%02x%02x%02x%02x",
-             uuid.timeLow, uuid.timeMid, uuid.timeHiAndVersion, uuid.clockSeq,
-             uuid.node[0], uuid.node[1], uuid.node[2], uuid.node[3], uuid.node[4], uuid.node[5]);
-
-    os << "Uuid : [";
-    os << str;
-    os << "]";
-    return os.str();
-}
-
 bool Factory::openEffectLibrary(const AudioUuid& impl, const std::string& path) {
     std::function<void(void*)> dlClose = [](void* handle) -> void {
         if (handle && dlclose(handle)) {
@@ -182,7 +194,7 @@ bool Factory::openEffectLibrary(const AudioUuid& impl, const std::string& path) 
         return false;
     }
 
-    LOG(INFO) << __func__ << " dlopen lib: " << path.c_str() << " Impl " << printAudioUuid(impl)
+    LOG(DEBUG) << __func__ << " dlopen lib: " << path.c_str() << " Impl " << toString(impl)
               << "handle:" << libHandle;
     auto interface = new effect_dl_interface_s{nullptr, nullptr, nullptr};
     mEffectLibMap.insert(
@@ -202,9 +214,9 @@ void Factory::createIdentityWithConfig(const EffectConfig::LibraryUuid& configLi
         id.type = typeUuid;
         id.uuid = configLib.uuid;
         id.proxy = proxyUuid;
-        LOG(INFO) << __func__ <<" name: " << libName << ": Type " << printAudioUuid(id.type) <<
-                    ": Impl " << printAudioUuid(id.uuid) << 
-                    ": Proxy " << (proxyUuid.has_value() ? printAudioUuid(proxyUuid.value()) : "null");
+        LOG(DEBUG) << __func__ <<" name: " << libName << ": Type " << toString(id.type) <<
+                    ": Impl " << toString(id.uuid) << 
+                    ": Proxy " << (proxyUuid.has_value() ? toString(proxyUuid.value()) : "null");
 
         if (openEffectLibrary(id.uuid, path->second)) {
             mIdentitySet.insert(std::move(id));
@@ -218,8 +230,8 @@ void Factory::createIdentityWithConfig(const EffectConfig::LibraryUuid& configLi
 void Factory::loadEffectLibs() {
     const auto& configEffectsMap = mConfig.getEffectsMap();
     for (const auto& configEffects : configEffectsMap) {
-        if (auto typeUuid = kUuidNameTypeMap.find(configEffects.first /* effect name */);
-            typeUuid != kUuidNameTypeMap.end()) {
+        if (AudioUuid uuid;
+            EffectConfig::findUuid(configEffects.first /* xml effect name */, &uuid)) {
             const auto& configLibs = configEffects.second;
             std::optional<AudioUuid> proxyUuid;
             if (configLibs.proxyLibrary.has_value()) {
@@ -227,7 +239,7 @@ void Factory::loadEffectLibs() {
                 proxyUuid = proxyLib.uuid;
             }
             for (const auto& configLib : configLibs.libraries) {
-                createIdentityWithConfig(configLib, typeUuid->second, proxyUuid);
+                createIdentityWithConfig(configLib, uuid, proxyUuid);
             }
         } else {
             LOG(ERROR) << __func__ << ": can not find type UUID for effect " << configEffects.first
@@ -264,4 +276,4 @@ void Factory::getDlSyms(DlEntry& entry) {
     }
 }
 
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

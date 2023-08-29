@@ -13,7 +13,7 @@
 #include "VoiceProcessingTypes.h"
 #include "GlobalVoiceProcessingSession.h"
 
-namespace aidl::android::hardware::audio::effect {
+namespace aidl::qti::effects {
 
 class VoiceProcessing final : public EffectImpl {
   public:
@@ -41,7 +41,12 @@ class VoiceProcessing final : public EffectImpl {
     std::string getEffectName() override { return *mEffectName; };
     IEffect::Status effectProcessImpl(float* in, float* out, int samples) override;
 
+    ndk::ScopedAStatus getParameterAcousticEchoCanceler(
+        const AcousticEchoCanceler::Id& id, Parameter::Specific* specific);
+
+     ndk::ScopedAStatus getParameterNoiseSuppression(const NoiseSuppression::Id& id,
+                                                     Parameter::Specific* specific);
   private:
     std::shared_ptr<VoiceProcessingContext> mContext;
 };
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

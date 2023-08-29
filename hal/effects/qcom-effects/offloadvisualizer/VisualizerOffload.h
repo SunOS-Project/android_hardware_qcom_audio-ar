@@ -12,7 +12,7 @@
 
 #include "VisualizerOffloadContext.h"
 
-namespace aidl::android::hardware::audio::effect {
+namespace aidl::qti::effects {
 
 class VisualizerOffload final : public EffectImpl {
   public:
@@ -44,4 +44,4 @@ class VisualizerOffload final : public EffectImpl {
                                                     Parameter::Specific* specific);
 };
 
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

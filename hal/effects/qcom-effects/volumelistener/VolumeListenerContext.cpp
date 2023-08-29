@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <memory>
-#define LOG_TAG "AHAL_VolumeListener"
+#define LOG_TAG "AHAL_Effect_VolumeListener"
 #include <unordered_set>
 
 #include <android-base/logging.h>
@@ -16,7 +16,7 @@
 using aidl::android::media::audio::common::AudioDeviceDescription;
 using aidl::android::media::audio::common::AudioDeviceType;
 
-namespace aidl::android::hardware::audio::effect {
+namespace aidl::qti::effects {
 
 float VolumeListenerContext::sCurrentVolume = 0.0f;
 int VolumeListenerContext::sCurrentGainDepCalLevel = 1;
@@ -65,7 +65,7 @@ VolumeListenerContext::VolumeListenerContext(int statusDepth, const Parameter::C
     : EffectContext(statusDepth, common) {
     LOG(DEBUG) << __func__ << " type " << type;
     mType = type;
-    mState = VolumeListenerState::UNINITIALIZED;
+    mState = VolumeListenerState::INITIALIZED;
 }
 
 VolumeListenerContext::~VolumeListenerContext() {
@@ -92,12 +92,13 @@ void VolumeListenerContext::checkAndSetGaindDepCal() {
     float newVolume = -1.0f, sumEnergy = 0.0f, tempVolume = 0.0f;
     bool sumEnergyUsed = false;
     uint32_t gain;
-     auto activeSessions = GlobalVolumeListenerSession::getSession().getActiveSessions();
+     auto activeSessions = GlobalVolumeListenerSession::getSession().getActiveSessions(); 
      for (auto &sessionContext : activeSessions) {
         if (sessionContext->isEffectActiveAndApplicable()) {
             sumEnergyUsed = true;
             tempVolume = fmax(sessionContext->leftVolume(), sessionContext->rightVolume());
             sumEnergy += tempVolume * tempVolume;
+            LOG (INFO) << __func__ << " size " << activeSessions.size() << " sum energy " << sumEnergy; 
         }
     }
 
@@ -146,7 +147,7 @@ void VolumeListenerContext::applyUpdatedCalibration(float newVolume) {
 }
 
 RetCode VolumeListenerContext::enable() {
-    LOG(DEBUG) << __func__;
+    LOG(DEBUG) << __func__ ;
     if (mState != VolumeListenerState::INITIALIZED) {
         LOG(ERROR) << __func__ << "state not initialized";
         return RetCode::ERROR_EFFECT_LIB_ERROR;
@@ -182,6 +183,9 @@ void VolumeListenerContext::reset() {
 RetCode VolumeListenerContext::setOutputDevice(
             const std::vector<aidl::android::media::audio::common::AudioDeviceDescription>& devices) {
 
+    for (const auto & dev : devices) {
+        LOG(DEBUG) << __func__ <<" " << dev.toString();
+    }
     // check if old or new device is speaker for playback usecase
     if (isValidContext() || isSpeaker(devices)) {
         checkAndSetGaindDepCal();
@@ -210,7 +214,7 @@ bool VolumeListenerContext::sendGainDepCalibration(int level) {
     int32_t ret = 0;
     pal_param_gain_lvl_cal_t gainLevelCal;
     gainLevelCal.level = level;
-
+    ALOGE("%s: level %d", __func__, level);
     ret = pal_set_param(PAL_PARAM_ID_GAIN_LVL_CAL, (void*)&gainLevelCal, sizeof(pal_param_gain_lvl_cal_t));
     if (ret != 0) {
         LOG(ERROR) << "fail to set PAL_PARAM_ID_GAIN_LVL_CAL " << ret;
@@ -223,7 +227,7 @@ bool VolumeListenerContext::sendLinearGain(int32_t gain) {
     int32_t ret = 0;
     pal_param_mspp_linear_gain_t linearGain;
     linearGain.gain = gain;
-
+    ALOGE("%s: gain %d", __func__, gain);
     ret = pal_set_param(PAL_PARAM_ID_MSPP_LINEAR_GAIN, (void*)&linearGain, sizeof(pal_param_mspp_linear_gain_t));
     if (ret != 0) {
         LOG(ERROR) << "fail to set PAL_PARAM_ID_MSPP_LINEAR_GAIN " << ret;
@@ -232,4 +236,4 @@ bool VolumeListenerContext::sendLinearGain(int32_t gain) {
     return (ret == 0);
 }
 
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

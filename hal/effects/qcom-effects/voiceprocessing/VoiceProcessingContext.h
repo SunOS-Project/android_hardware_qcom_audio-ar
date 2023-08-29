@@ -8,7 +8,7 @@
 #include "VoiceProcessingTypes.h"
 #include "effect-impl/EffectContext.h"
 
-namespace aidl::android::hardware::audio::effect {
+namespace aidl::qti::effects {
 
 enum VoiceProcessingState {
     UNINITIALIZED,
@@ -25,9 +25,12 @@ class VoiceProcessingContext final : public EffectContext {
     RetCode enable();
     RetCode disable();
     void reset();
+    int getAcousticEchoCancelerEchoDelay() const { return 0;}
+    bool getAcousticEchoCancelerMobileMode() const { return false; }
+    NoiseSuppression::Level getNoiseSuppressionLevel() const { return NoiseSuppression::Level::MEDIUM;}
   private:
     VoiceProcessingState mState = UNINITIALIZED;
     VoiceProcessingType mType;
 };
 
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects

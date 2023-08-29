@@ -15,7 +15,7 @@
 #include "VolumeListenerContext.h"
 #include "VolumeListenerTypes.h"
 
-namespace aidl::android::hardware::audio::effect {
+namespace aidl::qti::effects {
 
 using VolumeListenerContextList = std::vector<std::shared_ptr<VolumeListenerContext>>;
 
@@ -80,4 +80,4 @@ class GlobalVolumeListenerSession {
         VolumeListenerContextList mSessionsList;
 };
 
-}  // namespace aidl::android::hardware::audio::effect
+}  // namespace aidl::qti::effects
