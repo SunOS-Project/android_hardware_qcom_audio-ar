@@ -6,6 +6,7 @@
 #pragma once
 
 #include <aidl/android/hardware/audio/effect/BnEffect.h>
+#include <sstream>
 #include "effect-impl/EffectImpl.h"
 #include "effect-impl/EffectUUID.h"
 
@@ -20,13 +21,7 @@ static const std::string kNotificationVolumeListenerEffectName = "Qti-Notificati
 static const std::string kRingVolumeListenerEffectName = "Qti-RingVolumeListener";
 static const std::string kVoiceCallVolumeListenerEffectName = "Qti-VoiceCallVolumeListener";
 
-enum class VolumeListenerType {
-    ALARM,
-    MUSIC,
-    NOTIFICATION,
-    RING,
-    VOICECALL
-};
+enum class VolumeListenerType { ALARM, MUSIC, NOTIFICATION, RING, VOICECALL };
 
 /*
 #define VOL_FLAG ( EFFECT_FLAG_TYPE_INSERT | \
@@ -36,13 +31,11 @@ enum class VolumeListenerType {
                     EFFECT_FLAG_NO_PROCESS)
 */
 
-static Flags kVolumeFlags = {
-                      .type = Flags::Type::INSERT,
-                      .volume = Flags::Volume::IND,
-                      .offloadIndication = true,
-                      .deviceIndication = true,
-                      .bypass = true
-                    };
+static Flags kVolumeFlags = {.type = Flags::Type::INSERT,
+                             .volume = Flags::Volume::IND,
+                             .offloadIndication = true,
+                             .deviceIndication = true,
+                             .bypass = true};
 
 static const Descriptor kAlarmVolumeListenerDesc = {
         .common = {.id = {.type = kAlarmVolumeListenerUUID,
@@ -100,4 +93,4 @@ inline std::ostream& operator<<(std::ostream& out, const VolumeListenerType& typ
     return out << "Enum_VolumeListenerError";
 }
 
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects

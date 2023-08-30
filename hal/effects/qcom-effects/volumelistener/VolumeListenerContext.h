@@ -5,10 +5,10 @@
 
 #pragma once
 
-#include "VolumeListenerTypes.h"
-#include "effect-impl/EffectContext.h"
 #include "PalApi.h"
 #include "PalDefs.h"
+#include "VolumeListenerTypes.h"
+#include "effect-impl/EffectContext.h"
 
 #define LIN_VOLUME_QFACTOR_28 28
 #define MAX_VOLUME_CAL_STEPS 15
@@ -23,50 +23,45 @@ enum class VolumeListenerState {
     ACTIVE,
 };
 
-using AudioDeviceDescriptionVector = std::vector<aidl::android::media::audio::common::AudioDeviceDescription>;
+using AudioDeviceDescriptionVector =
+        std::vector<aidl::android::media::audio::common::AudioDeviceDescription>;
 
 class VolumeListenerContext final : public EffectContext {
-public:
-    VolumeListenerContext(int statusDepth, const Parameter::Common& common, VolumeListenerType type);
+  public:
+    VolumeListenerContext(int statusDepth, const Parameter::Common& common,
+                          VolumeListenerType type);
     ~VolumeListenerContext();
     virtual RetCode setOutputDevice(const AudioDeviceDescriptionVector& devices) override;
     virtual RetCode setVolumeStereo(const Parameter::VolumeStereo& volumeStereo) override;
     RetCode enable();
     RetCode disable();
     void reset();
-    int getSessionId() { return mSessionId;}
-    void checkAndSetGaindDepCal();
-    void dump ();
 
-    bool isActive() { return mState == VolumeListenerState::ACTIVE;}
+    bool isActive() { return mState == VolumeListenerState::ACTIVE; }
     bool isEffectActiveAndApplicable() { return isActive() && isValidContext(); }
-    float leftVolume() { return mVolumeStereo.left;}
-    float rightVolume() { return mVolumeStereo.right;}
-private:
+    float getMaxOfLeftRightChannels() { return fmax(mVolumeStereo.left, mVolumeStereo.right); }
 
-    // Helper functions to check devices, // TODO 1) move to utils 
+  private:
     bool isValidVoiceCallContext();
     bool isValidContext();
-    bool isSpeaker(AudioDeviceDescriptionVector & devices);
-    bool isSpeaker(const AudioDeviceDescriptionVector & devices);
-    bool isWiredHeadset(AudioDeviceDescriptionVector & devices);
-    bool isEarpiece(AudioDeviceDescriptionVector & devices);
+    bool isSpeaker(AudioDeviceDescriptionVector& devices);
+    bool isSpeaker(const AudioDeviceDescriptionVector& devices);
+    bool isWiredHeadset(AudioDeviceDescriptionVector& devices);
+    bool isEarpiece(AudioDeviceDescriptionVector& devices);
 
     static bool sHeadsetCalEnabled;
-    static struct pal_amp_db_and_gain_table * sGainTable;
-    static int sTotalVolumeSteps;
-    static float sCurrentVolume;
-    static int sCurrentGainDepCalLevel;
 
     VolumeListenerState mState;
     VolumeListenerType mType;
-    //Parameter::VolumeStereo mVolumeStereo;
-    int mSessionId;
-    // methods moved from Gain.cpp
 
-    bool sendGainDepCalibration(int level);
-    bool sendLinearGain(int32_t gain);
-    void applyUpdatedCalibration(float newVolume);
+    std::string details() {
+        std::ostringstream os;
+        os << " ";
+        os << mType;
+        os << " session ";
+        os << mCommon.session;
+        return os.str();
+    }
 };
 
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects
