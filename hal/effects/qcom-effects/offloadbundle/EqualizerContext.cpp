@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL_Effect_EqualizerContext"
+#define LOG_TAG "AHAL_Effect_EqualizerQti"
 
 #include <Utils.h>
 #include <cstddef>
@@ -16,8 +16,8 @@ using aidl::android::media::audio::common::AudioDeviceDescription;
 using aidl::android::media::audio::common::AudioDeviceType;
 
 EqualizerContext::EqualizerContext(int statusDepth, const Parameter::Common& common,
-                  const OffloadBundleEffectType& type)
-        : OffloadBundleContext(statusDepth, common, type) {
+                                   const OffloadBundleEffectType& type)
+    : OffloadBundleContext(statusDepth, common, type) {
     LOG(DEBUG) << __func__ << type << " ioHandle " << common.ioHandle;
 }
 
@@ -27,21 +27,23 @@ RetCode EqualizerContext::init() {
     for (std::size_t i = 0; i < MAX_NUM_BANDS; i++) {
         mBandLevels[i] = kBandPresetLevels[0 /* normal */][i];
     }
-    memset(&mOffloadEqualizerParams, 0, sizeof(struct eq_params));
-    mOffloadEqualizerParams.config.preset_id = PRESET_INVALID;
-    mOffloadEqualizerParams.config.eq_pregain = Q27_UNITY;
+    memset(&mEqParams, 0, sizeof(struct EqualizerParams));
+    mEqParams.config.presetId = PRESET_INVALID;
+    mEqParams.config.pregain = Q27_UNITY;
+    mEqParams.config.numBands = MAX_NUM_BANDS;
     return RetCode::SUCCESS;
 }
 
 void EqualizerContext::deInit() {
-    std::lock_guard lg(mMutex);
+    LOG(DEBUG) << __func__ << " ioHandle" << getIoHandle();
+    stop();
 }
 
 RetCode EqualizerContext::enable() {
     std::lock_guard lg(mMutex);
     if (mEnabled) return RetCode::ERROR_ILLEGAL_PARAMETER;
     mEnabled = true;
-    mOffloadEqualizerParams.enable_flag = true;
+    mEqParams.enable = 1;
     sendOffloadParametersToPal(OFFLOAD_SEND_EQ_ENABLE_FLAG | OFFLOAD_SEND_EQ_BANDS_LEVEL);
     return RetCode::SUCCESS;
 }
@@ -50,7 +52,7 @@ RetCode EqualizerContext::disable() {
     std::lock_guard lg(mMutex);
     if (!mEnabled) return RetCode::ERROR_ILLEGAL_PARAMETER;
     mEnabled = false;
-    mOffloadEqualizerParams.enable_flag = false;
+    mEqParams.enable = 0;
     sendOffloadParametersToPal(OFFLOAD_SEND_EQ_ENABLE_FLAG);
     return RetCode::SUCCESS;
 }
@@ -61,7 +63,7 @@ RetCode EqualizerContext::start(pal_stream_handle_t* palHandle) {
     if (mEnabled) {
         sendOffloadParametersToPal(OFFLOAD_SEND_EQ_ENABLE_FLAG | OFFLOAD_SEND_EQ_BANDS_LEVEL);
     } else {
-        LOG (INFO) <<"Not yet enabled";
+        LOG(DEBUG) << "Not yet enabled";
     }
 
     return RetCode::SUCCESS;
@@ -69,20 +71,12 @@ RetCode EqualizerContext::start(pal_stream_handle_t* palHandle) {
 
 RetCode EqualizerContext::stop() {
     std::lock_guard lg(mMutex);
-    memset(&mOffloadEqualizerParams, 0, sizeof(struct eq_params));
-    // use a dummy to disable, instead of Global
-    mOffloadEqualizerParams.enable_flag = false;
-    sendOffloadParametersToPal(OFFLOAD_SEND_EQ_ENABLE_FLAG);
-    mPalHandle = NULL;
-    return RetCode::SUCCESS;
-}
 
-RetCode EqualizerContext::setOutputDevice(
-            const std::vector<aidl::android::media::audio::common::AudioDeviceDescription>&
-                    device){
-    std::lock_guard lg(mMutex);
-    mOutputDevice = device;
-    // TODO send this mOutputDevice in offloadparams
+    struct EqualizerParams eqParam;
+    memset(&eqParam, 0, sizeof(struct EqualizerParams));
+    eqParam.enable = 0;
+    sendOffloadParametersToPal(OFFLOAD_SEND_EQ_ENABLE_FLAG);
+    mPalHandle = nullptr;
     return RetCode::SUCCESS;
 }
 
@@ -100,22 +94,23 @@ RetCode EqualizerContext::setEqualizerPreset(const std::size_t presetIdx) {
 
     updateOffloadParameters();
 
-    sendOffloadParametersToPal(OFFLOAD_SEND_EQ_ENABLE_FLAG|OFFLOAD_SEND_EQ_PRESET);
+    sendOffloadParametersToPal(OFFLOAD_SEND_EQ_ENABLE_FLAG | OFFLOAD_SEND_EQ_PRESET);
 
     return RetCode::SUCCESS;
 }
 
 bool EqualizerContext::isBandLevelIndexInRange(
         const std::vector<Equalizer::BandLevel>& bandLevels) const {
-    const auto [min, max] =
+    const auto[min, max] =
             std::minmax_element(bandLevels.begin(), bandLevels.end(),
                                 [](const auto& a, const auto& b) { return a.index < b.index; });
     return min->index >= 0 && max->index < MAX_NUM_BANDS;
 }
 
-RetCode EqualizerContext::setEqualizerBandLevels(const std::vector<Equalizer::BandLevel>& bandLevels) {
-    RETURN_VALUE_IF(bandLevels.size() > MAX_NUM_BANDS,
-                    RetCode::ERROR_ILLEGAL_PARAMETER, "Exceeds Max Size");
+RetCode EqualizerContext::setEqualizerBandLevels(
+        const std::vector<Equalizer::BandLevel>& bandLevels) {
+    RETURN_VALUE_IF(bandLevels.size() > MAX_NUM_BANDS, RetCode::ERROR_ILLEGAL_PARAMETER,
+                    "Exceeds Max Size");
 
     RETURN_VALUE_IF(bandLevels.empty(), RetCode::ERROR_ILLEGAL_PARAMETER, "Empty Bands");
 
@@ -124,14 +119,21 @@ RetCode EqualizerContext::setEqualizerBandLevels(const std::vector<Equalizer::Ba
 
     // Translation from existing implementation, first we update then send config to PAL.
     // ideally, send it to PAL and check if operation is successful then only update
-    for (auto &bandLevel : bandLevels) {
-        LOG(INFO) << __func__ << " level " << bandLevel.index <<" level" << bandLevel.levelMb;
-        mBandLevels[bandLevel.index] = bandLevel.levelMb;
+    for (auto& bandLevel : bandLevels) {
+        int level = bandLevel.levelMb;
+        if (level > 0) {
+            level = (int)((level + 50) / 100);
+        } else {
+            level = (int)((level - 50) / 100);
+        }
+        LOG(VERBOSE) << __func__ << " level " << bandLevel.index << " level" << bandLevel.levelMb
+                     << " refined level" << level;
+        mBandLevels[bandLevel.index] = level;
         mCurrentPreset = PRESET_CUSTOM;
     }
 
     updateOffloadParameters();
-    sendOffloadParametersToPal(OFFLOAD_SEND_EQ_ENABLE_FLAG|OFFLOAD_SEND_EQ_BANDS_LEVEL);
+    sendOffloadParametersToPal(OFFLOAD_SEND_EQ_ENABLE_FLAG | OFFLOAD_SEND_EQ_BANDS_LEVEL);
 
     return RetCode::SUCCESS;
 }
@@ -140,7 +142,8 @@ std::vector<Equalizer::BandLevel> EqualizerContext::getEqualizerBandLevels() con
     std::vector<Equalizer::BandLevel> bandLevels;
     bandLevels.reserve(MAX_NUM_BANDS);
     for (std::size_t i = 0; i < MAX_NUM_BANDS; i++) {
-        bandLevels.emplace_back(Equalizer::BandLevel{static_cast<int32_t>(i), mBandLevels[i]});
+        bandLevels.emplace_back(
+                Equalizer::BandLevel{static_cast<int32_t>(i), mBandLevels[i] * 100});
     }
     return bandLevels;
 }
@@ -148,30 +151,39 @@ std::vector<Equalizer::BandLevel> EqualizerContext::getEqualizerBandLevels() con
 std::vector<int32_t> EqualizerContext::getEqualizerCenterFreqs() {
     std::vector<int32_t> result;
 
-    std::for_each(kBandFrequencies.begin(), kBandFrequencies.end(), [&](const auto &band)
-                  { result.emplace_back((band.minMh + band.maxMh) / 2); });
+    std::for_each(kBandFrequencies.begin(), kBandFrequencies.end(),
+                  [&](const auto& band) { result.emplace_back((band.minMh + band.maxMh) / 2); });
     return result;
 }
 
 int EqualizerContext::updateOffloadParameters() {
     for (int i = 0; i < MAX_NUM_BANDS; i++) {
-        mOffloadEqualizerParams.config.preset_id = mCurrentPreset;
-        mOffloadEqualizerParams.per_band_cfg[i].band_idx = i;
-        mOffloadEqualizerParams.per_band_cfg[i].filter_type = EQ_BAND_BOOST;
-        mOffloadEqualizerParams.per_band_cfg[i].freq_millihertz = kPresetsFrequencies[i] * 1000;
-        mOffloadEqualizerParams.per_band_cfg[i].gain_millibels = mBandLevels[i] * 100;
-        mOffloadEqualizerParams.per_band_cfg[i].quality_factor = Q8_UNITY;
+        mEqParams.config.presetId = mCurrentPreset;
+        mEqParams.bandConfig[i].bandIndex = i;
+        mEqParams.bandConfig[i].filterType = EQ_BAND_BOOST;
+        mEqParams.bandConfig[i].frequencyMhz = kPresetsFrequencies[i] * 1000;
+        mEqParams.bandConfig[i].gainMb = mBandLevels[i] * 100;
+        mEqParams.bandConfig[i].qFactor = Q8_UNITY;
     }
     return 0;
 }
 
 int EqualizerContext::sendOffloadParametersToPal(uint64_t flags) {
     if (mPalHandle) {
-        ParamDelegator::updatePalParameters(mPalHandle, &mOffloadEqualizerParams, flags);
+        ParamDelegator::updatePalParameters(mPalHandle, &mEqParams, flags);
     } else {
-        LOG (INFO) <<" PalHandle not set";
+        LOG(VERBOSE) << " PalHandle not set";
     }
     return 0;
 }
 
-}  // namespace aidl::qti::effects
+int EqualizerContext::sendOffloadParametersToPal(EqualizerParams* params, uint64_t flags) {
+    if (mPalHandle) {
+        ParamDelegator::updatePalParameters(mPalHandle, params, flags);
+    } else {
+        LOG(VERBOSE) << " PalHandle not set";
+    }
+    return 0;
+}
+
+} // namespace aidl::qti::effects

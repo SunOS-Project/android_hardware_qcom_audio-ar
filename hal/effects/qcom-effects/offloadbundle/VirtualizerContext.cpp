@@ -4,11 +4,10 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
+#define LOG_TAG "AHAL_Effect_VirtualizerQti"
 
-#define LOG_TAG "AHAL_Effect_VirtualizerContext"
-
-#include <cstddef>
 #include <Utils.h>
+#include <cstddef>
 
 #include "OffloadBundleContext.h"
 #include "OffloadBundleTypes.h"
@@ -20,161 +19,161 @@ using aidl::android::media::audio::common::AudioDeviceType;
 using android::media::audio::common::AudioChannelLayout;
 
 VirtualizerContext::VirtualizerContext(int statusDepth, const Parameter::Common& common,
-                  const OffloadBundleEffectType& type)
-        : OffloadBundleContext(statusDepth, common, type) {
+                                       const OffloadBundleEffectType& type)
+    : OffloadBundleContext(statusDepth, common, type) {
     LOG(DEBUG) << __func__ << type << " ioHandle " << common.ioHandle;
 }
 
 RetCode VirtualizerContext::init() {
-    LOG(DEBUG) << __func__ ;
+    LOG(DEBUG) << __func__;
     std::lock_guard lg(mMutex);
     // init with pre-defined preset NORMAL
-    memset(&mOffloadVirtualizerParams, 0, sizeof(struct bass_boost_params));
+    memset(&mVirtParams, 0, sizeof(struct VirtualizerParams));
     mState = EffectState::INITIALIZED;
     return RetCode::SUCCESS;
 }
 
 void VirtualizerContext::deInit() {
-    LOG(DEBUG) << __func__ ;
-    std::lock_guard lg(mMutex);
+    LOG(DEBUG) << __func__ << " ioHandle" << getIoHandle();
+    stop();
 }
 
 RetCode VirtualizerContext::enable() {
-    LOG(DEBUG) << __func__ ;
+    LOG(DEBUG) << __func__;
     if (mEnabled) return RetCode::ERROR_ILLEGAL_PARAMETER;
     mEnabled = true;
     mState = EffectState::ACTIVE;
-    mOffloadVirtualizerParams.enable_flag = true;
-    sendOffloadParametersToPal(OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG | OFFLOAD_SEND_VIRTUALIZER_STRENGTH);
+    mVirtParams.enable = 1;
+    sendOffloadParametersToPal(OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG |
+                               OFFLOAD_SEND_VIRTUALIZER_STRENGTH);
     return RetCode::SUCCESS;
 }
 
 RetCode VirtualizerContext::disable() {
-    LOG(DEBUG) << __func__ ;
+    LOG(DEBUG) << __func__;
     if (!mEnabled) return RetCode::ERROR_ILLEGAL_PARAMETER;
     mEnabled = false;
     mState = EffectState::ACTIVE;
-    mOffloadVirtualizerParams.enable_flag = false;
+    mVirtParams.enable = 0;
     sendOffloadParametersToPal(OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG);
     return RetCode::SUCCESS;
 }
 
 RetCode VirtualizerContext::start(pal_stream_handle_t* palHandle) {
-    LOG(DEBUG) << __func__ ;
+    LOG(DEBUG) << __func__;
     std::lock_guard lg(mMutex);
     // init with pre-defined preset NORMAL
     mPalHandle = palHandle;
-    if(isEffectActive()) {
-        sendOffloadParametersToPal(OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG | OFFLOAD_SEND_VIRTUALIZER_STRENGTH);
+    if (isEffectActive()) {
+        sendOffloadParametersToPal(OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG |
+                                   OFFLOAD_SEND_VIRTUALIZER_STRENGTH);
     } else {
-        LOG (INFO) <<"Not yet enabled";
+        LOG(DEBUG) << "Not yet enabled";
     }
 
     return RetCode::SUCCESS;
 }
 
 RetCode VirtualizerContext::stop() {
-    LOG(DEBUG) << __func__ ;
+    LOG(DEBUG) << __func__;
     std::lock_guard lg(mMutex);
 
-    struct virtualizer_params virtParams;
-    memset(&virtParams, 0, sizeof(struct virtualizer_params));
-    virtParams.enable_flag = false;
+    struct VirtualizerParams virtParams;
+    memset(&virtParams, 0, sizeof(struct VirtualizerParams));
+    virtParams.enable = 0;
 
     sendOffloadParametersToPal(&virtParams, OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG);
-
+    mPalHandle = nullptr;
     return RetCode::SUCCESS;
 }
 
 RetCode VirtualizerContext::setOutputDevice(
-            const std::vector<aidl::android::media::audio::common::AudioDeviceDescription>&
-                    device) {
+        const std::vector<aidl::android::media::audio::common::AudioDeviceDescription>& device) {
     mOutputDevice = device;
     if (deviceSupportsEffect(mOutputDevice)) {
         if (mTempDisabled) {
             if (isEffectActive()) {
-                mOffloadVirtualizerParams.enable_flag = true;
+                mVirtParams.enable = 1;
                 sendOffloadParametersToPal(OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG);
             }
         }
         mTempDisabled = false;
     } else if (!mTempDisabled) {
-            if(isEffectActive()) {
-                mOffloadVirtualizerParams.enable_flag = false;
-                sendOffloadParametersToPal(OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG);
-            }
-            mTempDisabled = true;
+        if (isEffectActive()) {
+            mVirtParams.enable = 0;
+            sendOffloadParametersToPal(OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG);
+        }
+        mTempDisabled = true;
     }
     return RetCode::SUCCESS;
 }
 
 RetCode VirtualizerContext::setVirtualizerStrength(int strength) {
-    LOG(DEBUG) << __func__  << " strength " << strength;
+    LOG(DEBUG) << __func__ << " strength " << strength;
     mStrength = strength;
-    sendOffloadParametersToPal(OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG | OFFLOAD_SEND_VIRTUALIZER_STRENGTH);
+    sendOffloadParametersToPal(OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG |
+                               OFFLOAD_SEND_VIRTUALIZER_STRENGTH);
     return RetCode::SUCCESS;
 }
 
 int VirtualizerContext::getVirtualizerStrength() const {
-    LOG(DEBUG) << __func__  << " strength " << mStrength;
+    LOG(DEBUG) << __func__ << " strength " << mStrength;
     return mStrength;
 }
 
-RetCode VirtualizerContext::setForcedDevice( const AudioDeviceDescription& device) {
+RetCode VirtualizerContext::setForcedDevice(const AudioDeviceDescription& device) {
     RETURN_VALUE_IF(true != deviceSupportsEffect({device}), RetCode::ERROR_EFFECT_LIB_ERROR,
                     " deviceUnsupported");
     mForcedDevice = device;
-    LOG(DEBUG) << __func__  << " TODO impl";
+    LOG(DEBUG) << __func__ << " TODO impl";
     return RetCode::SUCCESS;
 }
 
 std::vector<Virtualizer::ChannelAngle> VirtualizerContext::getSpeakerAngles(
-             const Virtualizer::SpeakerAnglesPayload payload) {
-     std::vector<Virtualizer::ChannelAngle> angles;
-     auto channels = ::aidl::android::hardware::audio::common::getChannelCount(payload.layout);
-     RETURN_VALUE_IF(!isConfigSupported(channels, payload.device), angles,
-                     "unsupportedConfig");
- 
-     if (channels == 1) {
-         angles = {{.channel = (int32_t)AudioChannelLayout::CHANNEL_FRONT_LEFT,
-                    .azimuthDegree = 0,
-                    .elevationDegree = 0}};
-     } else {
-         angles = {{.channel = (int32_t)AudioChannelLayout::CHANNEL_FRONT_LEFT,
-                    .azimuthDegree = -90,
-                    .elevationDegree = 0},
-                   {.channel = (int32_t)AudioChannelLayout::CHANNEL_FRONT_RIGHT,
-                    .azimuthDegree = 90,
-                    .elevationDegree = 0}};
-     }
-     return angles;
+        const Virtualizer::SpeakerAnglesPayload payload) {
+    std::vector<Virtualizer::ChannelAngle> angles;
+    auto channels = ::aidl::android::hardware::audio::common::getChannelCount(payload.layout);
+    RETURN_VALUE_IF(!isConfigSupported(channels, payload.device), angles, "unsupportedConfig");
+
+    if (channels == 1) {
+        angles = {{.channel = (int32_t)AudioChannelLayout::CHANNEL_FRONT_LEFT,
+                   .azimuthDegree = 0,
+                   .elevationDegree = 0}};
+    } else {
+        angles = {{.channel = (int32_t)AudioChannelLayout::CHANNEL_FRONT_LEFT,
+                   .azimuthDegree = -90,
+                   .elevationDegree = 0},
+                  {.channel = (int32_t)AudioChannelLayout::CHANNEL_FRONT_RIGHT,
+                   .azimuthDegree = 90,
+                   .elevationDegree = 0}};
+    }
+    return angles;
 }
 
 int VirtualizerContext::sendOffloadParametersToPal(uint64_t flags) {
     if (mPalHandle) {
-        ParamDelegator::updatePalParameters(mPalHandle, &mOffloadVirtualizerParams, flags);
+        ParamDelegator::updatePalParameters(mPalHandle, &mVirtParams, flags);
     } else {
-        LOG (INFO) <<" PalHandle not set";
+        LOG(VERBOSE) << " PalHandle not set";
     }
     return 0;
 }
 
-int VirtualizerContext::sendOffloadParametersToPal(virtualizer_params *virtParams, uint64_t flags) {
+int VirtualizerContext::sendOffloadParametersToPal(VirtualizerParams* virtParams, uint64_t flags) {
     if (mPalHandle) {
         ParamDelegator::updatePalParameters(mPalHandle, virtParams, flags);
     } else {
-        LOG (INFO) <<" PalHandle not set";
+        LOG(VERBOSE) << " PalHandle not set";
     }
     return 0;
 }
 
-
-bool VirtualizerContext::isConfigSupported(size_t channelCount, const AudioDeviceDescription& device) {
-    return ((channelCount == 1 || channelCount ==2) && deviceSupportsEffect({device}) );
+bool VirtualizerContext::isConfigSupported(size_t channelCount,
+                                           const AudioDeviceDescription& device) {
+    return ((channelCount == 1 || channelCount == 2) && deviceSupportsEffect({device}));
 }
 
 bool VirtualizerContext::deviceSupportsEffect(const std::vector<AudioDeviceDescription>& devices) {
-
     for (const auto& device : devices) {
         if (device != AudioDeviceDescription{AudioDeviceType::OUT_HEADSET,
                                              AudioDeviceDescription::CONNECTION_ANALOG} &&
@@ -190,4 +189,4 @@ bool VirtualizerContext::deviceSupportsEffect(const std::vector<AudioDeviceDescr
     return true;
 }
 
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects
