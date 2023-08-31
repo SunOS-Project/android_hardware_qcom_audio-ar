@@ -42,10 +42,7 @@ size_t Platform::getIOBufferSizeInFrames(
     } else if (tag == Usecase::LOW_LATENCY_PLAYBACK) {
         numFrames = LowLatencyPlayback::kPeriodSize;
     } else if (tag == Usecase::PCM_RECORD) {
-        constexpr size_t kMillisPerSecond = 1000;
-        numFrames = (PcmRecord::kCaptureDurationMs *
-                     mixPortConfig.sampleRate.value().value) /
-                    kMillisPerSecond;
+        numFrames = PcmRecord::getMinFrames(mixPortConfig);
     } else if (tag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         const size_t numBytes =
             CompressPlayback::getPeriodBufferSize(mixPortConfig.format.value());

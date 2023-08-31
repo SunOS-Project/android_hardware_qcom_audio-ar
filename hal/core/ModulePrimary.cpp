@@ -143,10 +143,14 @@ ModulePrimary::getDynamicProfiles(
 void ModulePrimary::onNewPatchCreation(const std::vector<AudioPortConfig*>& sources,
                                 const std::vector<AudioPortConfig*>& sinks,
                                 AudioPatch& newPatch) {
-    auto numFrames = mPlatform.getMinimumStreamSizeFrames(
-        sources, sinks);
-    numFrames != 0 ? (void)(newPatch.minimumStreamBufferSizeFrames = numFrames)
-                   : (void)0;
+    auto numFrames = mPlatform.getMinimumStreamSizeFrames(sources, sinks);
+    if (numFrames < kMinimumStreamBufferSizeFrames) {
+        LOG(DEBUG) << __func__ << ": got invalid stream size frames "
+                     << numFrames << " adjusting to "
+                     << kMinimumStreamBufferSizeFrames;
+        numFrames = kMinimumStreamBufferSizeFrames;
+    }
+    newPatch.minimumStreamBufferSizeFrames = numFrames;
 }
 
 void ModulePrimary::onExternalDeviceConnectionChanged(

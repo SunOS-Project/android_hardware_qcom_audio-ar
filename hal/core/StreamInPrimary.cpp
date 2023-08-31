@@ -60,10 +60,7 @@ StreamInPrimary::StreamInPrimary(StreamContext&& context,
 }
 
 StreamInPrimary::~StreamInPrimary() {
-    if (mPalHandle != nullptr) {
-        ::pal_stream_stop(mPalHandle);
-        ::pal_stream_close(mPalHandle);
-    }
+    shutdown();
 }
 
 std::string StreamInPrimary::toString() const noexcept {
@@ -111,72 +108,36 @@ ndk::ScopedAStatus StreamInPrimary::setConnectedDevices(
 // start of driverInterface methods
 
 ::android::status_t StreamInPrimary::init() {
-    mIsInitialized = true;
     return ::android::OK;
 }
 
 ::android::status_t StreamInPrimary::drain(
     ::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode mode) {
-    auto palDrainMode = mode == ::aidl::android::hardware::audio::core::
-                                    StreamDescriptor::DrainMode::DRAIN_ALL
-                            ? PAL_DRAIN
-                            : PAL_DRAIN_PARTIAL;
-    if (int32_t ret = ::pal_stream_drain(mPalHandle, palDrainMode); ret) {
-        LOG(ERROR) << __func__ << " failed to drain the stream, ret:" << ret;
-        return ret;
-    }
-    LOG(VERBOSE) << __func__ << " drain successful";
+    // No op
     return ::android::OK;
 }
 
 ::android::status_t StreamInPrimary::flush() {
-    if (int32_t ret = ::pal_stream_flush(mPalHandle); ret) {
-        LOG(ERROR) << __func__ << " failed to flush the stream, ret:" << ret;
-        return ret;
-    }
-    LOG(VERBOSE) << __func__ << " flush successful";
+    // No op
     return ::android::OK;
 }
 
 ::android::status_t StreamInPrimary::pause() {
-    if (int32_t ret = pal_stream_pause(mPalHandle); ret) {
-        LOG(ERROR) << __func__
-                   << " failed to pause the stream, ret:"
-                   << std::to_string(ret);
-        return ret;
-    }
-    mIsPaused = true;
-    LOG(VERBOSE) << __func__ << " pause successful";
+    // Todo check whether pause is possible in PAL
+    shutdown();
     return ::android::OK;
 }
 
 void StreamInPrimary::resume() {
-    if (int32_t ret = ::pal_stream_resume(mPalHandle); ret) {
-        LOG(ERROR) << __func__ << " failed to resume the stream, ret:" << ret;
-    }
-    LOG(VERBOSE) << __func__ << " resume successful";
-    mIsPaused = false;
+    // No op
 }
 
 ::android::status_t StreamInPrimary::standby() {
-    int32_t ret = ::pal_stream_stop(mPalHandle);
-    if (ret) {
-        LOG(ERROR) << __func__ << " failed to stop the stream, ret:" << ret;
-    }
-    mIsConfigured = false;
-    ret = ::pal_stream_close(mPalHandle);
-    if (ret) {
-        LOG(ERROR) << __func__ << " failed to close the stream, ret:" << ret;
-        return ret;
-    }
-    mPalHandle = nullptr;
-    LOG(VERBOSE) << __func__ << " pal stream closed on standby";
-    mIsStandby = true;
+    shutdown();
     return ::android::OK;
 }
 
 ::android::status_t StreamInPrimary::start() {
-    mIsStandby = false;
     return ::android::OK;
 }
 
@@ -184,30 +145,35 @@ void StreamInPrimary::resume() {
                                               size_t* actualFrameCount,
                                               int32_t* latencyMs) {
     if (!mIsConfigured) {
-        // configure on first transfer
         configure();
     }
 
-    if (mIsPaused) {
-        resume();
-    }
     pal_buffer palBuffer{};
     palBuffer.buffer = static_cast<uint8_t*>(buffer);
     palBuffer.size = frameCount * mFrameSizeBytes;
+    LOG(VERBOSE) << __func__ << ": framecount" << frameCount
+                 << " mFrameSizeBytes:" << mFrameSizeBytes;
     int32_t bytesRead = ::pal_stream_read(mPalHandle, &palBuffer);
     if (bytesRead < 0) {
         LOG(ERROR) << __func__
                    << " read failed, ret:" << std::to_string(bytesRead);
         return ::android::NOT_ENOUGH_DATA;
     }
+
+    LOG(VERBOSE) << __func__ << ": read bytes:" << bytesRead;
+
     if (mTag == Usecase::COMPRESS_CAPTURE) {
         auto& compressCapture = std::get<CompressCapture>(mExt);
         compressCapture.mNumReadCalls++;
+        *latencyMs = compressCapture.getLatencyMs();
+    } else if (mTag == Usecase::PCM_RECORD) {
+        *latencyMs = PcmRecord::kCaptureDurationMs;
+    } else {
+        // default latency
+        *latencyMs = Module::kLatencyMs;
     }
     *actualFrameCount = static_cast<size_t>(bytesRead) / mFrameSizeBytes;
 
-    // Todo fix latency
-    *latencyMs = Module::kLatencyMs;
     return ::android::OK;
 }
 
@@ -224,7 +190,6 @@ void StreamInPrimary::resume() {
 }
 
 void StreamInPrimary::shutdown() {
-    mIsInitialized = false;
     if (mPalHandle != nullptr) {
         ::pal_stream_stop(mPalHandle);
         ::pal_stream_close(mPalHandle);
@@ -360,11 +325,10 @@ ndk::ScopedAStatus StreamInPrimary::removeEffect(
 
 size_t StreamInPrimary::getPeriodSize() const noexcept {
     if (mTag == Usecase::PCM_RECORD) {
-        return (PcmRecord::kCaptureDurationMs *
-                mMixPortConfig.sampleRate.value().value * mFrameSizeBytes) /
-               1000;
-    }  else if (mTag == Usecase::COMPRESS_CAPTURE) {
-        return CompressCapture::getPeriodBufferSize(mMixPortConfig.format.value());
+        return PcmRecord::getMinFrames(mMixPortConfig) * mFrameSizeBytes;
+    } else if (mTag == Usecase::COMPRESS_CAPTURE) {
+        return CompressCapture::getPeriodBufferSize(
+            mMixPortConfig.format.value());
     } else if (mTag == Usecase::VOIP_RECORD) {
         return (VoipRecord::kCaptureDurationMs *
                 mMixPortConfig.sampleRate.value().value * mFrameSizeBytes) /
@@ -433,8 +397,8 @@ void StreamInPrimary::configure() {
     auto palBufferConfig =
         mPlatform.getPalBufferConfig(ringBufSizeInBytes, ringBufCount);
     LOG(VERBOSE) << __func__ << " pal stream set buffer size "
-                 << std::to_string(ringBufSizeInBytes) << " with count "
-                 << std::to_string(ringBufCount);
+                 << ringBufSizeInBytes << " with count "
+                 << ringBufCount;
     if (int32_t ret = ::pal_stream_set_buffer_size(
             this->mPalHandle, (mIsInput ? palBufferConfig.get() : nullptr),
             ((!mIsInput) ? palBufferConfig.get() : nullptr));
