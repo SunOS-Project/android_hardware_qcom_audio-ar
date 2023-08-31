@@ -8,6 +8,8 @@
 
 #include <cmath>
 
+#include <aidl/android/hardware/audio/effect/IEffect.h>
+
 #include <android-base/logging.h>
 #include <audio_utils/clock.h>
 #include <qti-audio-core/Module.h>
@@ -32,7 +34,8 @@ using ::aidl::android::hardware::audio::core::IStreamCallback;
 using ::aidl::android::hardware::audio::core::IStreamCommon;
 using ::aidl::android::hardware::audio::core::StreamDescriptor;
 using ::aidl::android::hardware::audio::core::VendorParameter;
-
+using ::aidl::android::hardware::audio::effect::getEffectTypeUuidAcousticEchoCanceler;
+using ::aidl::android::hardware::audio::effect::getEffectTypeUuidNoiseSuppression;
 namespace qti::audio::core {
 
 StreamInPrimary::StreamInPrimary(StreamContext&& context,
@@ -272,24 +275,85 @@ ndk::ScopedAStatus StreamInPrimary::addEffect(
     const std::shared_ptr<::aidl::android::hardware::audio::effect::IEffect>&
         in_effect) {
     if (in_effect == nullptr) {
-        LOG(DEBUG) << __func__ << ": null effect";
-    } else {
-        LOG(DEBUG) << __func__ << ": effect Binder"
-                   << in_effect->asBinder().get();
+        return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
     }
-    return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+
+    ::aidl::android::hardware::audio::effect::Descriptor desc;
+    auto status = in_effect->getDescriptor(&desc);
+    if (!status.isOk()) {
+        LOG(ERROR) << __func__ << "error fetching descriptor";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+    }
+
+    const auto& typeUUID = desc.common.id.type;
+
+    if (typeUUID == getEffectTypeUuidAcousticEchoCanceler()) {
+        if (!mAECEnabled) {
+            auto tag = mNSEnabled ? PAL_AUDIO_EFFECT_ECNS : PAL_AUDIO_EFFECT_EC;
+            LOG(VERBOSE) << __func__ << "effectType " << tag;
+            if (auto ret = pal_add_remove_effect(mPalHandle, tag, true); !ret) {
+                mAECEnabled = true;
+            } else {
+                LOG(ERROR) << __func__ << "failed for AEC";
+            }
+        }
+    } else if (typeUUID == getEffectTypeUuidNoiseSuppression()){
+        if (!mNSEnabled) {
+            auto tag = mAECEnabled ? PAL_AUDIO_EFFECT_ECNS : PAL_AUDIO_EFFECT_NS;
+            LOG(VERBOSE) << __func__ << "effectType " << tag;
+            if (auto ret = pal_add_remove_effect(mPalHandle, tag, true); !ret) {
+                mNSEnabled = true;
+            } else {
+                LOG(ERROR) << __func__ << "failed for NS";
+            }
+        }
+    }
+    return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus StreamInPrimary::removeEffect(
     const std::shared_ptr<::aidl::android::hardware::audio::effect::IEffect>&
         in_effect) {
     if (in_effect == nullptr) {
-        LOG(DEBUG) << __func__ << ": null effect";
-    } else {
-        LOG(DEBUG) << __func__ << ": effect Binder"
-                   << in_effect->asBinder().get();
+        return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
     }
-    return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+    ::aidl::android::hardware::audio::effect::Descriptor desc;
+    auto status = in_effect->getDescriptor(&desc);
+    if (!status.isOk()) {
+        LOG(ERROR) << __func__ << "error fetching descriptor";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+    }
+
+    const auto& typeUUID = desc.common.id.type;
+    /*
+     * While disabling AEC or NS check the other effect is enabled or not.
+     * Take action accordingly. In case AEC is disabled, but NS is still
+     * enabled then NS has to be enabled alone, otherwise disable both ECNS
+     * This can be decided based on the state of other effect.
+     * TODO check if https://review-android.quicinc.com/#/c/3346149 needed
+     */
+    if (typeUUID == getEffectTypeUuidAcousticEchoCanceler()) {
+        if (mAECEnabled) {
+            auto tag = mNSEnabled ? PAL_AUDIO_EFFECT_NS : PAL_AUDIO_EFFECT_ECNS;
+            LOG(DEBUG) << __func__ << "effectType " << tag;
+            if (auto ret = pal_add_remove_effect(mPalHandle, tag, mNSEnabled); !ret) {
+                mAECEnabled = false;
+            } else {
+                LOG(ERROR) << __func__ << "failed for AEC";
+            }
+        }
+    } else if (typeUUID == getEffectTypeUuidNoiseSuppression()) {
+        if (!mNSEnabled) {
+            auto tag = mAECEnabled ? PAL_AUDIO_EFFECT_ECNS : PAL_AUDIO_EFFECT_NS;
+            LOG(DEBUG) << __func__ << "effectType " << tag;
+            if (auto ret = pal_add_remove_effect(mPalHandle, tag, mAECEnabled); !ret) {
+                mNSEnabled = false;
+            } else {
+                LOG(ERROR) << __func__ << "failed for NS";
+            }
+        }
+    }
+    return ndk::ScopedAStatus::ok();
 }
 
 // end of StreamCommonInterface methods

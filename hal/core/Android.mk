@@ -33,6 +33,7 @@ LOCAL_SRC_FILES := \
     HalOffloadEffects.cpp
 
 LOCAL_HEADER_LIBRARIES :=  \
+    libaudioeffects \
     liberror_headers \
     libaudioclient_headers \
     libaudio_system_headers \
@@ -73,6 +74,7 @@ LOCAL_SHARED_LIBRARIES := \
     android.hardware.common.fmq-V1-ndk \
     android.media.audio.common.types-V2-ndk \
     android.hardware.audio.core-V1-ndk \
+    android.hardware.audio.effect-V1-ndk \
     android.hardware.audio.core.sounddose-V1-ndk \
     libar-pal \
     libaudioserviceexampleimpl \

@@ -7,7 +7,7 @@
 
 #include <qti-audio-core/Stream.h>
 #include <qti-audio-core/AudioUsecase.h>
-
+#include <system/audio_effects/effect_uuid.h>
 namespace qti::audio::core {
 
 class StreamInPrimary: public StreamIn, public StreamCommonImpl {
@@ -89,6 +89,10 @@ class StreamInPrimary: public StreamIn, public StreamCommonImpl {
     // references
     Platform& mPlatform {Platform::getInstance()};
     const ::aidl::android::media::audio::common::AudioPortConfig& mMixPortConfig{mContext.getMixPortConfig()};
+
+private:
+    bool mAECEnabled = false;
+    bool mNSEnabled = false;
 };
 
 }  // namespace qti::audio::core
