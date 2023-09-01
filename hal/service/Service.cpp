@@ -4,7 +4,7 @@
  */
 
 #define LOG_NDEBUG 0
-#define LOG_TAG "AHAL_Service"
+#define LOG_TAG "AHAL_QService"
 
 #include <cstdlib>
 #include <ctime>

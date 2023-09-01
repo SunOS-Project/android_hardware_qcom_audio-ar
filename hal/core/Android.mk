@@ -20,22 +20,23 @@ LOCAL_VINTF_FRAGMENTS   := \
 
 LOCAL_SRC_FILES := \
     CoreService.cpp \
-    aidlservice/Bluetooth.cpp \
-    aidlservice/Module.cpp \
-    aidlservice/SoundDose.cpp \
-    aidlservice/Stream.cpp \
-    aidlservice/StreamStub.cpp \
-    aidlservice/StreamPrimary.cpp \
-    aidlservice/Telephony.cpp \
-    platform/PlatformBluetooth.cpp \
-    platform/PlatformVoice.cpp
+    Bluetooth.cpp \
+    Module.cpp \
+    ModulePrimary.cpp \
+    ModuleStub.cpp \
+    SoundDose.cpp \
+    Stream.cpp \
+    StreamStub.cpp \
+    Telephony.cpp \
+    StreamInPrimary.cpp \
+    StreamOutPrimary.cpp
 
 LOCAL_HEADER_LIBRARIES :=  \
+    liberror_headers \
     libaudioclient_headers \
     libaudio_system_headers \
-    audiohalutils_headers \
-    libmedia_helper_headers \
-    libexpectedutils_headers
+    libmedia_helper_headers
+
 
 #    defaults: [
 #        "latest_android_media_audio_common_types_ndk_shared",
@@ -46,12 +47,11 @@ LOCAL_HEADER_LIBRARIES :=  \
 #    android.hardware.audio.core-V1-ndk
 
 LOCAL_STATIC_LIBRARIES := \
-            libaudiohalutils \
-            libaudiocore.extension \
-            libaudioplatform.qti
+    libaudio_module_config.qti \
+    libaudiocore.extension
 
 LOCAL_WHOLE_STATIC_LIBRARIES := \
-            libaudiocore_vendor_extension.qti
+    libaudioplatform.qti
 
 LOCAL_SHARED_LIBRARIES := \
     libaudioaidlcommon \
@@ -74,8 +74,10 @@ LOCAL_SHARED_LIBRARIES := \
     android.hardware.audio.core-V1-ndk \
     android.hardware.audio.core.sounddose-V1-ndk \
     libar-pal \
-    libaudioserviceexampleimpl
+    libaudioserviceexampleimpl \
+    qti-audio-types-aidl-ndk
 
 include $(BUILD_SHARED_LIBRARY)
 
 include $(CURRENT_PATH)/extensions/Android.mk
+include $(CURRENT_PATH)/platform/Android.mk
