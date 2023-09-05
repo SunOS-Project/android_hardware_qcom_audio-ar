@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL_Effect_ReverbContext"
-#include <cstddef>
+#define LOG_TAG "AHAL_Effect_ReverbQti"
 #include <Utils.h>
+#include <cstddef>
 
 #include "OffloadBundleContext.h"
 #include "OffloadBundleTypes.h"
@@ -22,16 +22,16 @@ bool ReverbContext::isPreset() {
 }
 
 ReverbContext::ReverbContext(int statusDepth, const Parameter::Common& common,
-                  const OffloadBundleEffectType& type)
-        : OffloadBundleContext(statusDepth, common, type) {
+                             const OffloadBundleEffectType& type)
+    : OffloadBundleContext(statusDepth, common, type) {
     LOG(DEBUG) << __func__ << type << " ioHandle " << common.ioHandle;
 }
 
 RetCode ReverbContext::init() {
-    LOG(DEBUG) << __func__ <<"   "<< mType ;
+    LOG(DEBUG) << __func__ << "   " << mType;
     std::lock_guard lg(mMutex);
     // init with pre-defined preset NORMAL
-    memset(&mOffloadReverbParams, 0, sizeof(struct reverb_params));
+    memset(&mReverbParams, 0, sizeof(struct ReverbParams));
     if (isPreset()) {
         mPreset = PresetReverb::Presets::NONE;
         mNextPreset = PresetReverb::Presets::NONE;
@@ -41,231 +41,230 @@ RetCode ReverbContext::init() {
 }
 
 void ReverbContext::deInit() {
-    LOG(DEBUG) << __func__ <<"   "<< mType ;
-    std::lock_guard lg(mMutex);
+    LOG(DEBUG) << __func__ << " ioHandle" << getIoHandle();
+    stop();
 }
 
 RetCode ReverbContext::enable() {
-    LOG(DEBUG) << __func__ <<"   "<< mType ;
+    LOG(DEBUG) << __func__ << "   " << mType;
     if (mEnabled) return RetCode::ERROR_ILLEGAL_PARAMETER;
     mEnabled = true;
 
     if (isPreset() && mNextPreset == PresetReverb::Presets::NONE) {
         return RetCode::SUCCESS;
     }
-    mOffloadReverbParams.enable_flag = true;
+    mReverbParams.enable = 1;
     return RetCode::SUCCESS;
 }
 
 RetCode ReverbContext::disable() {
-    LOG(DEBUG) << __func__ <<"   "<< mType ;
+    LOG(DEBUG) << __func__ << "   " << mType;
     if (!mEnabled) return RetCode::ERROR_ILLEGAL_PARAMETER;
     mEnabled = false;
-    mOffloadReverbParams.enable_flag = false;
-    sendOffloadParametersToPal(&mOffloadReverbParams, OFFLOAD_SEND_REVERB_ENABLE_FLAG);
+    mReverbParams.enable = 0;
+    sendOffloadParametersToPal(&mReverbParams, OFFLOAD_SEND_REVERB_ENABLE_FLAG);
     return RetCode::SUCCESS;
 }
 
 RetCode ReverbContext::start(pal_stream_handle_t* palHandle) {
-    LOG(DEBUG) << __func__ <<"   "<< mType ;
+    LOG(DEBUG) << __func__ << "   " << mType;
     std::lock_guard lg(mMutex);
 
     mPalHandle = palHandle;
     if (isEffectActive() && isPreset()) {
-        sendOffloadParametersToPal(&mOffloadReverbParams, OFFLOAD_SEND_REVERB_ENABLE_FLAG | OFFLOAD_SEND_REVERB_PRESET);
+        sendOffloadParametersToPal(&mReverbParams,
+                                   OFFLOAD_SEND_REVERB_ENABLE_FLAG | OFFLOAD_SEND_REVERB_PRESET);
     } else {
         LOG(DEBUG) << __func__ << mType << " inactive or non preset";
     }
 
-    mPalHandle = nullptr;
     return RetCode::SUCCESS;
 }
 
 RetCode ReverbContext::stop() {
-    LOG(DEBUG) << __func__ <<"   "<< mType ;
+    LOG(DEBUG) << __func__ << "   " << mType;
     std::lock_guard lg(mMutex);
-    struct reverb_params reverbParam;
-    memset(&reverbParam, 0, sizeof(struct bass_boost_params));
-    reverbParam.enable_flag = false;
-
+    struct ReverbParams reverbParam;
     sendOffloadParametersToPal(&reverbParam, OFFLOAD_SEND_REVERB_ENABLE_FLAG);
+    mPalHandle = nullptr;
     return RetCode::SUCCESS;
 }
 
 RetCode ReverbContext::setOutputDevice(
-            const std::vector<aidl::android::media::audio::common::AudioDeviceDescription>&
-                    device) {
-    LOG(DEBUG) << __func__ <<"   "<< mType ;
+        const std::vector<aidl::android::media::audio::common::AudioDeviceDescription>& device) {
+    LOG(DEBUG) << __func__ << "   " << mType;
     mOutputDevice = device;
     return RetCode::SUCCESS;
 }
 
 RetCode ReverbContext::setPresetReverbPreset(const PresetReverb::Presets& preset) {
-    LOG(DEBUG) << __func__ <<"   "<< mType  <<" preset " << toString(preset);
+    LOG(DEBUG) << __func__ << "   " << mType << " preset " << toString(preset);
     mNextPreset = preset;
-    mOffloadReverbParams.preset = static_cast<int32_t>(preset);
+    mReverbParams.preset = static_cast<int32_t>(preset);
     if (preset != PresetReverb::Presets::NONE) {
-        mOffloadReverbParams.enable_flag = true;
+        mReverbParams.enable = 1;
         sendOffloadParametersToPal(OFFLOAD_SEND_REVERB_ENABLE_FLAG | OFFLOAD_SEND_REVERB_PRESET);
     }
     return RetCode::SUCCESS;
 }
 
 RetCode ReverbContext::setEnvironmentalReverbRoomLevel(int roomLevel) {
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " << roomLevel;
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << roomLevel;
     mRoomLevel = roomLevel;
-    mOffloadReverbParams.room_level = roomLevel;
+    mReverbParams.roomLevel = roomLevel;
     sendOffloadParametersToPal(OFFLOAD_SEND_REVERB_ENABLE_FLAG | OFFLOAD_SEND_REVERB_ROOM_LEVEL);
     return RetCode::SUCCESS;
 }
 
 int ReverbContext::getEnvironmentalReverbRoomLevel() const {
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " <<  mRoomLevel;
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << mRoomLevel;
     return mRoomLevel;
 }
 
 RetCode ReverbContext::setEnvironmentalReverbRoomHfLevel(int roomHfLevel) {
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " <<  roomHfLevel;
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << roomHfLevel;
     mRoomHfLevel = roomHfLevel;
-    mOffloadReverbParams.room_hf_level = roomHfLevel;
+    mReverbParams.roomHfLevel = roomHfLevel;
     sendOffloadParametersToPal(OFFLOAD_SEND_REVERB_ENABLE_FLAG | OFFLOAD_SEND_REVERB_ROOM_HF_LEVEL);
     return RetCode::SUCCESS;
 }
 
 int ReverbContext::getEnvironmentalReverbRoomHfLevel() const {
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " <<  mRoomHfLevel;
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << mRoomHfLevel;
     return mRoomHfLevel;
 }
 
 RetCode ReverbContext::setEnvironmentalReverbDecayTime(int decayTime) {
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " <<  decayTime;
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << decayTime;
     mDecayTime = decayTime;
-    mOffloadReverbParams.decay_time = decayTime;
+    mReverbParams.decayTime = decayTime;
     sendOffloadParametersToPal(OFFLOAD_SEND_REVERB_ENABLE_FLAG | OFFLOAD_SEND_REVERB_DECAY_TIME);
     return RetCode::SUCCESS;
 }
 
 int ReverbContext::getEnvironmentalReverbDecayTime() const {
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " << mDecayTime;
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << mDecayTime;
     return mDecayTime;
 }
 
 RetCode ReverbContext::setEnvironmentalReverbDecayHfRatio(int decayHfRatio) {
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " <<  decayHfRatio;
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << decayHfRatio;
     mDecayHfRatio = decayHfRatio;
-    mOffloadReverbParams.decay_hf_ratio = decayHfRatio;
-    sendOffloadParametersToPal(OFFLOAD_SEND_REVERB_ENABLE_FLAG | OFFLOAD_SEND_REVERB_DECAY_HF_RATIO);
+    mReverbParams.decayHfRatio = decayHfRatio;
+    sendOffloadParametersToPal(OFFLOAD_SEND_REVERB_ENABLE_FLAG |
+                               OFFLOAD_SEND_REVERB_DECAY_HF_RATIO);
     return RetCode::SUCCESS;
 }
 
 int ReverbContext::getEnvironmentalReverbDecayHfRatio() const {
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " << mDecayHfRatio;
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << mDecayHfRatio;
     return mDecayHfRatio;
 }
 
 RetCode ReverbContext::setEnvironmentalReverbLevel(int level) {
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " << level;
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << level;
     mLevel = level;
-    mOffloadReverbParams.level = level;
+    mReverbParams.level = level;
     sendOffloadParametersToPal(OFFLOAD_SEND_REVERB_ENABLE_FLAG | OFFLOAD_SEND_REVERB_LEVEL);
     return RetCode::SUCCESS;
 }
 
 int ReverbContext::getEnvironmentalReverbLevel() const {
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " <<  mLevel;
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << mLevel;
     return mLevel;
 }
 
 RetCode ReverbContext::setEnvironmentalReverbDelay(int delay) {
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " <<  delay;
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << delay;
     mDelay = delay;
-    mOffloadReverbParams.delay = delay;
+    mReverbParams.delay = delay;
     sendOffloadParametersToPal(OFFLOAD_SEND_REVERB_ENABLE_FLAG | OFFLOAD_SEND_REVERB_DELAY);
     return RetCode::SUCCESS;
 }
 
 int ReverbContext::getEnvironmentalReverbDelay() const {
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " <<  mDelay;
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << mDelay;
     return mDelay;
 }
 
 RetCode ReverbContext::setEnvironmentalReverbDiffusion(int diffusion) {
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " <<  diffusion;
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << diffusion;
     mDiffusion = diffusion;
-    mOffloadReverbParams.diffusion = diffusion;
+    mReverbParams.diffusion = diffusion;
     sendOffloadParametersToPal(OFFLOAD_SEND_REVERB_ENABLE_FLAG | OFFLOAD_SEND_REVERB_DIFFUSION);
     return RetCode::SUCCESS;
 }
 
 int ReverbContext::getEnvironmentalReverbDiffusion() const {
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " << mDiffusion;
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << mDiffusion;
     return mDiffusion;
 }
 
 RetCode ReverbContext::setEnvironmentalReverbDensity(int density) {
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " << density;
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << density;
     mDensity = density;
-    mOffloadReverbParams.density = density;
+    mReverbParams.density = density;
     sendOffloadParametersToPal(OFFLOAD_SEND_REVERB_ENABLE_FLAG | OFFLOAD_SEND_REVERB_DENSITY);
     return RetCode::SUCCESS;
 }
 
 int ReverbContext::getEnvironmentalReverbDensity() const {
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " <<  mDensity;
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << mDensity;
     return mDensity;
 }
 
 RetCode ReverbContext::setEnvironmentalReverbBypass(bool bypass) {
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " <<  bypass;
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << bypass;
     mBypass = bypass;
     return RetCode::SUCCESS;
 }
 
-bool ReverbContext::getEnvironmentalReverbBypass() const{
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " <<  mBypass;
+bool ReverbContext::getEnvironmentalReverbBypass() const {
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << mBypass;
     return mBypass;
 }
 
 RetCode ReverbContext::setReflectionsLevel(int level) {
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " <<  level;
-    mReflectionLevel = level;
-    mOffloadReverbParams.reflections_level = level;
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << level;
+    mReflectionsLevel = level;
+    mReverbParams.reflectionsLevel = level;
     sendOffloadParametersToPal(OFFLOAD_SEND_REVERB_ENABLE_FLAG | OFFLOAD_SEND_REVERB_DENSITY);
     return RetCode::SUCCESS;
 }
 
-bool ReverbContext::getReflectionsLevel() const{
-    LOG(DEBUG) << __func__ <<"   "<< mType <<"  " <<  mReflectionLevel;
-    return mReflectionLevel;
+bool ReverbContext::getReflectionsLevel() const {
+    LOG(DEBUG) << __func__ << "   " << mType << "  " << mReflectionsLevel;
+    return mReflectionsLevel;
 }
 
-RetCode ReverbContext::setReflectionsDelay (int delay) {
-    mReflectionDelay = delay;
-    mOffloadReverbParams.reflections_delay = delay;
-    sendOffloadParametersToPal(OFFLOAD_SEND_REVERB_ENABLE_FLAG | OFFLOAD_SEND_REVERB_REFLECTIONS_DELAY);
+RetCode ReverbContext::setReflectionsDelay(int delay) {
+    mReflectionsDelay = delay;
+    mReverbParams.reflectionsDelay = delay;
+    sendOffloadParametersToPal(OFFLOAD_SEND_REVERB_ENABLE_FLAG |
+                               OFFLOAD_SEND_REVERB_REFLECTIONS_DELAY);
     return RetCode::SUCCESS;
 }
 
 bool ReverbContext::getReflectionsDelay() const {
-    return mReflectionDelay;
+    return mReflectionsDelay;
 }
 
-int ReverbContext::sendOffloadParametersToPal(reverb_params *reverbParams, uint64_t flags) {
+int ReverbContext::sendOffloadParametersToPal(ReverbParams* reverbParams, uint64_t flags) {
     if (mPalHandle) {
         ParamDelegator::updatePalParameters(mPalHandle, reverbParams, flags);
     } else {
-        LOG (INFO) <<" PalHandle not set";
+        LOG(VERBOSE) << " PalHandle not set";
     }
     return 0;
 }
 
 int ReverbContext::sendOffloadParametersToPal(uint64_t flags) {
     if (mPalHandle) {
-        ParamDelegator::updatePalParameters(mPalHandle, &mOffloadReverbParams, flags);
+        ParamDelegator::updatePalParameters(mPalHandle, &mReverbParams, flags);
     } else {
-        LOG (INFO) <<" PalHandle not set";
+        LOG(VERBOSE) << " PalHandle not set";
     }
     return 0;
 }
 
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects

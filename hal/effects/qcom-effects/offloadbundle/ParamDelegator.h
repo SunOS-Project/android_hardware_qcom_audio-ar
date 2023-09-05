@@ -1,5 +1,4 @@
 /*
-
  * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
@@ -17,12 +16,6 @@
 #include "kvh2xml.h"
 
 namespace aidl::qti::effects {
-
-// #define EQ_PARAM_LATENCY 0x80000000
-// #define EQ_PARAM_CUSTOM_HEADER_SIZE 12 // 3*sizeof(uint32_t)
-// #define EQ_PARAM_NORMAL_HEADER_SIZE 8    // 2*sizeof(uint32_t)
-// #define EQ_ENABLE_CMD_SIZE 4
-// #define EQ_PRESET_CMD_SIZE 12	//pregain, preset, num band = 0
 
 #define VIRTUALIZER_MODULE 0x00001000
 #define VIRTUALIZER_ENABLE 0x00001001
@@ -120,77 +113,57 @@ namespace aidl::qti::effects {
 #define Q8_UNITY (1 << 8)
 #define CUSTOM_OPENSL_PRESET 18
 
-struct virtualizer_params {
-    __u32 device;
-    __u32 enable_flag;
-    __u32 strength;
-    __u32 out_type;
-    __s32 gain_adjust;
+struct VirtualizerParams {
+    uint32_t enable = 0;
+    uint32_t strength = 0;
+    uint32_t type = 0;
+    uint32_t gainAdjust = 0;
 };
 
 #define NUM_OSL_REVERB_PRESETS_SUPPORTED 6
 
-struct reverb_params {
-    __u32 device;
-    __u32 enable_flag;
-    __u32 mode;
-    __u32 preset;
-    __u32 wet_mix;
-    __s32 gain_adjust;
-    __s32 room_level;
-    __s32 room_hf_level;
-    __u32 decay_time;
-    __u32 decay_hf_ratio;
-    __s32 reflections_level;
-    __u32 reflections_delay;
-    __s32 level;
-    __u32 delay;
-    __u32 diffusion;
-    __u32 density;
-};
-
-struct bass_boost_params {
-    __u32 device;
-    __u32 enable_flag;
-    __u32 mode;
-    __u32 strength;
+struct ReverbParams {
+    uint32_t enable = 0;
+    uint32_t mode = 0;
+    uint32_t preset = 0;
+    uint32_t wetMix = 0;
+    int32_t gainAdjust = 0;
+    int32_t roomLevel = 0;
+    int32_t roomHfLevel = 0;
+    uint32_t decayTime = 0;
+    uint32_t decayHfRatio = 0;
+    int32_t reflectionsLevel = 0;
+    uint32_t reflectionsDelay = 0;
+    int32_t level = 0;
+    uint32_t delay = 0;
+    uint32_t diffusion = 0;
+    uint32_t density = 0;
 };
 
 struct BassBoostParams {
-    bool mEnabled = false;
-    int mStrength = 0;
+    uint32_t mEnabled = 0;
+    uint32_t mStrength = 0;
 };
 
 #define MAX_EQ_BANDS 12
 #define MAX_OSL_EQ_BANDS 5
-struct eq_config_t {
-    __s32 eq_pregain;
-    __s32 preset_id;
-    __u32 num_bands;
+struct EqualizerConfig {
+    int32_t pregain;
+    int32_t presetId;
+    uint32_t numBands;
 };
-struct eq_per_band_config_t {
-    __s32 band_idx;
-    __u32 filter_type;
-    __u32 freq_millihertz;
-    __s32 gain_millibels;
-    __u32 quality_factor;
+struct EqualizerBandConfig {
+    int32_t bandIndex = 0;
+    uint32_t filterType = 0;
+    uint32_t frequencyMhz = 0;
+    int32_t gainMb = 0;
+    uint32_t qFactor = 0;
 };
 
-// TODO remove unused.
-// struct eq_per_band_freq_range_t {
-// 	__u32 band_index;
-// 	__u32 min_freq_millihertz;
-// 	__u32 max_freq_millihertz;
-// };
-
-struct eq_params {
-    __u32 device;
-    __u32 enable_flag;
-    struct eq_config_t config;
-    struct eq_per_band_config_t per_band_cfg[MAX_EQ_BANDS];
-    // struct eq_per_band_freq_range_t per_band_freq_range[MAX_EQ_BANDS]; // TODO usused.
-    __u32 band_index;
-    __u32 freq_millihertz;
+struct EqualizerParams {
+    uint32_t enable = 0;
+    struct EqualizerConfig config;
+    struct EqualizerBandConfig bandConfig[MAX_EQ_BANDS];
 };
 
 #define PARAM_ID_MODULE_ENABLE 0x8001026
@@ -251,24 +224,17 @@ struct eq_params {
 
 struct ParamDelegator {
   public:
-    static int updatePalParameters(pal_stream_handle_t *handle, struct bass_boost_params *bassboost,
-                                   unsigned flags);
-
     static int updatePalParameters(pal_stream_handle_t *handle, struct BassBoostParams *bassboost,
-                                   unsigned flags);
-
-    // static int updatePalParameters(pal_stream_handle_t *handle,
-    //                                 struct pbe_params *pbe,
-    //                                 unsigned flags);
+                                   uint64_t flags);
 
     static int updatePalParameters(pal_stream_handle_t *handle,
-                                   struct virtualizer_params *virtualizer, unsigned flags);
+                                   struct VirtualizerParams *virtualizer, uint64_t flags);
 
-    static int updatePalParameters(pal_stream_handle_t *handle, struct eq_params *eq,
-                                   unsigned flags);
+    static int updatePalParameters(pal_stream_handle_t *handle, struct EqualizerParams *eq,
+                                   uint64_t flags);
 
-    static int updatePalParameters(pal_stream_handle_t *handle, struct reverb_params *reverb,
-                                   unsigned flags);
+    static int updatePalParameters(pal_stream_handle_t *handle, struct ReverbParams *reverb,
+                                   uint64_t flags);
 
   private:
     static int sendKvPayload(pal_stream_handle_t *handle, uint32_t tag, pal_key_vector_t *kvp);

@@ -3,10 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-
 #pragma once
-
-#define LOG_TAG "AHAL_Effect_OffloadBundleContext"
 
 #include <android-base/logging.h>
 #include <android-base/thread_annotations.h>
@@ -14,9 +11,9 @@
 #include <cstddef>
 
 #include "OffloadBundleTypes.h"
-#include "effect-impl/EffectContext.h"
 #include "PalDefs.h"
 #include "ParamDelegator.h"
+#include "effect-impl/EffectContext.h"
 
 using aidl::android::media::audio::common::AudioDeviceDescription;
 
@@ -31,14 +28,14 @@ namespace aidl::qti::effects {
 class OffloadBundleContext : public EffectContext {
   public:
     OffloadBundleContext(int statusDepth, const Parameter::Common& common,
-                  const OffloadBundleEffectType& type)
+                         const OffloadBundleEffectType& type)
         : EffectContext(statusDepth, common), mType(type) {
         mIoHandle = common.ioHandle;
         LOG(DEBUG) << __func__ << type << " ioHandle " << common.ioHandle;
     }
 
     virtual ~OffloadBundleContext() override {
-        LOG(DEBUG) << __func__;
+        LOG(DEBUG) << __func__ << " ioHandle " << mIoHandle;
     }
 
     // Generic APIS
@@ -52,9 +49,9 @@ class OffloadBundleContext : public EffectContext {
     virtual RetCode start(pal_stream_handle_t* palHandle) = 0;
     virtual RetCode stop() = 0;
 
-    virtual int sendOffloadParametersToPal(uint64_t flags) { return 0;}
+    virtual int sendOffloadParametersToPal(uint64_t flags) { return 0; }
     // Equalizer methods, implement in EqualizerContext
-    virtual RetCode setEqualizerPreset(const std::size_t presetIdx) { 
+    virtual RetCode setEqualizerPreset(const std::size_t presetIdx) {
         return RetCode::ERROR_ILLEGAL_PARAMETER;
     }
 
@@ -62,67 +59,65 @@ class OffloadBundleContext : public EffectContext {
         return RetCode::ERROR_ILLEGAL_PARAMETER;
     }
 
-    virtual std::vector<Equalizer::BandLevel> getEqualizerBandLevels() const {
-        return {}; 
-    }
+    virtual std::vector<Equalizer::BandLevel> getEqualizerBandLevels() const { return {}; }
 
-    virtual std::vector<int32_t> getEqualizerCenterFreqs() {
-        return {};
-    }
+    virtual std::vector<int32_t> getEqualizerCenterFreqs() { return {}; }
 
     virtual int getEqualizerPreset() const { return 0; }
     // BassBoost methods, implement in BassBoostContext
-    virtual RetCode setBassBoostStrength(int strength) {
-        return RetCode::ERROR_ILLEGAL_PARAMETER;
-    }
+    virtual RetCode setBassBoostStrength(int strength) { return RetCode::ERROR_ILLEGAL_PARAMETER; }
 
-    virtual int getBassBoostStrength() { return 0 ;}
+    virtual int getBassBoostStrength() { return 0; }
     // Virtualizer methods, implement in VirtualizerContext
     virtual RetCode setVirtualizerStrength(int strength) {
         return RetCode::ERROR_ILLEGAL_PARAMETER;
     }
-    virtual int getVirtualizerStrength() const { return 0;}
+    virtual int getVirtualizerStrength() const { return 0; }
 
-     virtual RetCode setForcedDevice( const AudioDeviceDescription& device) {
+    virtual RetCode setForcedDevice(const AudioDeviceDescription& device) {
         return RetCode::ERROR_ILLEGAL_PARAMETER;
-     }
+    }
 
-     virtual AudioDeviceDescription getForcedDevice() const {
-         return {};
-     }
+    virtual AudioDeviceDescription getForcedDevice() const { return {}; }
 
-     virtual std::vector<Virtualizer::ChannelAngle> getSpeakerAngles(
-             const Virtualizer::SpeakerAnglesPayload payload) {
+    virtual std::vector<Virtualizer::ChannelAngle> getSpeakerAngles(
+            const Virtualizer::SpeakerAnglesPayload payload) {
         return {};
     }
 
-    virtual bool deviceSupportsEffect(const std::vector<AudioDeviceDescription>& device) { return true;}
+    virtual bool deviceSupportsEffect(const std::vector<AudioDeviceDescription>& device) {
+        return true;
+    }
     // Reverb methods, implement ReverbContext
 
-    virtual RetCode setPresetReverbPreset(const PresetReverb::Presets& preset) { return RetCode::SUCCESS;}
-    virtual PresetReverb::Presets getPresetReverbPreset() const { PresetReverb::Presets ps; return ps; }
+    virtual RetCode setPresetReverbPreset(const PresetReverb::Presets& preset) {
+        return RetCode::SUCCESS;
+    }
+    virtual PresetReverb::Presets getPresetReverbPreset() const { return {}; }
 
-    virtual RetCode setEnvironmentalReverbRoomLevel(int roomLevel) {return RetCode::SUCCESS;}
+    virtual RetCode setEnvironmentalReverbRoomLevel(int roomLevel) { return RetCode::SUCCESS; }
     virtual int getEnvironmentalReverbRoomLevel() const { return 0; }
-    virtual RetCode setEnvironmentalReverbRoomHfLevel(int roomHfLevel) {return RetCode::SUCCESS;}
+    virtual RetCode setEnvironmentalReverbRoomHfLevel(int roomHfLevel) { return RetCode::SUCCESS; }
     virtual int getEnvironmentalReverbRoomHfLevel() const { return 0; }
-    virtual RetCode setEnvironmentalReverbDecayTime(int decayTime) {return RetCode::SUCCESS;}
+    virtual RetCode setEnvironmentalReverbDecayTime(int decayTime) { return RetCode::SUCCESS; }
     virtual int getEnvironmentalReverbDecayTime() const { return 0; }
-    virtual RetCode setEnvironmentalReverbDecayHfRatio(int decayHfRatio) {return RetCode::SUCCESS;}
+    virtual RetCode setEnvironmentalReverbDecayHfRatio(int decayHfRatio) {
+        return RetCode::SUCCESS;
+    }
     virtual int getEnvironmentalReverbDecayHfRatio() const { return 0; }
-    virtual RetCode setReflectionsLevel(int level) { return RetCode::SUCCESS;}
+    virtual RetCode setReflectionsLevel(int level) { return RetCode::SUCCESS; }
     virtual bool getReflectionsLevel() const { return false; }
-    virtual RetCode setReflectionsDelay (int delay) { return RetCode::SUCCESS;}
+    virtual RetCode setReflectionsDelay(int delay) { return RetCode::SUCCESS; }
     virtual bool getReflectionsDelay() const { return false; }
-    virtual RetCode setEnvironmentalReverbLevel(int level) {return RetCode::SUCCESS;}
+    virtual RetCode setEnvironmentalReverbLevel(int level) { return RetCode::SUCCESS; }
     virtual int getEnvironmentalReverbLevel() const { return 0; }
-    virtual RetCode setEnvironmentalReverbDelay(int delay) {return RetCode::SUCCESS;}
+    virtual RetCode setEnvironmentalReverbDelay(int delay) { return RetCode::SUCCESS; }
     virtual int getEnvironmentalReverbDelay() const { return 0; }
-    virtual RetCode setEnvironmentalReverbDiffusion(int diffusion) {return RetCode::SUCCESS;}
+    virtual RetCode setEnvironmentalReverbDiffusion(int diffusion) { return RetCode::SUCCESS; }
     virtual int getEnvironmentalReverbDiffusion() const { return 0; }
-    virtual RetCode setEnvironmentalReverbDensity(int density) {return RetCode::SUCCESS;}
+    virtual RetCode setEnvironmentalReverbDensity(int density) { return RetCode::SUCCESS; }
     virtual int getEnvironmentalReverbDensity() const { return 0; }
-    virtual RetCode setEnvironmentalReverbBypass(bool bypass) {return RetCode::SUCCESS;}
+    virtual RetCode setEnvironmentalReverbBypass(bool bypass) { return RetCode::SUCCESS; }
     virtual bool getEnvironmentalReverbBypass() const { return true; }
 
   protected:
@@ -132,16 +127,15 @@ class OffloadBundleContext : public EffectContext {
     bool mEnabled = false;
     pal_stream_handle_t* mPalHandle;
     EffectState mState = EffectState::UNINITIALIZED;
-    bool isEffectActive() { return mState == EffectState::ACTIVE;}
+    bool isEffectActive() { return mState == EffectState::ACTIVE; }
 };
 
-
-class BassBoostContext final: public OffloadBundleContext {
-public:
+class BassBoostContext final : public OffloadBundleContext {
+  public:
     BassBoostContext(int statusDepth, const Parameter::Common& common,
-                  const OffloadBundleEffectType& type);
+                     const OffloadBundleEffectType& type);
     ~BassBoostContext() override {
-        LOG(DEBUG) << __func__;
+        LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
         deInit();
     }
 
@@ -155,21 +149,22 @@ public:
     RetCode setBassBoostStrength(int strength) override;
     int getBassBoostStrength() override;
     int sendOffloadParametersToPal(uint64_t flags) override;
-    int sendOffloadParametersToPal(bass_boost_params *bassParam, uint64_t flags);
+    int sendOffloadParametersToPal(BassBoostParams* bassParam, uint64_t flags);
     bool deviceSupportsEffect(const std::vector<AudioDeviceDescription>& device) override;
-private:
-   struct bass_boost_params mOffloadBassBoostParams;
-   //struct BassParams mParams;
-   int mStrength;
-   bool mTempDisabled = false;
+
+  private:
+    struct BassBoostParams mBassParams;
+    // struct BassParams mParams;
+    int mStrength;
+    bool mTempDisabled = false;
 };
 
 class EqualizerContext final : public OffloadBundleContext {
-public:
+  public:
     EqualizerContext(int statusDepth, const Parameter::Common& common,
-                  const OffloadBundleEffectType& type);
+                     const OffloadBundleEffectType& type);
     ~EqualizerContext() override {
-        LOG(DEBUG) << __func__;
+        LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
         deInit();
     }
     virtual RetCode init() override;
@@ -178,29 +173,29 @@ public:
     virtual RetCode disable() override;
     virtual RetCode start(pal_stream_handle_t* palHandle) override;
     virtual RetCode stop() override;
-    RetCode setOutputDevice(
-            const std::vector<aidl::android::media::audio::common::AudioDeviceDescription>&
-                    device) override;
+
     RetCode setEqualizerPreset(const std::size_t presetIdx) override;
     RetCode setEqualizerBandLevels(const std::vector<Equalizer::BandLevel>& bandLevels) override;
     std::vector<Equalizer::BandLevel> getEqualizerBandLevels() const override;
     std::vector<int32_t> getEqualizerCenterFreqs() override;
     int getEqualizerPreset() const override { return mCurrentPreset; }
     int sendOffloadParametersToPal(uint64_t flags) override;
+    int sendOffloadParametersToPal(EqualizerParams* params, uint64_t flags);
     int updateOffloadParameters();
-private:
+
+  private:
     bool isBandLevelIndexInRange(const std::vector<Equalizer::BandLevel>& bandLevels) const;
     int mCurrentPreset = PRESET_CUSTOM; // current preset index;
     std::array<int, MAX_NUM_BANDS> mBandLevels;
-    struct eq_params mOffloadEqualizerParams;
+    struct EqualizerParams mEqParams;
 };
 
 class VirtualizerContext final : public OffloadBundleContext {
-public:
+  public:
     VirtualizerContext(int statusDepth, const Parameter::Common& common,
-                  const OffloadBundleEffectType& type);
+                       const OffloadBundleEffectType& type);
     ~VirtualizerContext() override {
-        LOG(DEBUG) << __func__;
+        LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
         deInit();
     }
 
@@ -211,39 +206,37 @@ public:
     virtual RetCode start(pal_stream_handle_t* palHandle) override;
     virtual RetCode stop() override;
     RetCode setOutputDevice(
-            const std::vector<aidl::android::media::audio::common::AudioDeviceDescription>&
-                    device) override;
+            const std::vector<aidl::android::media::audio::common::AudioDeviceDescription>& device)
+            override;
     RetCode setVirtualizerStrength(int strength) override;
     int getVirtualizerStrength() const override;
 
-    virtual RetCode setForcedDevice( const AudioDeviceDescription& device) override;
+    virtual RetCode setForcedDevice(const AudioDeviceDescription& device) override;
 
-     virtual AudioDeviceDescription getForcedDevice() const override {
-         return mForcedDevice;
-     }
+    virtual AudioDeviceDescription getForcedDevice() const override { return mForcedDevice; }
 
-     std::vector<Virtualizer::ChannelAngle> getSpeakerAngles(
-             const Virtualizer::SpeakerAnglesPayload payload) override;
+    std::vector<Virtualizer::ChannelAngle> getSpeakerAngles(
+            const Virtualizer::SpeakerAnglesPayload payload) override;
 
     int sendOffloadParametersToPal(uint64_t flags) override;
-    int sendOffloadParametersToPal(virtualizer_params *virtParams, uint64_t flags);
+    int sendOffloadParametersToPal(VirtualizerParams* virtParams, uint64_t flags);
     bool deviceSupportsEffect(const std::vector<AudioDeviceDescription>& device) override;
-private:
 
+  private:
     bool isConfigSupported(size_t channelCount, const AudioDeviceDescription& device);
 
-    struct virtualizer_params mOffloadVirtualizerParams;
+    struct VirtualizerParams mVirtParams;
     int mStrength;
     AudioDeviceDescription mForcedDevice;
     bool mTempDisabled = false;
 };
 
 class ReverbContext final : public OffloadBundleContext {
-public:
+  public:
     ReverbContext(int statusDepth, const Parameter::Common& common,
                   const OffloadBundleEffectType& type);
     ~ReverbContext() override {
-        LOG(DEBUG) << __func__;
+        LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
         deInit();
     }
 
@@ -254,41 +247,41 @@ public:
     virtual RetCode start(pal_stream_handle_t* palHandle) override;
     virtual RetCode stop() override;
     RetCode setOutputDevice(
-            const std::vector<aidl::android::media::audio::common::AudioDeviceDescription>&
-                    device) override;
+            const std::vector<aidl::android::media::audio::common::AudioDeviceDescription>& device)
+            override;
 
     int sendOffloadParametersToPal(uint64_t flags) override;
-    int sendOffloadParametersToPal(reverb_params *reverbParams, uint64_t flags);
-
+    int sendOffloadParametersToPal(ReverbParams* reverbParams, uint64_t flags);
 
     virtual RetCode setPresetReverbPreset(const PresetReverb::Presets& preset) override;
 
     virtual PresetReverb::Presets getPresetReverbPreset() const override { return mNextPreset; }
 
     virtual RetCode setEnvironmentalReverbRoomLevel(int roomLevel) override;
-    virtual int getEnvironmentalReverbRoomLevel() const override ;
-    virtual RetCode setEnvironmentalReverbRoomHfLevel(int roomHfLevel) override ;
-    virtual int getEnvironmentalReverbRoomHfLevel() const override ;
-    virtual RetCode setEnvironmentalReverbDecayTime(int decayTime) override ;
+    virtual int getEnvironmentalReverbRoomLevel() const override;
+    virtual RetCode setEnvironmentalReverbRoomHfLevel(int roomHfLevel) override;
+    virtual int getEnvironmentalReverbRoomHfLevel() const override;
+    virtual RetCode setEnvironmentalReverbDecayTime(int decayTime) override;
     virtual int getEnvironmentalReverbDecayTime() const override;
-    virtual RetCode setEnvironmentalReverbDecayHfRatio(int decayHfRatio) override ;
-    virtual int getEnvironmentalReverbDecayHfRatio() const override ;
+    virtual RetCode setEnvironmentalReverbDecayHfRatio(int decayHfRatio) override;
+    virtual int getEnvironmentalReverbDecayHfRatio() const override;
     virtual RetCode setReflectionsLevel(int level) override;
     virtual bool getReflectionsLevel() const override;
-    virtual RetCode setReflectionsDelay (int delay);
+    virtual RetCode setReflectionsDelay(int delay);
     virtual bool getReflectionsDelay() const;
-    virtual RetCode setEnvironmentalReverbLevel(int level) override ;
-    virtual int getEnvironmentalReverbLevel() const override ;
-    virtual RetCode setEnvironmentalReverbDelay(int delay) override ;
-    virtual int getEnvironmentalReverbDelay() const override ;
-    virtual RetCode setEnvironmentalReverbDiffusion(int diffusion) override ;
-    virtual int getEnvironmentalReverbDiffusion() const override ;
-    virtual RetCode setEnvironmentalReverbDensity(int density) override ;
-    virtual int getEnvironmentalReverbDensity() const override ;
-    virtual RetCode setEnvironmentalReverbBypass(bool bypass) override ;
-    virtual bool getEnvironmentalReverbBypass() const override ;
-private:
-    struct reverb_params mOffloadReverbParams;
+    virtual RetCode setEnvironmentalReverbLevel(int level) override;
+    virtual int getEnvironmentalReverbLevel() const override;
+    virtual RetCode setEnvironmentalReverbDelay(int delay) override;
+    virtual int getEnvironmentalReverbDelay() const override;
+    virtual RetCode setEnvironmentalReverbDiffusion(int diffusion) override;
+    virtual int getEnvironmentalReverbDiffusion() const override;
+    virtual RetCode setEnvironmentalReverbDensity(int density) override;
+    virtual int getEnvironmentalReverbDensity() const override;
+    virtual RetCode setEnvironmentalReverbBypass(bool bypass) override;
+    virtual bool getEnvironmentalReverbBypass() const override;
+
+  private:
+    struct ReverbParams mReverbParams;
 
     int mRoomLevel = 0;
     int mRoomHfLevel = 0;
@@ -299,8 +292,8 @@ private:
     int mDiffusion = 0;
     int mDensity = 0;
     int mBypass = 0;
-    int mReflectionLevel = 0;
-    int mReflectionDelay = 0;
+    int mReflectionsLevel = 0;
+    int mReflectionsDelay = 0;
 
     PresetReverb::Presets mPreset;
     PresetReverb::Presets mNextPreset;
@@ -308,5 +301,4 @@ private:
     bool isPreset();
 };
 
-}  // namespace aidl::qti::effects
-
+} // namespace aidl::qti::effects

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL_EffectImpl"
+#define LOG_TAG "AHAL_EffectImplQti"
 #include "effect-impl/EffectImpl.h"
 #include "effect-impl/EffectTypes.h"
 #include "include/effect-impl/EffectTypes.h"

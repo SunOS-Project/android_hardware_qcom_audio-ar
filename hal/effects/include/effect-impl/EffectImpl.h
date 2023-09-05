@@ -66,8 +66,6 @@ class EffectImpl : public BnEffect, public EffectThread {
     virtual std::shared_ptr<EffectContext> getContext() = 0;
     virtual RetCode releaseContext() = 0;
 
-    virtual ndk::ScopedAStatus addEffect(uint64_t *palHandle) { return ndk::ScopedAStatus::ok(); }
-    virtual ndk::ScopedAStatus removeEffect() {  return ndk::ScopedAStatus::ok();}
   protected:
     State mState = State::INIT;
 
