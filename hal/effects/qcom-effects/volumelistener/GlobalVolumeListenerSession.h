@@ -55,8 +55,8 @@ class GlobalVolumeListenerSession {
         return instance;
     }
     std::shared_ptr<VolumeListenerContext> createSession(const VolumeListenerType& type,
-                                                         int statusDepth,
-                                                         const Parameter::Common& common);
+                                                         const Parameter::Common& common,
+                                                         bool processData);
     void releaseSession(int sessionId);
 
     RetCode setOutputDevice(int sessionId, const AudioDeviceDescriptionVector& devices);

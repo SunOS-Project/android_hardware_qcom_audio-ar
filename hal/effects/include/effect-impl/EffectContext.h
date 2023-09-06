@@ -27,35 +27,44 @@ class EffectContext {
             float, ::aidl::android::hardware::common::fmq::SynchronizedReadWrite>
             DataMQ;
 
-    EffectContext(size_t statusDepth, const Parameter::Common& common) {
-        auto& input = common.input;
-        auto& output = common.output;
-
-        LOG_ALWAYS_FATAL_IF(
-                input.base.format.pcm != aidl::android::media::audio::common::PcmType::FLOAT_32_BIT,
-                "inputFormatNotFloat");
-        LOG_ALWAYS_FATAL_IF(output.base.format.pcm !=
-                                    aidl::android::media::audio::common::PcmType::FLOAT_32_BIT,
-                            "outputFormatNotFloat");
-        mInputFrameSize = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
-                input.base.format, input.base.channelMask);
-        mOutputFrameSize = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
-                output.base.format, output.base.channelMask);
-        // in/outBuffer size in float (FMQ data format defined for DataMQ)
-        size_t inBufferSizeInFloat = input.frameCount * mInputFrameSize / sizeof(float);
-        size_t outBufferSizeInFloat = output.frameCount * mOutputFrameSize / sizeof(float);
-
-        // only status FMQ use the EventFlag
-        mStatusMQ = std::make_shared<StatusMQ>(statusDepth, true /*configureEventFlagWord*/);
-        mInputMQ = std::make_shared<DataMQ>(inBufferSizeInFloat);
-        mOutputMQ = std::make_shared<DataMQ>(outBufferSizeInFloat);
-
-        if (!mStatusMQ->isValid() || !mInputMQ->isValid() || !mOutputMQ->isValid()) {
-            LOG(ERROR) << __func__ << " created invalid FMQ";
-        }
-        mWorkBuffer.reserve(std::max(inBufferSizeInFloat, outBufferSizeInFloat));
+    EffectContext(const Parameter::Common& common, bool processData) {
         mCommon = common;
+        initMessageQueues(processData);
     }
+
+    void initMessageQueues(bool processData) {
+        if (processData) {
+            auto& input = mCommon.input;
+            auto& output = mCommon.output;
+
+            LOG_ALWAYS_FATAL_IF(input.base.format.pcm !=
+                                        aidl::android::media::audio::common::PcmType::FLOAT_32_BIT,
+                                "inputFormatNotFloat");
+            LOG_ALWAYS_FATAL_IF(output.base.format.pcm !=
+                                        aidl::android::media::audio::common::PcmType::FLOAT_32_BIT,
+                                "outputFormatNotFloat");
+            mInputFrameSize = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
+                    input.base.format, input.base.channelMask);
+            mOutputFrameSize = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
+                    output.base.format, output.base.channelMask);
+            // in/outBuffer size in float (FMQ data format defined for DataMQ)
+            size_t inBufferSizeInFloat = input.frameCount * mInputFrameSize / sizeof(float);
+            size_t outBufferSizeInFloat = output.frameCount * mOutputFrameSize / sizeof(float);
+
+            // only status FMQ use the EventFlag
+            mStatusMQ = std::make_shared<StatusMQ>(1 /*numElementsInQueue*/,
+                                                   true /*configureEventFlagWord*/);
+            mInputMQ = std::make_shared<DataMQ>(inBufferSizeInFloat);
+            mOutputMQ = std::make_shared<DataMQ>(outBufferSizeInFloat);
+
+            if (!mStatusMQ->isValid() || !mInputMQ->isValid() || !mOutputMQ->isValid()) {
+                LOG(ERROR) << __func__ << " created invalid FMQ";
+            }
+            mWorkBuffer.reserve(std::max(inBufferSizeInFloat, outBufferSizeInFloat));
+        }
+        mProcessData = processData;
+    }
+
     virtual ~EffectContext() {}
 
     std::shared_ptr<StatusMQ> getStatusFmq() { return mStatusMQ; }
@@ -66,13 +75,15 @@ class EffectContext {
 
     // reset buffer status by abandon input data in FMQ
     void resetBuffer() {
-        auto buffer = static_cast<float*>(mWorkBuffer.data());
-        std::vector<IEffect::Status> status(mStatusMQ->availableToRead());
-        mInputMQ->read(buffer, mInputMQ->availableToRead());
+        if (mProcessData) {
+            auto buffer = static_cast<float*>(mWorkBuffer.data());
+            std::vector<IEffect::Status> status(mStatusMQ->availableToRead());
+            mInputMQ->read(buffer, mInputMQ->availableToRead());
+        }
     }
 
     void dupeFmq(IEffect::OpenEffectReturn* effectRet) {
-        if (effectRet) {
+        if (effectRet && mProcessData) {
             effectRet->statusMQ = mStatusMQ->dupeDesc();
             effectRet->inputDataMQ = mInputMQ->dupeDesc();
             effectRet->outputDataMQ = mOutputMQ->dupeDesc();
@@ -81,7 +92,7 @@ class EffectContext {
     size_t getInputFrameSize() { return mInputFrameSize; }
     size_t getOutputFrameSize() { return mOutputFrameSize; }
     int getSessionId() { return mCommon.session; }
-    int getIoHandle() { return mCommon.ioHandle; }
+    int getIoHandle() const { return mCommon.ioHandle; }
 
     virtual RetCode setOutputDevice(
             const std::vector<aidl::android::media::audio::common::AudioDeviceDescription>&
@@ -91,7 +102,7 @@ class EffectContext {
     }
 
     virtual std::vector<aidl::android::media::audio::common::AudioDeviceDescription>
-    getOutputDevice() {
+            getOutputDevice() {
         return mOutputDevice;
     }
 
@@ -122,6 +133,10 @@ class EffectContext {
         LOG(INFO) << __func__ << mCommon.toString();
         return mCommon;
     }
+    virtual RetCode setOffload(bool offload) {
+        mOffload = offload;
+        return RetCode::SUCCESS;
+    }
 
   protected:
     // common parameters
@@ -132,9 +147,11 @@ class EffectContext {
     aidl::android::media::audio::common::AudioMode mMode;
     aidl::android::media::audio::common::AudioSource mSource;
     Parameter::VolumeStereo mVolumeStereo;
+    bool mOffload;
 
   private:
     // fmq and buffers
+    bool mProcessData;
     std::shared_ptr<StatusMQ> mStatusMQ;
     std::shared_ptr<DataMQ> mInputMQ;
     std::shared_ptr<DataMQ> mOutputMQ;
@@ -142,4 +159,4 @@ class EffectContext {
     // work buffer set by effect instances, the access and update are in same thread
     std::vector<float> mWorkBuffer;
 };
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects

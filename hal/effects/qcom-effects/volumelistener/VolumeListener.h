@@ -20,8 +20,6 @@ namespace aidl::qti::effects {
 
 class VolumeListener final : public EffectImpl {
   public:
-    const Descriptor* mDescriptor;
-    const std::string* mEffectName;
     VolumeListenerType mType = VolumeListenerType::ALARM;
 
     VolumeListener(const AudioUuid& uuid);
@@ -33,7 +31,8 @@ class VolumeListener final : public EffectImpl {
     ndk::ScopedAStatus commandImpl(CommandId command) override;
     ndk::ScopedAStatus getDescriptor(Descriptor* _aidl_return) override;
 
-    std::shared_ptr<EffectContext> createContext(const Parameter::Common& common) override;
+    std::shared_ptr<EffectContext> createContext(const Parameter::Common& common,
+                                                 bool processData) override;
     std::shared_ptr<EffectContext> getContext() override;
     RetCode releaseContext() override;
 

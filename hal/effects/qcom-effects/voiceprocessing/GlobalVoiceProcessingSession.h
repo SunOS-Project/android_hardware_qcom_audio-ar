@@ -25,12 +25,12 @@ class GlobalVoiceProcessingSession {
         return instance;
     }
 
-    static bool findEffectTypeInList(VoiceProcessingContextList & list,
+    static bool findEffectTypeInList(VoiceProcessingContextList& list,
                                      const VoiceProcessingType& type, bool remove = false) {
         auto itr = std::find_if(list.begin(), list.end(),
-                                  [type](const std::shared_ptr<VoiceProcessingContext>& obj) {
-                                      return obj->getVoiceProcessingType() == type;
-                                  });
+                                [type](const std::shared_ptr<VoiceProcessingContext>& obj) {
+                                    return obj->getVoiceProcessingType() == type;
+                                });
         if (itr == list.end()) {
             return false;
         }
@@ -40,8 +40,9 @@ class GlobalVoiceProcessingSession {
         return true;
     }
 
-    std::shared_ptr<VoiceProcessingContext> createSession(const VoiceProcessingType& type, int statusDepth,
-                                                 const Parameter::Common& common) {
+    std::shared_ptr<VoiceProcessingContext> createSession(const VoiceProcessingType& type,
+                                                          const Parameter::Common& common,
+                                                          bool processData) {
         int sessionId = common.session;
         LOG(DEBUG) << __func__ << type << " with sessionId " << sessionId;
         std::lock_guard lg(mMutex);
@@ -55,7 +56,7 @@ class GlobalVoiceProcessingSession {
 
         // For first check if it can work? // TODO
         auto& list = mSessionMap[sessionId];
-        auto context = std::make_shared<VoiceProcessingContext>(statusDepth, common, type);
+        auto context = std::make_shared<VoiceProcessingContext>(common, type, processData);
         RETURN_VALUE_IF(!context, nullptr, "failedToCreateContext");
         list.push_back(context);
 
@@ -80,7 +81,7 @@ class GlobalVoiceProcessingSession {
   private:
     std::mutex mMutex;
     // Each session can have both AEC/NS, maintain per session list of effects
-    std::unordered_map<int /* session ID */, VoiceProcessingContextList>
-            mSessionMap GUARDED_BY(mMutex);
+    std::unordered_map<int /* session ID */, VoiceProcessingContextList> mSessionMap
+            GUARDED_BY(mMutex);
 };
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects

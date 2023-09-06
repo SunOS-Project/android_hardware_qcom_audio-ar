@@ -18,19 +18,22 @@ enum VoiceProcessingState {
 
 class VoiceProcessingContext final : public EffectContext {
   public:
-    VoiceProcessingContext(int statusDepth, const Parameter::Common& common, const
-                            VoiceProcessingType & type);
+    VoiceProcessingContext(const Parameter::Common& common, const VoiceProcessingType& type,
+                           bool processData);
     ~VoiceProcessingContext();
     VoiceProcessingType getVoiceProcessingType() const { return mType; }
     RetCode enable();
     RetCode disable();
     void reset();
-    int getAcousticEchoCancelerEchoDelay() const { return 0;}
+    int getAcousticEchoCancelerEchoDelay() const { return 0; }
     bool getAcousticEchoCancelerMobileMode() const { return false; }
-    NoiseSuppression::Level getNoiseSuppressionLevel() const { return NoiseSuppression::Level::MEDIUM;}
+    NoiseSuppression::Level getNoiseSuppressionLevel() const {
+        return NoiseSuppression::Level::MEDIUM;
+    }
+
   private:
     VoiceProcessingState mState = UNINITIALIZED;
     VoiceProcessingType mType;
 };
 
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects

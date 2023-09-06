@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <memory>
-#define LOG_TAG "AHAL_Effect_VolumeListener"
+#define LOG_TAG "AHAL_Effect_VolumeListenerQti"
 #include <unordered_set>
 
 #include <android-base/logging.h>
@@ -58,9 +58,9 @@ bool VolumeListenerContext::isSpeaker(const AudioDeviceDescriptionVector& device
     return false;
 }
 
-VolumeListenerContext::VolumeListenerContext(int statusDepth, const Parameter::Common& common,
-                                             VolumeListenerType type)
-    : EffectContext(statusDepth, common) {
+VolumeListenerContext::VolumeListenerContext(const Parameter::Common& common,
+                                             VolumeListenerType type, bool processData)
+    : EffectContext(common, processData) {
     mType = type;
     LOG(INFO) << __func__ << details();
     mState = VolumeListenerState::INITIALIZED;

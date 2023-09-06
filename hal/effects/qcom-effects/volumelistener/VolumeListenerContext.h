@@ -28,8 +28,8 @@ using AudioDeviceDescriptionVector =
 
 class VolumeListenerContext final : public EffectContext {
   public:
-    VolumeListenerContext(int statusDepth, const Parameter::Common& common,
-                          VolumeListenerType type);
+    VolumeListenerContext(const Parameter::Common& common, VolumeListenerType type,
+                          bool processData);
     ~VolumeListenerContext();
     virtual RetCode setOutputDevice(const AudioDeviceDescriptionVector& devices) override;
     virtual RetCode setVolumeStereo(const Parameter::VolumeStereo& volumeStereo) override;

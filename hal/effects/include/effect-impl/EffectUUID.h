@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-
 #pragma once
 #include <map>
 
@@ -14,12 +13,11 @@ namespace aidl::qti::effects {
 
 using ::aidl::android::media::audio::common::AudioUuid;
 
-
 static inline std::string toString(const AudioUuid& uuid) {
-  return ::android::base::StringPrintf(
-      "%08x-%04x-%04x-%04x-%02x%02x%02x%02x%02x%02x", uuid.timeLow,
-      uuid.timeMid, uuid.timeHiAndVersion, uuid.clockSeq, uuid.node[0],
-      uuid.node[1], uuid.node[2], uuid.node[3], uuid.node[4], uuid.node[5]);
+    return ::android::base::StringPrintf("%08x-%04x-%04x-%04x-%02x%02x%02x%02x%02x%02x",
+                                         uuid.timeLow, uuid.timeMid, uuid.timeHiAndVersion,
+                                         uuid.clockSeq, uuid.node[0], uuid.node[1], uuid.node[2],
+                                         uuid.node[3], uuid.node[4], uuid.node[5]);
 }
 
 // ec7178ec-e5e1-4432-a3f4-4657e6795210
@@ -316,114 +314,112 @@ static const AudioUuid kExtensionEffectImplUUID = {static_cast<int32_t>(0xfa81dd
                                                    0x9b6a,
                                                    {0x02, 0x42, 0xac, 0x12, 0x00, 0x02}};
 
-
 // 08b8b058-0590-11e5-ac71-0025b32654a0
 static const AudioUuid kMusicVolumeListenerUUID = {static_cast<int32_t>(0x08b8b058),
-                                            0x0590,
-                                            0x11e5,
-                                            0xac71,
-                                            {0x00, 0x25, 0xb3, 0x26, 0x54, 0xa0}};
+                                                   0x0590,
+                                                   0x11e5,
+                                                   0xac71,
+                                                   {0x00, 0x25, 0xb3, 0x26, 0x54, 0xa0}};
 
 // 0956df94-0590-11e5-bdbe-0025b32654a0
 static const AudioUuid kRingVolumeListenerUUID = {static_cast<int32_t>(0x0956df94),
-                                            0x0590,
-                                            0x11e5,
-                                            0xbdbe,
-                                            {0x00, 0x25, 0xb3, 0x26, 0x54, 0xa0}};
-											
+                                                  0x0590,
+                                                  0x11e5,
+                                                  0xbdbe,
+                                                  {0x00, 0x25, 0xb3, 0x26, 0x54, 0xa0}};
+
 // 09f303e2-0590-11e5-8fdb-0025b32654a0
 static const AudioUuid kAlarmVolumeListenerUUID = {static_cast<int32_t>(0x09f303e2),
-                                            0x0590,
-                                            0x11e5,
-                                            0x8fdb,
-                                            {0x00, 0x25, 0xb3, 0x26, 0x54, 0xa0}};
+                                                   0x0590,
+                                                   0x11e5,
+                                                   0x8fdb,
+                                                   {0x00, 0x25, 0xb3, 0x26, 0x54, 0xa0}};
 
 // 0ace5c08-0590-11e5-ae9e-0025b32654a0
 static const AudioUuid kVoiceCallVolumeListenerUUID = {static_cast<int32_t>(0x0ace5c08),
-                                            0x0590,
-                                            0x11e5,
-                                            0xae9e,
-                                            {0x00, 0x25, 0xb3, 0x26, 0x54, 0xa0}};
+                                                       0x0590,
+                                                       0x11e5,
+                                                       0xae9e,
+                                                       {0x00, 0x25, 0xb3, 0x26, 0x54, 0xa0}};
 
 // 0b776dde-0590-11e5-81ba-0025b32654a0
 static const AudioUuid kNotificationVolumeListenerUUID = {static_cast<int32_t>(0x0b776dde),
-                                            0x0590,
-                                            0x11e5,
-                                            0x81ba,
-                                            {0x00, 0x25, 0xb3, 0x26, 0x54, 0xa0}};
+                                                          0x0590,
+                                                          0x11e5,
+                                                          0x81ba,
+                                                          {0x00, 0x25, 0xb3, 0x26, 0x54, 0xa0}};
 
 // 0f8d0d2a-59e5-45fe-b6e4-248c8a799109
 static const AudioUuid kAcousticEchoCancelerQtiUUID = {static_cast<int32_t>(0x0f8d0d2a),
-                                                          0x59e5,
-                                                          0x45fe,
-                                                          0xb6e4,
-                                                          {0x24, 0x8c, 0x8a, 0x79, 0x91, 0x09}};
+                                                       0x59e5,
+                                                       0x45fe,
+                                                       0xb6e4,
+                                                       {0x24, 0x8c, 0x8a, 0x79, 0x91, 0x09}};
 
 // 1d97bb0b-9e2f-4403-9ae3-58c2554306f8
 static const AudioUuid kNoiseSuppressionQtiUUID = {static_cast<int32_t>(0x1d97bb0b),
-                                                      0x9e2f,
-                                                      0x4403,
-                                                      0x9ae3,
-                                                      {0x58, 0xc2, 0x55, 0x43, 0x06, 0xf8}};
+                                                   0x9e2f,
+                                                   0x4403,
+                                                   0x9ae3,
+                                                   {0x58, 0xc2, 0x55, 0x43, 0x06, 0xf8}};
 
 // 7a8044a0-1a71-11e3-a184-0002a5d5c51b
 static const AudioUuid kVisualizerOffloadQtiUUID = {static_cast<int32_t>(0x7a8044a0),
-                                                0x1a71,
-                                                0x11e3,
-                                                0xa184,
-                                                {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
+                                                    0x1a71,
+                                                    0x11e3,
+                                                    0xa184,
+                                                    {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
 
 /* Offload bassboost UUID: 2c4a8c24-1581-487f-94f6-0002a5d5c51b */
 static const AudioUuid kBassBoostOffloadQtiUUID = {static_cast<int32_t>(0x2c4a8c24),
-                                                0x1581,
-                                                0x487f,
-                                                0x94f6,
-                                                {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
+                                                   0x1581,
+                                                   0x487f,
+                                                   0x94f6,
+                                                   {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
 
 /* Offload Equalizer UUID: a0dac280-401c-11e3-9379-0002a5d5c51b */
 static const AudioUuid kEqualizerOffloadQtiUUID = {static_cast<int32_t>(0xa0dac280),
-                                                0x401c,
-                                                0x11e3,
-                                                0x9379,
-                                                {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
+                                                   0x401c,
+                                                   0x11e3,
+                                                   0x9379,
+                                                   {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
 
 /* Offload virtualizer UUID: 2c4a8c24-1581-487f-94f6-0002a5d5c51b */
 
 /* 509a4498-561a-4bea-b3b1-0002a5d5c51b*/
 static const AudioUuid kVirtualizerOffloadQtiUUID = {static_cast<int32_t>(0x509a4498),
-                                                0x561a,
-                                                0x4bea,
-                                                0xb3b1,
-                                                {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
+                                                     0x561a,
+                                                     0x4bea,
+                                                     0xb3b1,
+                                                     {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
 
 /* Offload auxiliary environmental reverb UUID: 79a18026-18fd-4185-8233-0002a5d5c51b */
 static const AudioUuid kAuxEnvReverbOffloadQtiUUID = {static_cast<int32_t>(0x79a18026),
-                                                0x18fd,
-                                                0x4185,
-                                                0x8233,
-                                                {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
-
+                                                      0x18fd,
+                                                      0x4185,
+                                                      0x8233,
+                                                      {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
 
 /* Offload insert environmental reverb UUID: eb64ea04-973b-43d2-8f5e-0002a5d5c51b */
 static const AudioUuid kInsertEnvReverbOffloadQtiUUID = {static_cast<int32_t>(0xeb64ea04),
-                                                0x973b,
-                                                0x43d2,
-                                                0x8f5e,
-                                                {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
+                                                         0x973b,
+                                                         0x43d2,
+                                                         0x8f5e,
+                                                         {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
 
 // Offload auxiliary preset reverb UUID: 6987be09-b142-4b41-9056-0002a5d5c51b */
 static const AudioUuid kAuxPresetReverbOffloadQtiUUID = {static_cast<int32_t>(0x6987be09),
-                                                0xb142,
-                                                0x4b41,
-                                                0x9056,
-                                                {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
+                                                         0xb142,
+                                                         0x4b41,
+                                                         0x9056,
+                                                         {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
 
 // Offload insert preset reverb UUID: aa2bebf6-47cf-4613-9bca-0002a5d5c51b */
 static const AudioUuid kInsertPresetReverbOffloadQtiUUID = {static_cast<int32_t>(0xaa2bebf6),
-                                                0x47cf,
-                                                0x4613,
-                                                0x9bca,
-                                                {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
+                                                            0x47cf,
+                                                            0x4613,
+                                                            0x9bca,
+                                                            {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
 
 /**
  * @brief A map between effect name and effect type UUID.
@@ -431,7 +427,7 @@ static const AudioUuid kInsertPresetReverbOffloadQtiUUID = {static_cast<int32_t>
  * We need this map is because existing audio_effects.xml don't have a type UUID defined.
  */
 static const std::map<const std::string /* effect type */, const AudioUuid&> kUuidNameTypeMap = {
-        {"aec", kAcousticEchoCancelerTypeUUID}, // TODO aec vs AcousticEcho
+        {"aec", kAcousticEchoCancelerTypeUUID},   // TODO aec vs AcousticEcho
         {"agc", kAutomaticGainControlV1TypeUUID}, // TODO agc vs Automatic Gain
         {"bassboost", kBassBoostTypeUUID},
         {"downmix", kDownmixTypeUUID},
@@ -458,4 +454,4 @@ static const std::map<const std::string /* effect type */, const AudioUuid&> kUu
         // {"quasar", kNotificationVolumeListenerUUID},
 };
 
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects

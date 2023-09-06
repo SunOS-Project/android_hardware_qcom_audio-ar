@@ -225,6 +225,7 @@ enum class OffloadBundleEffectType {
 };
 
 inline std::ostream& operator<<(std::ostream& out, const OffloadBundleEffectType& type) {
+    out << " Type ";
     switch (type) {
         case OffloadBundleEffectType::BASS_BOOST:
             return out << "BASS_BOOST";

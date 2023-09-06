@@ -16,9 +16,9 @@ namespace aidl::qti::effects {
 using aidl::android::media::audio::common::AudioDeviceDescription;
 using aidl::android::media::audio::common::AudioDeviceType;
 
-BassBoostContext::BassBoostContext(int statusDepth, const Parameter::Common& common,
-                                   const OffloadBundleEffectType& type)
-    : OffloadBundleContext(statusDepth, common, type) {
+BassBoostContext::BassBoostContext(const Parameter::Common& common,
+                                   const OffloadBundleEffectType& type, bool processData)
+    : OffloadBundleContext(common, type, processData) {
     LOG(DEBUG) << __func__ << type << " ioHandle " << common.ioHandle;
 }
 
@@ -36,7 +36,7 @@ void BassBoostContext::deInit() {
 }
 
 RetCode BassBoostContext::enable() {
-    LOG(INFO) << __func__ << " ioHandle" << getIoHandle();
+    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
     if (mState != EffectState::INITIALIZED) return RetCode::ERROR_ILLEGAL_PARAMETER;
     mEnabled = true;
     mState = EffectState::ACTIVE;
@@ -46,7 +46,7 @@ RetCode BassBoostContext::enable() {
 }
 
 RetCode BassBoostContext::disable() {
-    LOG(INFO) << __func__ << " ioHandle" << getIoHandle();
+    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
     if (mState != EffectState::ACTIVE) return RetCode::ERROR_ILLEGAL_PARAMETER;
     mEnabled = false;
     mState = EffectState::INITIALIZED;
@@ -57,7 +57,7 @@ RetCode BassBoostContext::disable() {
 
 RetCode BassBoostContext::start(pal_stream_handle_t* palHandle) {
     std::lock_guard lg(mMutex);
-    LOG(INFO) << __func__ << " ioHandle" << getIoHandle();
+    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
     mPalHandle = palHandle;
     if (isEffectActive()) {
         sendOffloadParametersToPal(OFFLOAD_SEND_BASSBOOST_ENABLE_FLAG |
@@ -69,7 +69,7 @@ RetCode BassBoostContext::start(pal_stream_handle_t* palHandle) {
 }
 
 RetCode BassBoostContext::stop() {
-    LOG(INFO) << __func__ << " ioHandle" << getIoHandle();
+    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
     std::lock_guard lg(mMutex);
 
     struct BassBoostParams bassParams;
@@ -120,7 +120,7 @@ RetCode BassBoostContext::setOutputDevice(
 }
 
 RetCode BassBoostContext::setBassBoostStrength(int strength) {
-    LOG(INFO) << __func__ << " strength " << strength;
+    LOG(DEBUG) << __func__ << " strength " << strength;
     mStrength = strength;
     mBassParams.mStrength = strength;
     sendOffloadParametersToPal(OFFLOAD_SEND_BASSBOOST_ENABLE_FLAG |

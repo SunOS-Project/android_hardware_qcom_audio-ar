@@ -82,5 +82,6 @@ class EffectThread {
     std::thread mThread;
     int mPriority;
     std::string mName;
+    bool mThreadCreated = false;
 };
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects

@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <memory>
 
-#define LOG_TAG "AHAL_EffectThread"
+#define LOG_TAG "AHAL_EffectThreadQti"
 #include <android-base/logging.h>
 #include <pthread.h>
 #include <sys/resource.h>
@@ -18,13 +18,21 @@ using ::android::hardware::EventFlag;
 using ::aidl::android::hardware::audio::effect::kEventFlagNotEmpty;
 namespace aidl::qti::effects {
 
+#define RET_SUCCESS_IF_THREAD_NOT_CREATED(threadCreated)                    \
+    {                                                                       \
+        if (!threadCreated) {                                               \
+            LOG(VERBOSE) << __func__ << " no-op as thread wasn't created "; \
+            return RetCode::SUCCESS;                                        \
+        }                                                                   \
+    }
+
 EffectThread::EffectThread() {
-    LOG(DEBUG) << __func__ << this ;
+    LOG(VERBOSE) << __func__ << this;
 }
 
 EffectThread::~EffectThread() {
     destroyThread();
-    LOG(DEBUG) << __func__ << " done" << this;
+    LOG(VERBOSE) << __func__ << " done" << this;
 }
 
 RetCode EffectThread::createThread(std::shared_ptr<EffectContext> context, const std::string& name,
@@ -53,11 +61,14 @@ RetCode EffectThread::createThread(std::shared_ptr<EffectContext> context, const
     }
 
     mThread = std::thread(&EffectThread::threadLoop, this);
-    LOG(DEBUG) << mName << __func__ << " priority " << mPriority << " done";
+    mThreadCreated = true;
+    LOG(VERBOSE) << mName << __func__ << " priority " << mPriority << " done";
     return RetCode::SUCCESS;
 }
 
 RetCode EffectThread::destroyThread() {
+    RET_SUCCESS_IF_THREAD_NOT_CREATED(mThreadCreated);
+
     {
         std::lock_guard lg(mThreadMutex);
         mStop = mExit = true;
@@ -77,6 +88,8 @@ RetCode EffectThread::destroyThread() {
 }
 
 RetCode EffectThread::startThread() {
+    RET_SUCCESS_IF_THREAD_NOT_CREATED(mThreadCreated);
+
     {
         std::lock_guard lg(mThreadMutex);
         mStop = false;
@@ -89,6 +102,8 @@ RetCode EffectThread::startThread() {
 }
 
 RetCode EffectThread::stopThread() {
+    RET_SUCCESS_IF_THREAD_NOT_CREATED(mThreadCreated);
+
     {
         std::lock_guard lg(mThreadMutex);
         mStop = true;
@@ -103,14 +118,14 @@ RetCode EffectThread::stopThread() {
 void EffectThread::threadLoop() {
     pthread_setname_np(pthread_self(), mName.substr(0, kMaxTaskNameLen - 1).c_str());
     setpriority(PRIO_PROCESS, 0, mPriority);
-    LOG(DEBUG) << mName << __func__ <<"Enter: ";
+    LOG(VERBOSE) << mName << __func__ << "Enter: ";
     while (true) {
         /**
          * wait for the EventFlag without lock, it's ok because the mEfGroup pointer will not change
          * in the life cycle of workerThread (threadLoop).
          */
         uint32_t efState = 0;
-        LOG(DEBUG) << mName << __func__ <<"wait: ";
+        LOG(VERBOSE) << mName << __func__ << "wait: ";
         mEfGroup->wait(kEventFlagNotEmpty, &efState);
 
         {
@@ -118,7 +133,7 @@ void EffectThread::threadLoop() {
             ::android::base::ScopedLockAssertion lock_assertion(mThreadMutex);
             mCv.wait(l, [&]() REQUIRES(mThreadMutex) { return mExit || !mStop; });
             if (mExit) {
-                LOG(INFO) << __func__ << " EXIT!";
+                LOG(VERBOSE) << __func__ << " EXIT!";
                 return;
             }
             process_l();
@@ -128,7 +143,7 @@ void EffectThread::threadLoop() {
 
 void EffectThread::process_l() {
     RETURN_VALUE_IF(!mThreadContext, void(), "nullContext");
-    LOG(DEBUG) << mName << __func__ <<"Enter: ";
+    LOG(VERBOSE) << mName << __func__ << "Enter: ";
     auto statusMQ = mThreadContext->getStatusFmq();
     auto inputMQ = mThreadContext->getInputDataFmq();
     auto outputMQ = mThreadContext->getOutputDataFmq();
@@ -140,9 +155,9 @@ void EffectThread::process_l() {
         IEffect::Status status = effectProcessImpl(buffer, buffer, processSamples);
         outputMQ->write(buffer, status.fmqProduced);
         statusMQ->writeBlocking(&status, 1);
-        LOG(DEBUG) << mName << __func__ << ": done processing, effect consumed "
-                   << status.fmqConsumed << " produced " << status.fmqProduced;
+        LOG(VERBOSE) << mName << __func__ << ": done processing, effect consumed "
+                     << status.fmqConsumed << " produced " << status.fmqProduced;
     }
 }
 
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects

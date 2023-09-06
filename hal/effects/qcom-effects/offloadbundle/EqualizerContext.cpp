@@ -15,9 +15,9 @@ namespace aidl::qti::effects {
 using aidl::android::media::audio::common::AudioDeviceDescription;
 using aidl::android::media::audio::common::AudioDeviceType;
 
-EqualizerContext::EqualizerContext(int statusDepth, const Parameter::Common& common,
-                                   const OffloadBundleEffectType& type)
-    : OffloadBundleContext(statusDepth, common, type) {
+EqualizerContext::EqualizerContext(const Parameter::Common& common,
+                                   const OffloadBundleEffectType& type, bool processData)
+    : OffloadBundleContext(common, type, processData) {
     LOG(DEBUG) << __func__ << type << " ioHandle " << common.ioHandle;
 }
 
@@ -40,6 +40,7 @@ void EqualizerContext::deInit() {
 }
 
 RetCode EqualizerContext::enable() {
+    LOG(DEBUG) << __func__ << " ioHandle" << getIoHandle();
     std::lock_guard lg(mMutex);
     if (mEnabled) return RetCode::ERROR_ILLEGAL_PARAMETER;
     mEnabled = true;
@@ -49,6 +50,7 @@ RetCode EqualizerContext::enable() {
 }
 
 RetCode EqualizerContext::disable() {
+    LOG(DEBUG) << __func__ << " ioHandle" << getIoHandle();
     std::lock_guard lg(mMutex);
     if (!mEnabled) return RetCode::ERROR_ILLEGAL_PARAMETER;
     mEnabled = false;
@@ -58,6 +60,7 @@ RetCode EqualizerContext::disable() {
 }
 
 RetCode EqualizerContext::start(pal_stream_handle_t* palHandle) {
+    LOG(DEBUG) << __func__ << " ioHandle" << getIoHandle();
     std::lock_guard lg(mMutex);
     mPalHandle = palHandle;
     if (mEnabled) {
@@ -70,6 +73,7 @@ RetCode EqualizerContext::start(pal_stream_handle_t* palHandle) {
 }
 
 RetCode EqualizerContext::stop() {
+    LOG(DEBUG) << __func__ << " ioHandle" << getIoHandle();
     std::lock_guard lg(mMutex);
 
     struct EqualizerParams eqParam;

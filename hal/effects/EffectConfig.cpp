@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL_EffectConfig"
+#define LOG_TAG "AHAL_EffectConfigQti"
 #include <android-base/logging.h>
 #include <system/audio_effects/audio_effects_conf.h>
 #include <system/audio_effects/effect_uuid.h>
@@ -16,7 +16,7 @@ using aidl::android::media::audio::common::AudioSource;
 using aidl::android::media::audio::common::AudioStreamType;
 using aidl::android::media::audio::common::AudioUuid;
 
-namespace aidl::qti::effects{
+namespace aidl::qti::effects {
 
 EffectConfig::EffectConfig(const std::string& file) {
     tinyxml2::XMLDocument doc;
@@ -148,9 +148,11 @@ bool EffectConfig::parseLibraryUuid(const tinyxml2::XMLElement& xml,
     const char* uuidStr = xml.Attribute("uuid");
     RETURN_VALUE_IF(!uuidStr, false, "noUuidAttribute");
     libraryUuid.uuid = android::hardware::audio::effect::stringToUuid(uuidStr);
-    RETURN_VALUE_IF((libraryUuid.uuid == android::hardware::audio::effect::getEffectUuidZero()), false, "invalidUuidAttribute");
+    RETURN_VALUE_IF((libraryUuid.uuid == android::hardware::audio::effect::getEffectUuidZero()),
+                    false, "invalidUuidAttribute");
 
-    LOG(DEBUG) << __func__ <<" library " << (isProxy ? " proxy " : libraryUuid.name) << " : " << uuidStr;
+    LOG(DEBUG) << __func__ << " library " << (isProxy ? " proxy " : libraryUuid.name) << " : "
+               << uuidStr;
     return true;
 }
 
@@ -218,13 +220,14 @@ bool EffectConfig::parseProcessing(Processing::Type::Tag typeTag, const tinyxml2
         }
         RETURN_VALUE_IF(!name, false, "noEffectAttribute");
         mProcessingMap[aidlType.value()].emplace_back(mEffectsMap[name]);
-        LOG(WARNING) << __func__ << " " << typeStr << " : " << name;
+        LOG(WARNING) << __func__ << " " << typeStr << " : " << name
+                     << " aidl: " << aidlType.value().toString();
     }
     return true;
 }
 
 const std::map<Processing::Type, std::vector<EffectConfig::EffectLibraries>>&
-EffectConfig::getProcessingMap() const {
+        EffectConfig::getProcessingMap() const {
     return mProcessingMap;
 }
 
@@ -265,7 +268,7 @@ bool EffectConfig::findUuid(const std::string& xmlEffectName, AudioUuid* uuid) {
     // find in QTI specific effects
     if (auto it = kUuidNameTypeMap.find(xmlEffectName); it != kUuidNameTypeMap.end()) {
         *uuid = (it->second);
-        LOG(INFO) << __func__ << xmlEffectName <<" found in QTI effects";
+        LOG(DEBUG) << __func__ << xmlEffectName << " found in QTI effects";
         return true;
     }
     return false;
@@ -277,4 +280,4 @@ const char* EffectConfig::dump(const tinyxml2::XMLElement& element,
     return printer.CStr();
 }
 
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects

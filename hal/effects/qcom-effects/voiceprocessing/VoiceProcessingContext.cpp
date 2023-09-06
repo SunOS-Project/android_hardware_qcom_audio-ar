@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL_VoiceProcessingContext"
+#define LOG_TAG "AHAL_VoiceProcessingContextQti"
 
 #include <android-base/logging.h>
 
@@ -14,9 +14,9 @@ using aidl::android::hardware::audio::effect::IEffect;
 
 namespace aidl::qti::effects {
 
-VoiceProcessingContext::VoiceProcessingContext(int statusDepth, const Parameter::Common& common,
-                            const VoiceProcessingType & type)
-    : EffectContext(statusDepth, common) , mType (type) {
+VoiceProcessingContext::VoiceProcessingContext(const Parameter::Common& common,
+                                               const VoiceProcessingType& type, bool processData)
+    : EffectContext(common, processData), mType(type) {
     LOG(DEBUG) << __func__;
     mState = UNINITIALIZED;
 }
@@ -50,4 +50,4 @@ void VoiceProcessingContext::reset() {
     resetBuffer();
 }
 
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects

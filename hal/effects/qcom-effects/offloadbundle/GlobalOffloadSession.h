@@ -45,20 +45,20 @@ class GlobalOffloadSession {
     }
 
     std::shared_ptr<OffloadBundleContext> createContext(const OffloadBundleEffectType& type,
-                                                        int statusDepth,
-                                                        const Parameter::Common& common) {
+                                                        const Parameter::Common& common,
+                                                        bool processData) {
         switch (type) {
             case OffloadBundleEffectType::BASS_BOOST:
-                return std::make_shared<BassBoostContext>(statusDepth, common, type);
+                return std::make_shared<BassBoostContext>(common, type, processData);
             case OffloadBundleEffectType::EQUALIZER:
-                return std::make_shared<EqualizerContext>(statusDepth, common, type);
+                return std::make_shared<EqualizerContext>(common, type, processData);
             case OffloadBundleEffectType::VIRTUALIZER:
-                return std::make_shared<VirtualizerContext>(statusDepth, common, type);
+                return std::make_shared<VirtualizerContext>(common, type, processData);
             case OffloadBundleEffectType::AUX_ENV_REVERB:
             case OffloadBundleEffectType::INSERT_ENV_REVERB:
             case OffloadBundleEffectType::AUX_PRESET_REVERB:
             case OffloadBundleEffectType::INSERT_PRESET_REVERB:
-                return std::make_shared<ReverbContext>(statusDepth, common, type);
+                return std::make_shared<ReverbContext>(common, type, processData);
         }
         return nullptr;
     }
@@ -68,12 +68,12 @@ class GlobalOffloadSession {
      * more than one session for each type.
      */
     std::shared_ptr<OffloadBundleContext> createSession(const OffloadBundleEffectType& type,
-                                                        int statusDepth,
-                                                        const Parameter::Common& common) {
+                                                        const Parameter::Common& common,
+                                                        bool processData) {
         std::lock_guard lg(mMutex);
         int ioHandle = common.ioHandle;
         int sessionId = common.session;
-        LOG(DEBUG) << __func__ << " " << type << " with ioHandle " << ioHandle << " sessionId "
+        LOG(DEBUG) << __func__ << " " << type << " with ioHandle " << ioHandle << " sessionId"
                    << sessionId;
         if (mSessionsMap.count(sessionId)) {
             if (findTypeInContextList(mSessionsMap[sessionId], type)) {
@@ -83,9 +83,9 @@ class GlobalOffloadSession {
         }
 
         auto& list = mSessionsMap[sessionId];
-        LOG(DEBUG) << __func__ << type << " createContext ioHandle " << ioHandle << " sessionId "
+        LOG(DEBUG) << __func__ << type << " createContext ioHandle " << ioHandle << " sessionId"
                    << sessionId;
-        auto context = createContext(type, statusDepth, common);
+        auto context = createContext(type, common, processData);
         RETURN_VALUE_IF(!context, nullptr, "failedToCreateContext");
 
         RetCode ret = context->init();

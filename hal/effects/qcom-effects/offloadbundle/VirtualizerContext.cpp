@@ -18,14 +18,14 @@ using aidl::android::media::audio::common::AudioDeviceDescription;
 using aidl::android::media::audio::common::AudioDeviceType;
 using android::media::audio::common::AudioChannelLayout;
 
-VirtualizerContext::VirtualizerContext(int statusDepth, const Parameter::Common& common,
-                                       const OffloadBundleEffectType& type)
-    : OffloadBundleContext(statusDepth, common, type) {
+VirtualizerContext::VirtualizerContext(const Parameter::Common& common,
+                                       const OffloadBundleEffectType& type, bool processData)
+    : OffloadBundleContext(common, type, processData) {
     LOG(DEBUG) << __func__ << type << " ioHandle " << common.ioHandle;
 }
 
 RetCode VirtualizerContext::init() {
-    LOG(DEBUG) << __func__;
+    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
     std::lock_guard lg(mMutex);
     // init with pre-defined preset NORMAL
     memset(&mVirtParams, 0, sizeof(struct VirtualizerParams));
@@ -34,12 +34,12 @@ RetCode VirtualizerContext::init() {
 }
 
 void VirtualizerContext::deInit() {
-    LOG(DEBUG) << __func__ << " ioHandle" << getIoHandle();
+    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
     stop();
 }
 
 RetCode VirtualizerContext::enable() {
-    LOG(DEBUG) << __func__;
+    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
     if (mEnabled) return RetCode::ERROR_ILLEGAL_PARAMETER;
     mEnabled = true;
     mState = EffectState::ACTIVE;
@@ -50,7 +50,7 @@ RetCode VirtualizerContext::enable() {
 }
 
 RetCode VirtualizerContext::disable() {
-    LOG(DEBUG) << __func__;
+    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
     if (!mEnabled) return RetCode::ERROR_ILLEGAL_PARAMETER;
     mEnabled = false;
     mState = EffectState::ACTIVE;
@@ -60,7 +60,7 @@ RetCode VirtualizerContext::disable() {
 }
 
 RetCode VirtualizerContext::start(pal_stream_handle_t* palHandle) {
-    LOG(DEBUG) << __func__;
+    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
     std::lock_guard lg(mMutex);
     // init with pre-defined preset NORMAL
     mPalHandle = palHandle;
@@ -75,7 +75,7 @@ RetCode VirtualizerContext::start(pal_stream_handle_t* palHandle) {
 }
 
 RetCode VirtualizerContext::stop() {
-    LOG(DEBUG) << __func__;
+    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
     std::lock_guard lg(mMutex);
 
     struct VirtualizerParams virtParams;
@@ -109,7 +109,7 @@ RetCode VirtualizerContext::setOutputDevice(
 }
 
 RetCode VirtualizerContext::setVirtualizerStrength(int strength) {
-    LOG(DEBUG) << __func__ << " strength " << strength;
+    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle() << " strength " << strength;
     mStrength = strength;
     sendOffloadParametersToPal(OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG |
                                OFFLOAD_SEND_VIRTUALIZER_STRENGTH);
@@ -117,7 +117,7 @@ RetCode VirtualizerContext::setVirtualizerStrength(int strength) {
 }
 
 int VirtualizerContext::getVirtualizerStrength() const {
-    LOG(DEBUG) << __func__ << " strength " << mStrength;
+    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle() << " strength " << mStrength;
     return mStrength;
 }
 

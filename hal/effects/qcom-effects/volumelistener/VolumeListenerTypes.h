@@ -23,14 +23,6 @@ static const std::string kVoiceCallVolumeListenerEffectName = "Qti-VoiceCallVolu
 
 enum class VolumeListenerType { ALARM, MUSIC, NOTIFICATION, RING, VOICECALL };
 
-/*
-#define VOL_FLAG ( EFFECT_FLAG_TYPE_INSERT | \
-                    EFFECT_FLAG_VOLUME_IND | \
-                    EFFECT_FLAG_DEVICE_IND | \
-                    EFFECT_FLAG_OFFLOAD_SUPPORTED | \
-                    EFFECT_FLAG_NO_PROCESS)
-*/
-
 static Flags kVolumeFlags = {.type = Flags::Type::INSERT,
                              .volume = Flags::Volume::IND,
                              .offloadIndication = true,

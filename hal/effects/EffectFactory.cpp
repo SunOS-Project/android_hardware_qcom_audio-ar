@@ -8,7 +8,7 @@
 #include <memory>
 #include <tuple>
 #include <unordered_set>
-#define LOG_TAG "AHAL_EffectFactory"
+#define LOG_TAG "AHAL_EffectFactoryQti"
 
 #include <android-base/logging.h>
 #include <android/binder_ibinder_platform.h>
@@ -100,11 +100,11 @@ ndk::ScopedAStatus Factory::queryProcessing(const std::optional<Processing::Type
                     process.ids.emplace_back(desc);
                 }
             }
-            LOG(DEBUG) << __func__ << " insert processing " << process.toString() ;
+            LOG(VERBOSE) << __func__ << " insert processing " << process.toString();
             _aidl_return->emplace_back(process);
         }
     }
-    LOG(DEBUG) << __func__ << " return " << _aidl_return->size();
+    LOG(VERBOSE) << __func__ << " return " << _aidl_return->size();
     return ndk::ScopedAStatus::ok();
 }
 
@@ -195,7 +195,7 @@ bool Factory::openEffectLibrary(const AudioUuid& impl, const std::string& path) 
     }
 
     LOG(DEBUG) << __func__ << " dlopen lib: " << path.c_str() << " Impl " << toString(impl)
-              << "handle:" << libHandle;
+               << "handle:" << libHandle;
     auto interface = new effect_dl_interface_s{nullptr, nullptr, nullptr};
     mEffectLibMap.insert(
             {impl,
@@ -214,9 +214,9 @@ void Factory::createIdentityWithConfig(const EffectConfig::LibraryUuid& configLi
         id.type = typeUuid;
         id.uuid = configLib.uuid;
         id.proxy = proxyUuid;
-        LOG(DEBUG) << __func__ <<" name: " << libName << ": Type " << toString(id.type) <<
-                    ": Impl " << toString(id.uuid) << 
-                    ": Proxy " << (proxyUuid.has_value() ? toString(proxyUuid.value()) : "null");
+        LOG(VERBOSE) << __func__ << " name: " << libName << ": Type " << toString(id.type)
+                     << ": Impl " << toString(id.uuid) << ": Proxy "
+                     << (proxyUuid.has_value() ? toString(proxyUuid.value()) : "null");
 
         if (openEffectLibrary(id.uuid, path->second)) {
             mIdentitySet.insert(std::move(id));
@@ -276,4 +276,4 @@ void Factory::getDlSyms(DlEntry& entry) {
     }
 }
 
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects

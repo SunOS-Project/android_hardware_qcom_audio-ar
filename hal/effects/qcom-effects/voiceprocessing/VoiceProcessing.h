@@ -7,18 +7,16 @@
 
 #include <aidl/android/hardware/audio/effect/BnEffect.h>
 
-#include "effect-impl/EffectImpl.h"
-#include "effect-impl/EffectUUID.h"
+#include "GlobalVoiceProcessingSession.h"
 #include "VoiceProcessingContext.h"
 #include "VoiceProcessingTypes.h"
-#include "GlobalVoiceProcessingSession.h"
+#include "effect-impl/EffectImpl.h"
+#include "effect-impl/EffectUUID.h"
 
 namespace aidl::qti::effects {
 
 class VoiceProcessing final : public EffectImpl {
   public:
-    const Descriptor* mDescriptor;
-    const std::string* mEffectName;
     VoiceProcessingType mType = VoiceProcessingType::AcousticEchoCanceler;
 
     VoiceProcessing(const AudioUuid& uuid);
@@ -34,19 +32,21 @@ class VoiceProcessing final : public EffectImpl {
     ndk::ScopedAStatus getParameterSpecific(const Parameter::Id& id,
                                             Parameter::Specific* specific) override;
 
-    std::shared_ptr<EffectContext> createContext(const Parameter::Common& common) override;
+    std::shared_ptr<EffectContext> createContext(const Parameter::Common& common,
+                                                 bool processData) override;
     std::shared_ptr<EffectContext> getContext() override;
     RetCode releaseContext() override;
 
     std::string getEffectName() override { return *mEffectName; };
     IEffect::Status effectProcessImpl(float* in, float* out, int samples) override;
 
-    ndk::ScopedAStatus getParameterAcousticEchoCanceler(
-        const AcousticEchoCanceler::Id& id, Parameter::Specific* specific);
+    ndk::ScopedAStatus getParameterAcousticEchoCanceler(const AcousticEchoCanceler::Id& id,
+                                                        Parameter::Specific* specific);
 
-     ndk::ScopedAStatus getParameterNoiseSuppression(const NoiseSuppression::Id& id,
-                                                     Parameter::Specific* specific);
+    ndk::ScopedAStatus getParameterNoiseSuppression(const NoiseSuppression::Id& id,
+                                                    Parameter::Specific* specific);
+
   private:
     std::shared_ptr<VoiceProcessingContext> mContext;
 };
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects

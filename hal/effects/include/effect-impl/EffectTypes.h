@@ -80,12 +80,12 @@ inline std::ostream& operator<<(std::ostream& out, const RetCode& code) {
         }                                                                                    \
     } while (0)
 
-#define RETURN_OK_IF(expr)                                                             \
-    do {                                                                               \
-        if (expr) {                                                                    \
-            LOG(INFO) << __func__ << ":" << __LINE__ << " return with expr " << #expr; \
-            return ndk::ScopedAStatus::ok();                                           \
-        }                                                                              \
+#define RETURN_OK_IF(expr)                                                                \
+    do {                                                                                  \
+        if (expr) {                                                                       \
+            LOG(VERBOSE) << __func__ << ":" << __LINE__ << " return with expr " << #expr; \
+            return ndk::ScopedAStatus::ok();                                              \
+        }                                                                                 \
     } while (0)
 
 #define RETURN_VALUE_IF(expr, ret, log)                                                  \
@@ -116,4 +116,4 @@ inline std::ostream& operator<<(std::ostream& out, const RetCode& code) {
 #define MAKE_RANGE(T, Tag, l, r) \
     { .min = T::make<T::Tag>(l), .max = T::make<T::Tag>(r) }
 
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects

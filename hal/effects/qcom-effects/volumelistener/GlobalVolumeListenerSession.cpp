@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <memory>
-#define LOG_TAG "AHAL_Effect_VolumeListener"
+#define LOG_TAG "AHAL_Effect_VolumeListenerQti"
 #include <cutils/properties.h>
 #include <unordered_set>
 
@@ -68,12 +68,12 @@ GlobalVolumeListenerSession::GlobalVolumeListenerSession() {
 }
 
 std::shared_ptr<VolumeListenerContext> GlobalVolumeListenerSession::createSession(
-        const VolumeListenerType &type, int statusDepth, const Parameter::Common &common) {
+        const VolumeListenerType &type, const Parameter::Common &common, bool processData) {
     int sessionId = common.session;
     LOG(DEBUG) << __func__ << type << " with sessionId " << sessionId;
     std::lock_guard lg(mSessionMutex);
 
-    auto context = std::make_shared<VolumeListenerContext>(statusDepth, common, type);
+    auto context = std::make_shared<VolumeListenerContext>(common, type, processData);
     RETURN_VALUE_IF(!context, nullptr, "failedToCreateContext");
 
     mSessionsMap[sessionId] = context;

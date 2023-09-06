@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-
 #pragma once
 
 #include <algorithm>
@@ -35,4 +34,4 @@ bool isTupleInRange(const std::vector<T>& cfgs, const T& min, const T& max, cons
                        [&](const T& cfg) { return isTupleInRange(func(cfg), minT, maxT); });
 }
 
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects

@@ -3,16 +3,16 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL_VoiceProcessing"
+#define LOG_TAG "AHAL_VoiceProcessingQti"
 
-#include <android-base/logging.h>
-#include <Utils.h>
 #include "VoiceProcessing.h"
+#include <Utils.h>
+#include <android-base/logging.h>
 
 using aidl::android::hardware::audio::effect::Descriptor;
 using aidl::android::hardware::audio::effect::IEffect;
 using aidl::qti::effects::kAcousticEchoCancelerQtiUUID;
-using  aidl::qti::effects::kNoiseSuppressionQtiUUID;
+using aidl::qti::effects::kNoiseSuppressionQtiUUID;
 using aidl::android::media::audio::common::AudioUuid;
 using aidl::qti::effects::VoiceProcessing;
 
@@ -68,7 +68,7 @@ VoiceProcessing::VoiceProcessing(const AudioUuid& uuid) {
 
 ndk::ScopedAStatus VoiceProcessing::getDescriptor(Descriptor* _aidl_return) {
     RETURN_IF(!_aidl_return, EX_ILLEGAL_ARGUMENT, "Parameter:nullptr");
-    //LOG(DEBUG) << __func__ << *mDescriptor.toString();
+
     *_aidl_return = *mDescriptor;
     return ndk::ScopedAStatus::ok();
 }
@@ -93,13 +93,14 @@ ndk::ScopedAStatus VoiceProcessing::commandImpl(CommandId command) {
     return ndk::ScopedAStatus::ok();
 }
 
-std::shared_ptr<EffectContext> VoiceProcessing::createContext(const Parameter::Common& common) {
+std::shared_ptr<EffectContext> VoiceProcessing::createContext(const Parameter::Common& common,
+                                                              bool processData) {
     if (mContext) {
         LOG(DEBUG) << __func__ << " context already exist";
     } else {
         // GlobalVoiceProcessingSession is a singleton
-        mContext = GlobalVoiceProcessingSession::getSession().createSession(mType, 1 /* statusFmqDepth */,
-                                                                   common);
+        mContext = GlobalVoiceProcessingSession::getSession().createSession(mType, common,
+                                                                            processData);
     }
 
     return mContext;
@@ -123,27 +124,27 @@ ndk::ScopedAStatus VoiceProcessing::setParameterSpecific(const Parameter::Specif
 }
 
 ndk::ScopedAStatus VoiceProcessing::getParameterNoiseSuppression(const NoiseSuppression::Id& id,
-                                                     Parameter::Specific* specific) {
+                                                                 Parameter::Specific* specific) {
     RETURN_IF(id.getTag() != NoiseSuppression::Id::commonTag, EX_ILLEGAL_ARGUMENT,
               "NoiseSuppressionTagNotSupported");
     RETURN_IF(!mContext, EX_NULL_POINTER, "nullContext");
     NoiseSuppression param;
- 
-     auto tag = id.get<NoiseSuppression::Id::commonTag>();
-     switch (tag) {
-         case NoiseSuppression::level: {
-             param.set<NoiseSuppression::level>(mContext->getNoiseSuppressionLevel());
-             break;
-         }
-         default: {
-             LOG(ERROR) << __func__ << " unsupported tag: " << toString(tag);
-             return ndk::ScopedAStatus::fromExceptionCodeWithMessage(
-                     EX_ILLEGAL_ARGUMENT, "NoiseSuppressionTagNotSupported");
-         }
-     }
- 
-     specific->set<Parameter::Specific::noiseSuppression>(param);
-     return ndk::ScopedAStatus::ok();
+
+    auto tag = id.get<NoiseSuppression::Id::commonTag>();
+    switch (tag) {
+        case NoiseSuppression::level: {
+            param.set<NoiseSuppression::level>(mContext->getNoiseSuppressionLevel());
+            break;
+        }
+        default: {
+            LOG(ERROR) << __func__ << " unsupported tag: " << toString(tag);
+            return ndk::ScopedAStatus::fromExceptionCodeWithMessage(
+                    EX_ILLEGAL_ARGUMENT, "NoiseSuppressionTagNotSupported");
+        }
+    }
+
+    specific->set<Parameter::Specific::noiseSuppression>(param);
+    return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus VoiceProcessing::getParameterAcousticEchoCanceler(
@@ -176,23 +177,22 @@ ndk::ScopedAStatus VoiceProcessing::getParameterAcousticEchoCanceler(
 }
 
 ndk::ScopedAStatus VoiceProcessing::getParameterSpecific(const Parameter::Id& id,
-                                                      Parameter::Specific* specific) {
+                                                         Parameter::Specific* specific) {
+    RETURN_IF(!specific, EX_NULL_POINTER, "nullPtr");
+    auto tag = id.getTag();
 
-     RETURN_IF(!specific, EX_NULL_POINTER, "nullPtr");
-     auto tag = id.getTag();
-
-     switch (tag) {
-         case Parameter::Id::acousticEchoCancelerTag:
-             return getParameterAcousticEchoCanceler(
-                     id.get<Parameter::Id::acousticEchoCancelerTag>(), specific);
-         case Parameter::Id::noiseSuppressionTag:
-             return getParameterNoiseSuppression(id.get<Parameter::Id::noiseSuppressionTag>(),
-                                                 specific);
-         default:
-             LOG(ERROR) << __func__ << " unsupported tag: " << toString(tag);
-             return ndk::ScopedAStatus::fromExceptionCodeWithMessage(EX_ILLEGAL_ARGUMENT,
-                                                                     "wrongIdTag");
-     }
+    switch (tag) {
+        case Parameter::Id::acousticEchoCancelerTag:
+            return getParameterAcousticEchoCanceler(
+                    id.get<Parameter::Id::acousticEchoCancelerTag>(), specific);
+        case Parameter::Id::noiseSuppressionTag:
+            return getParameterNoiseSuppression(id.get<Parameter::Id::noiseSuppressionTag>(),
+                                                specific);
+        default:
+            LOG(ERROR) << __func__ << " unsupported tag: " << toString(tag);
+            return ndk::ScopedAStatus::fromExceptionCodeWithMessage(EX_ILLEGAL_ARGUMENT,
+                                                                    "wrongIdTag");
+    }
     return ndk::ScopedAStatus::fromExceptionCodeWithMessage(EX_ILLEGAL_ARGUMENT,
                                                             "ParamUnsupported");
 }
@@ -207,7 +207,6 @@ IEffect::Status VoiceProcessing::effectProcessImpl(float* in, float* out, int sa
         *out++ = *in++;
     }
     return {STATUS_OK, sampleToProcess, sampleToProcess};
-
 }
 
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL_EffectMain"
+#define LOG_TAG "AHAL_EffectMainQti"
 
 #include "effectFactory-impl/EffectFactory.h"
 
@@ -15,10 +15,8 @@
 /** Default name of effect configuration file. */
 static const char* kDefaultConfigName = "audio_effects_config.xml";
 
-extern "C" __attribute__((visibility("default"))) binder_status_t
-registerService() {
-
-    LOG(DEBUG) << __func__ ;
+extern "C" __attribute__((visibility("default"))) binder_status_t registerService() {
+    LOG(DEBUG) << __func__;
 
     auto configFile = android::audio_find_readable_configuration_file(kDefaultConfigName);
     if (configFile == "") {
@@ -26,8 +24,7 @@ registerService() {
         return EXIT_FAILURE;
     }
     LOG(INFO) << __func__ << ": start factory with configFile:" << configFile;
-    auto effectFactory =
-            ndk::SharedRefBase::make<aidl::qti::effects::Factory>(configFile);
+    auto effectFactory = ndk::SharedRefBase::make<aidl::qti::effects::Factory>(configFile);
 
     std::string serviceName = std::string() + effectFactory->descriptor + "/default";
     binder_status_t status =

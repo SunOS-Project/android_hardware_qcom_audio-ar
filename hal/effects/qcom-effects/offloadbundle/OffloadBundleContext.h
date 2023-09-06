@@ -27,19 +27,17 @@ namespace aidl::qti::effects {
 
 class OffloadBundleContext : public EffectContext {
   public:
-    OffloadBundleContext(int statusDepth, const Parameter::Common& common,
-                         const OffloadBundleEffectType& type)
-        : EffectContext(statusDepth, common), mType(type) {
-        mIoHandle = common.ioHandle;
-        LOG(DEBUG) << __func__ << type << " ioHandle " << common.ioHandle;
+    OffloadBundleContext(const Parameter::Common& common, const OffloadBundleEffectType& type,
+                         bool processData)
+        : EffectContext(common, processData), mType(type) {
+        LOG(DEBUG) << __func__ << type << " ioHandle " << getIoHandle();
     }
 
     virtual ~OffloadBundleContext() override {
-        LOG(DEBUG) << __func__ << " ioHandle " << mIoHandle;
+        LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
     }
 
     // Generic APIS
-    int getIoHandle() { return mIoHandle; }
     OffloadBundleEffectType getBundleType() const { return mType; }
     // Each effect context needs to implement these methods
     virtual RetCode init() = 0;
@@ -122,7 +120,6 @@ class OffloadBundleContext : public EffectContext {
 
   protected:
     std::mutex mMutex;
-    int mIoHandle;
     const OffloadBundleEffectType mType;
     bool mEnabled = false;
     pal_stream_handle_t* mPalHandle;
@@ -132,8 +129,8 @@ class OffloadBundleContext : public EffectContext {
 
 class BassBoostContext final : public OffloadBundleContext {
   public:
-    BassBoostContext(int statusDepth, const Parameter::Common& common,
-                     const OffloadBundleEffectType& type);
+    BassBoostContext(const Parameter::Common& common, const OffloadBundleEffectType& type,
+                     bool processData);
     ~BassBoostContext() override {
         LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
         deInit();
@@ -161,8 +158,8 @@ class BassBoostContext final : public OffloadBundleContext {
 
 class EqualizerContext final : public OffloadBundleContext {
   public:
-    EqualizerContext(int statusDepth, const Parameter::Common& common,
-                     const OffloadBundleEffectType& type);
+    EqualizerContext(const Parameter::Common& common, const OffloadBundleEffectType& type,
+                     bool processData);
     ~EqualizerContext() override {
         LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
         deInit();
@@ -192,8 +189,8 @@ class EqualizerContext final : public OffloadBundleContext {
 
 class VirtualizerContext final : public OffloadBundleContext {
   public:
-    VirtualizerContext(int statusDepth, const Parameter::Common& common,
-                       const OffloadBundleEffectType& type);
+    VirtualizerContext(const Parameter::Common& common, const OffloadBundleEffectType& type,
+                       bool processData);
     ~VirtualizerContext() override {
         LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
         deInit();
@@ -233,8 +230,8 @@ class VirtualizerContext final : public OffloadBundleContext {
 
 class ReverbContext final : public OffloadBundleContext {
   public:
-    ReverbContext(int statusDepth, const Parameter::Common& common,
-                  const OffloadBundleEffectType& type);
+    ReverbContext(const Parameter::Common& common, const OffloadBundleEffectType& type,
+                  bool processData);
     ~ReverbContext() override {
         LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
         deInit();

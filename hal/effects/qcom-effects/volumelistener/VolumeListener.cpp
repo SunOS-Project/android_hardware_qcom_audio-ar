@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <memory>
-#define LOG_TAG "AHAL_Effect_VolumeListener"
+#define LOG_TAG "AHAL_Effect_VolumeListenerQti"
 
 #include <Utils.h>
 #include <android-base/logging.h>
@@ -122,14 +122,15 @@ ndk::ScopedAStatus VolumeListener::commandImpl(CommandId command) {
     return ndk::ScopedAStatus::ok();
 }
 
-std::shared_ptr<EffectContext> VolumeListener::createContext(const Parameter::Common& common) {
+std::shared_ptr<EffectContext> VolumeListener::createContext(const Parameter::Common& common,
+                                                             bool processData) {
     LOG(VERBOSE) << __func__;
     if (mContext) {
         LOG(DEBUG) << __func__ << " context already exist";
     } else {
         // GlobalVolumeListenerSession is a singleton
-        mContext = GlobalVolumeListenerSession::getSession().createSession(
-                mType, 1 /* statusFmqDepth */, common);
+        mContext =
+                GlobalVolumeListenerSession::getSession().createSession(mType, common, processData);
     }
     return mContext;
 }
@@ -169,6 +170,14 @@ ndk::ScopedAStatus VolumeListener::setParameterCommon(const Parameter& param) {
                     mContext->getSessionId(), param.get<Parameter::deviceDescription>());
             RETURN_IF(ret != RetCode::SUCCESS, EX_ILLEGAL_ARGUMENT, "setDeviceFailed");
         } break;
+        case Parameter::mode:
+            RETURN_IF(mContext->setAudioMode(param.get<Parameter::mode>()) != RetCode::SUCCESS,
+                      EX_ILLEGAL_ARGUMENT, "setModeFailed");
+            break;
+        case Parameter::source:
+            RETURN_IF(mContext->setAudioSource(param.get<Parameter::source>()) != RetCode::SUCCESS,
+                      EX_ILLEGAL_ARGUMENT, "setSourceFailed");
+            break;
         case Parameter::volumeStereo: {
             auto ret = GlobalVolumeListenerSession::getSession().setVolumeStereo(
                     mContext->getSessionId(), param.get<Parameter::volumeStereo>());

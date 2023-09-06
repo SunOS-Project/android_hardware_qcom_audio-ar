@@ -26,24 +26,17 @@ enum class VoiceProcessingType {
 static const std::string kAcousticEchoCancelerEffectName = "aec";
 static const std::string kNoiseSuppressionEffectName = "ns";
 
-/*
-#define flags        (EFFECT_FLAG_TYPE_PRE_PROC | \
-                      EFFECT_FLAG_DEVICE_IND | \
-                      EFFECT_FLAG_HW_ACC_TUNNEL| \ 
-                      EFFECT_FLAG_OFFLOAD_SUPPORTED)
-*/
-
 static Flags kVoiceProcessingFlags = {
-                      .type = Flags::Type::PRE_PROC,
-                      .deviceIndication = true,
-                      .hwAcceleratorMode = Flags::HardwareAccelerator::TUNNEL,
-                      .offloadIndication = true,
-                    };
+        .type = Flags::Type::PRE_PROC,
+        .deviceIndication = true,
+        .hwAcceleratorMode = Flags::HardwareAccelerator::TUNNEL,
+        .offloadIndication = true,
+};
 
 static const std::vector<Range::AcousticEchoCancelerRange> kAcousticEchoCancelerRanges = {
         MAKE_RANGE(AcousticEchoCanceler, echoDelayUs, 0, -1),
         MAKE_RANGE(AcousticEchoCanceler, mobileMode, true, false),
-        };
+};
 
 static const Capability kAcousticEchoCancelerCap = {.range = kAcousticEchoCancelerRanges};
 
@@ -53,15 +46,16 @@ static const Descriptor kAcousticEchoCancelerDesc = {
                           .proxy = std::nullopt},
                    .flags = kVoiceProcessingFlags,
                    .name = kAcousticEchoCancelerEffectName,
-                   .implementor = "Qualcomm Technologies Inc"
-                   },
+                   .implementor = "Qualcomm Technologies Inc"},
         .capability = kAcousticEchoCancelerCap,
 };
 
 static const std::vector<Range::NoiseSuppressionRange> kNoiseSuppressionRanges = {
-        MAKE_RANGE(NoiseSuppression, level, NoiseSuppression::Level::MEDIUM, NoiseSuppression::Level::LOW),
-        MAKE_RANGE(NoiseSuppression, type, NoiseSuppression::Type::MULTI_CHANNEL, NoiseSuppression::Type::SINGLE_CHANNEL),
-        };
+        MAKE_RANGE(NoiseSuppression, level, NoiseSuppression::Level::MEDIUM,
+                   NoiseSuppression::Level::LOW),
+        MAKE_RANGE(NoiseSuppression, type, NoiseSuppression::Type::MULTI_CHANNEL,
+                   NoiseSuppression::Type::SINGLE_CHANNEL),
+};
 
 static const Capability kNoiseSuppresionCap = {.range = kNoiseSuppressionRanges};
 
@@ -71,8 +65,7 @@ static const Descriptor kNoiseSuppressionDesc = {
                           .proxy = std::nullopt},
                    .flags = kVoiceProcessingFlags,
                    .name = kNoiseSuppressionEffectName,
-                   .implementor = "Qualcomm Technologies Inc"
-                   },
+                   .implementor = "Qualcomm Technologies Inc"},
         .capability = kNoiseSuppresionCap,
 };
 
@@ -86,4 +79,4 @@ inline std::ostream& operator<<(std::ostream& out, const VoiceProcessingType& ty
     return out << "Enum_VoiceProcessingError";
 }
 
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects

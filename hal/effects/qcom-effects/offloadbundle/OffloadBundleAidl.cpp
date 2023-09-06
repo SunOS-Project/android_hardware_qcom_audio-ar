@@ -129,7 +129,7 @@ OffloadBundleAidl::OffloadBundleAidl(const AudioUuid& uuid) {
 
 OffloadBundleAidl::~OffloadBundleAidl() {
     cleanUp();
-    LOG(DEBUG) << __func__ << "  " << " " << mType;
+    LOG(DEBUG) << __func__  << mType;
 }
 
 ndk::ScopedAStatus OffloadBundleAidl::getDescriptor(
@@ -137,43 +137,6 @@ ndk::ScopedAStatus OffloadBundleAidl::getDescriptor(
     RETURN_IF(!_aidl_return, EX_ILLEGAL_ARGUMENT, "Parameter:nullptr");
     LOG(DEBUG) << _aidl_return->toString();
     *_aidl_return = *mDescriptor;
-    return ndk::ScopedAStatus::ok();
-}
-
-ndk::ScopedAStatus OffloadBundleAidl::setParameterCommon(
-        const aidl::android::hardware::audio::effect::Parameter& param) {
-    RETURN_IF(!mContext, EX_NULL_POINTER, "nullContext");
-
-    auto tag = param.getTag();
-    switch (tag) {
-        case Parameter::common:
-            RETURN_IF(mContext->setCommon(param.get<Parameter::common>()) != RetCode::SUCCESS,
-                      EX_ILLEGAL_ARGUMENT, "setCommFailed");
-            break;
-        case Parameter::deviceDescription:
-            RETURN_IF(mContext->setOutputDevice(param.get<Parameter::deviceDescription>()) !=
-                              RetCode::SUCCESS,
-                      EX_ILLEGAL_ARGUMENT, "setDeviceFailed");
-            break;
-        case Parameter::mode:
-            RETURN_IF(mContext->setAudioMode(param.get<Parameter::mode>()) != RetCode::SUCCESS,
-                      EX_ILLEGAL_ARGUMENT, "setModeFailed");
-            break;
-        case Parameter::source:
-            RETURN_IF(mContext->setAudioSource(param.get<Parameter::source>()) != RetCode::SUCCESS,
-                      EX_ILLEGAL_ARGUMENT, "setSourceFailed");
-            break;
-        case Parameter::volumeStereo:
-            RETURN_IF(mContext->setVolumeStereo(param.get<Parameter::volumeStereo>()) !=
-                              RetCode::SUCCESS,
-                      EX_ILLEGAL_ARGUMENT, "setVolumeStereoFailed");
-            break;
-        default: {
-            LOG(ERROR) << __func__ << " unsupportedParameterTag " << toString(tag);
-            return ndk::ScopedAStatus::fromExceptionCodeWithMessage(EX_ILLEGAL_ARGUMENT,
-                                                                    "commonParamNotSupported");
-        }
-    }
     return ndk::ScopedAStatus::ok();
 }
 
@@ -374,13 +337,14 @@ ndk::ScopedAStatus OffloadBundleAidl::getParameterVirtualizer(const Virtualizer:
     return ndk::ScopedAStatus::ok();
 }
 
-std::shared_ptr<EffectContext> OffloadBundleAidl::createContext(const Parameter::Common& common) {
+std::shared_ptr<EffectContext> OffloadBundleAidl::createContext(const Parameter::Common& common,
+                                                                bool processData) {
     if (mContext) {
         LOG(DEBUG) << __func__ << " context already exist";
     } else {
         // GlobalSession is a singleton
-        mContext = GlobalOffloadSession::getGlobalSession().createSession(
-                mType, 1 /* statusFmqDepth */, common);
+        mContext =
+                GlobalOffloadSession::getGlobalSession().createSession(mType, common, processData);
     }
 
     return mContext;

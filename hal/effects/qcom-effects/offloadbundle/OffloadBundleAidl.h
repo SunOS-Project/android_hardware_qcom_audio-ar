@@ -27,8 +27,7 @@ class OffloadBundleAidl final : public EffectImpl {
 
     ndk::ScopedAStatus getDescriptor(
             aidl::android::hardware::audio::effect::Descriptor* _aidl_return) override;
-    ndk::ScopedAStatus setParameterCommon(
-            const aidl::android::hardware::audio::effect::Parameter& param) override;
+
     ndk::ScopedAStatus setParameterSpecific(
             const aidl::android::hardware::audio::effect::Parameter::Specific& specific) override;
     ndk::ScopedAStatus getParameterSpecific(
@@ -36,7 +35,8 @@ class OffloadBundleAidl final : public EffectImpl {
             aidl::android::hardware::audio::effect::Parameter::Specific* specific) override;
 
     std::shared_ptr<EffectContext> createContext(
-            const aidl::android::hardware::audio::effect::Parameter::Common& common) override;
+            const aidl::android::hardware::audio::effect::Parameter::Common& common,
+            bool processData) override;
     std::shared_ptr<EffectContext> getContext() override;
     RetCode releaseContext() override;
 
@@ -47,8 +47,6 @@ class OffloadBundleAidl final : public EffectImpl {
 
   private:
     std::shared_ptr<OffloadBundleContext> mContext;
-    const aidl::android::hardware::audio::effect::Descriptor* mDescriptor;
-    const std::string* mEffectName;
     OffloadBundleEffectType mType = OffloadBundleEffectType::EQUALIZER;
 
     aidl::android::hardware::audio::effect::IEffect::Status status(binder_status_t status,

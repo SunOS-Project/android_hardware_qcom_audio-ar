@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-
 #pragma once
 #include <cstdlib>
 #include <memory>
@@ -27,6 +26,7 @@ using aidl::android::hardware::audio::effect::Parameter;
 using aidl::android::hardware::audio::effect::CommandId;
 using aidl::android::hardware::audio::effect::Descriptor;
 using aidl::android::hardware::audio::effect::State;
+using aidl::android::hardware::audio::effect::Flags;
 
 namespace aidl::qti::effects {
 
@@ -62,12 +62,15 @@ class EffectImpl : public BnEffect, public EffectThread {
      * Each effect can derive from EffectContext and define its own context, but must upcast to
      * EffectContext for EffectImpl to use.
      */
-    virtual std::shared_ptr<EffectContext> createContext(const Parameter::Common& common) = 0;
+    virtual std::shared_ptr<EffectContext> createContext(const Parameter::Common& common,
+                                                         bool processData) = 0;
     virtual std::shared_ptr<EffectContext> getContext() = 0;
     virtual RetCode releaseContext() = 0;
 
   protected:
     State mState = State::INIT;
+    const Descriptor* mDescriptor;
+    const std::string* mEffectName;
 
     IEffect::Status status(binder_status_t status, size_t consumed, size_t produced);
     void cleanUp();
@@ -80,5 +83,11 @@ class EffectImpl : public BnEffect, public EffectThread {
      * EffectThread processing.
      */
     virtual ndk::ScopedAStatus commandImpl(CommandId id);
+
+  private:
+    bool isOffloadOrBypass() {
+        return (mDescriptor->common.flags.hwAcceleratorMode == Flags::HardwareAccelerator::TUNNEL ||
+                mDescriptor->common.flags.bypass);
+    }
 };
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects
