@@ -16,9 +16,9 @@ LOCAL_SRC_FILES:= \
         EqualizerContext.cpp \
         ReverbContext.cpp \
         VirtualizerContext.cpp \
-        ParamDelegator.cpp \
-        /../../EffectThread.cpp \
-        /../../EffectImpl.cpp
+        ParamDelegator.cpp
+
+LOCAL_STATIC_LIBRARIES := libaudioeffecthal_base_impl_static
 
 LOCAL_SHARED_LIBRARIES:= \
     libaudioaidlcommon \

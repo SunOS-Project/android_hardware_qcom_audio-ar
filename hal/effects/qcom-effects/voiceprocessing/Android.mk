@@ -9,9 +9,9 @@ LOCAL_MODULE_OWNER := qti
 
 LOCAL_SRC_FILES:= \
         VoiceProcessing.cpp \
-        VoiceProcessingContext.cpp \
-        /../../EffectThread.cpp \
-       /../../EffectImpl.cpp
+        VoiceProcessingContext.cpp
+
+LOCAL_STATIC_LIBRARIES := libaudioeffecthal_base_impl_static
 
 LOCAL_SHARED_LIBRARIES:= \
     libaudioaidlcommon \
