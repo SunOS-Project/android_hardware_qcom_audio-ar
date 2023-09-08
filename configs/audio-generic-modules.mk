@@ -8,7 +8,7 @@ endif
 ifneq ($(TARGET_IS_HEADLESS),true)
 #MM_AUDIO product packages
 MM_AUDIO := libcapiv2uvvendor
-MM_AUDIO += sound_trigger.primary.$(TARGET_BOARD_PLATFORM)
+MM_AUDIO += libsoundtriggerhal.qti
 MM_AUDIO += libadm
 MM_AUDIO += libAlacSwDec
 MM_AUDIO += libApeSwDec

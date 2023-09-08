@@ -116,7 +116,6 @@ AUDIO_MODULES += \
     android.hardware.audio@2.0-service_64 \
     android.hardware.audio@2.0-impl \
     android.hardware.audio.effect@2.0-impl \
-    android.hardware.soundtrigger@2.3-impl \
     android.hardware.audio@4.0 \
     android.hardware.audio.common@4.0 \
     android.hardware.audio.common@4.0-util \
@@ -155,13 +154,8 @@ AUDIO_MODULES += \
 AUDIO_MODULES += \
     android.hardware.audio@7.1-impl
 
-# enable sound trigger hidl hal 2.2
-AUDIO_MODULES += \
-    android.hardware.soundtrigger@2.2-impl \
-
-# enable sound trigger hidl hal 2.3
-AUDIO_MODULES += \
-    android.hardware.soundtrigger@2.3-impl \
+# sound trigger aidl library
+AUDIO_MODULES += libsoundtriggerhal.qti
 
 # enable Listen Sound Model hidl 1.0
 AUDIO_MODULES += \

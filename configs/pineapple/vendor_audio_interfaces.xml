@@ -10,10 +10,12 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
             method="registerHidlService" mandatory="true"/>
     <library name = "audiohal" libraryName="libaudiocorehal.qti.so"
             method="registerServices" mandatory="true"/>
+    <library name = "listenSoundModel" libraryName="vendor.qti.hardware.ListenSoundModel@1.0-impl.so"
+            method="registerHidlService" mandatory="true"/>
     <library name = "audioeffecthal" libraryName="libaudioeffecthal.qti.so"
             method="registerService" mandatory="true"/>
     <library name = "bthal" libraryName="android.hardware.bluetooth.audio-impl.so"
             method="createIBluetoothAudioProviderFactory" mandatory="false"/>
-    <library name = "sthal" libraryName="android.hardware.soundtrigger.audio-impl.so"
+    <library name = "sthal" libraryName="libsoundtriggerhal.qti.so"
             method="createISoundTriggerFactory" mandatory="true" />
 </libraries>
