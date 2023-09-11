@@ -24,9 +24,10 @@ class EffectThread {
     EffectThread();
     virtual ~EffectThread();
 
+    // has to be called before creating the thread
+    void setContext(std::shared_ptr<EffectContext> context);
     // called by effect implementation.
-    RetCode createThread(std::shared_ptr<EffectContext> context, const std::string& name,
-                         int priority = ANDROID_PRIORITY_URGENT_AUDIO);
+    RetCode createThread(const std::string& name, int priority = ANDROID_PRIORITY_URGENT_AUDIO);
     RetCode destroyThread();
     RetCode startThread();
     RetCode stopThread();

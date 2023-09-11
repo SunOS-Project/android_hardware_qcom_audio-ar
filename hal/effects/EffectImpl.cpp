@@ -45,10 +45,11 @@ ndk::ScopedAStatus EffectImpl::open(const Parameter::Common& common,
     }
 
     mState = State::IDLE;
+    setContext(context);
     if (processData) {
         context->dupeFmq(ret);
-        RETURN_IF(createThread(context, getEffectName()) != RetCode::SUCCESS,
-                  EX_UNSUPPORTED_OPERATION, "FailedToCreateWorker");
+        RETURN_IF(createThread(getEffectName()) != RetCode::SUCCESS, EX_UNSUPPORTED_OPERATION,
+                  "FailedToCreateWorker");
     } else {
         LOG(VERBOSE) << " effect does not process data";
     }

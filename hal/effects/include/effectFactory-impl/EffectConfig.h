@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-
 #pragma once
 
 #include <functional>
@@ -14,8 +13,8 @@
 #include <vector>
 
 #include <cutils/properties.h>
-#include <tinyxml2.h>
 #include <system/audio_effects/effect_uuid.h>
+#include <tinyxml2.h>
 
 #include <aidl/android/hardware/audio/effect/Processing.h>
 #include "effect-impl/EffectTypes.h"
@@ -41,6 +40,7 @@ using aidl::android::hardware::audio::effect::getEffectTypeUuidSpatializer;
 using aidl::android::hardware::audio::effect::getEffectTypeUuidVirtualizer;
 using aidl::android::hardware::audio::effect::getEffectTypeUuidVisualizer;
 using aidl::android::hardware::audio::effect::getEffectTypeUuidVolume;
+using aidl::android::hardware::audio::effect::getEffectUuidZero;
 using aidl::android::hardware::audio::effect::Processing;
 
 namespace aidl::qti::effects {
@@ -54,14 +54,15 @@ class EffectConfig {
   public:
     explicit EffectConfig(const std::string& file);
 
-    struct LibraryUuid {
-        std::string name;  // library name
-        ::aidl::android::media::audio::common::AudioUuid uuid;
+    struct Library {
+        std::string name;                                                     // library name
+        ::aidl::android::media::audio::common::AudioUuid uuid;                // implementation UUID
+        std::optional<::aidl::android::media::audio::common::AudioUuid> type; // optional type UUID
     };
     // <effects>
     struct EffectLibraries {
-        std::optional<struct LibraryUuid> proxyLibrary;
-        std::vector<struct LibraryUuid> libraries;
+        std::optional<struct Library> proxyLibrary;
+        std::vector<struct Library> libraries;
     };
 
     int getSkippedElements() const { return mSkippedElements; }
@@ -70,7 +71,7 @@ class EffectConfig {
         return mEffectsMap;
     }
 
-    static bool findUuid(const std::string& xmlEffectName,
+    static bool findUuid(const std::pair<std::string, struct EffectLibraries>& effectElem,
                          ::aidl::android::media::audio::common::AudioUuid* uuid);
 
     using ProcessingLibrariesMap = std::map<Processing::Type, std::vector<struct EffectLibraries>>;
@@ -110,8 +111,8 @@ class EffectConfig {
     bool parseProcessing(Processing::Type::Tag typeTag, const tinyxml2::XMLElement& xml);
 
     // Function to parse effect.library name and effect.uuid from xml
-    bool parseLibraryUuid(const tinyxml2::XMLElement& xml, struct LibraryUuid& libraryUuid,
-                          bool isProxy = false);
+    bool parseLibrary(const tinyxml2::XMLElement& xml, struct Library& library,
+                      bool isProxy = false);
 
     const char* dump(const tinyxml2::XMLElement& element,
                      tinyxml2::XMLPrinter&& printer = {}) const;
@@ -122,4 +123,4 @@ class EffectConfig {
                                                            const std::string& type);
 };
 
-}  // namespace aidl::qti::effects
+} // namespace aidl::qti::effects

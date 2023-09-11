@@ -35,8 +35,12 @@ EffectThread::~EffectThread() {
     LOG(VERBOSE) << __func__ << " done" << this;
 }
 
-RetCode EffectThread::createThread(std::shared_ptr<EffectContext> context, const std::string& name,
-                                   int priority) {
+void EffectThread::setContext(std::shared_ptr<EffectContext> context) {
+    std::lock_guard lg(mThreadMutex);
+    mThreadContext = std::move(context);
+}
+
+RetCode EffectThread::createThread(const std::string& name, int priority) {
     if (mThread.joinable()) {
         LOG(WARNING) << mName << __func__ << " thread already created, no-op";
         return RetCode::SUCCESS;
@@ -44,8 +48,6 @@ RetCode EffectThread::createThread(std::shared_ptr<EffectContext> context, const
     mName = name;
     mPriority = priority;
     {
-        std::lock_guard lg(mThreadMutex);
-        mThreadContext = std::move(context);
         auto statusMQ = mThreadContext->getStatusFmq();
         EventFlag* efGroup = nullptr;
         ::android::status_t status =

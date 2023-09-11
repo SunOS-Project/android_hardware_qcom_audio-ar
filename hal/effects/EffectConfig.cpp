@@ -15,6 +15,7 @@
 using aidl::android::media::audio::common::AudioSource;
 using aidl::android::media::audio::common::AudioStreamType;
 using aidl::android::media::audio::common::AudioUuid;
+using ::aidl::android::hardware::audio::effect::stringToUuid;
 
 namespace aidl::qti::effects {
 
@@ -105,54 +106,69 @@ bool EffectConfig::parseLibrary(const tinyxml2::XMLElement& xml) {
 
 bool EffectConfig::parseEffect(const tinyxml2::XMLElement& xml) {
     struct EffectLibraries effectLibraries;
-    std::vector<LibraryUuid> libraryUuids;
+    std::vector<Library> libraries;
     std::string name = xml.Attribute("name");
     RETURN_VALUE_IF(name == "", false, "effectsNoName");
 
     LOG(DEBUG) << __func__ << dump(xml);
-    struct LibraryUuid libraryUuid;
+    struct Library library;
     if (std::strcmp(xml.Name(), "effectProxy") == 0) {
         // proxy lib and uuid
-        RETURN_VALUE_IF(!parseLibraryUuid(xml, libraryUuid, true), false, "parseProxyLibFailed");
-        effectLibraries.proxyLibrary = libraryUuid;
+        RETURN_VALUE_IF(!parseLibrary(xml, library, true), false, "parseProxyLibFailed");
+        effectLibraries.proxyLibrary = library;
         // proxy effect libs and UUID
         auto xmlProxyLib = xml.FirstChildElement();
         RETURN_VALUE_IF(!xmlProxyLib, false, "noLibForProxy");
         while (xmlProxyLib) {
-            struct LibraryUuid tempLibraryUuid;
-            RETURN_VALUE_IF(!parseLibraryUuid(*xmlProxyLib, tempLibraryUuid), false,
+            struct Library tempLibrary;
+            RETURN_VALUE_IF(!parseLibrary(*xmlProxyLib, tempLibrary), false,
                             "parseEffectLibFailed");
-            libraryUuids.push_back(std::move(tempLibraryUuid));
+            libraries.push_back(std::move(tempLibrary));
             xmlProxyLib = xmlProxyLib->NextSiblingElement();
         }
     } else {
         // expect only one library if not proxy
-        RETURN_VALUE_IF(!parseLibraryUuid(xml, libraryUuid), false, "parseEffectLibFailed");
-        libraryUuids.push_back(std::move(libraryUuid));
+        RETURN_VALUE_IF(!parseLibrary(xml, library), false, "parseEffectLibFailed");
+        libraries.push_back(std::move(library));
     }
 
-    effectLibraries.libraries = std::move(libraryUuids);
+    effectLibraries.libraries = std::move(libraries);
     mEffectsMap[name] = std::move(effectLibraries);
     return true;
 }
 
-bool EffectConfig::parseLibraryUuid(const tinyxml2::XMLElement& xml,
-                                    struct LibraryUuid& libraryUuid, bool isProxy) {
+bool EffectConfig::parseLibrary(const tinyxml2::XMLElement& xml, struct Library& library,
+                                bool isProxy) {
     // Retrieve library name only if not effectProxy element
     if (!isProxy) {
         const char* name = xml.Attribute("library");
         RETURN_VALUE_IF(!name, false, "noLibraryAttribute");
-        libraryUuid.name = name;
+        library.name = name;
     }
 
     const char* uuidStr = xml.Attribute("uuid");
     RETURN_VALUE_IF(!uuidStr, false, "noUuidAttribute");
-    libraryUuid.uuid = android::hardware::audio::effect::stringToUuid(uuidStr);
-    RETURN_VALUE_IF((libraryUuid.uuid == android::hardware::audio::effect::getEffectUuidZero()),
-                    false, "invalidUuidAttribute");
+    library.uuid = stringToUuid(uuidStr);
+    bool typeSameAsUuid = false;
+    if (const char* typeSameAsUuidStr = xml.Attribute("typeSameAsUuid")) {
+        typeSameAsUuid = (0 == strcmp(typeSameAsUuidStr, "true"));
+    }
 
-    LOG(DEBUG) << __func__ << " library " << (isProxy ? " proxy " : libraryUuid.name) << " : "
-               << uuidStr;
+    if (const char* typeUuidStr = xml.Attribute("type")) {
+        library.type = stringToUuid(typeUuidStr);
+        LOG(VERBOSE) << " type specified for " << library.name;
+    } else if (typeSameAsUuid) {
+        // for vendor effects, type and uuid are generally same, so instead of modifying
+        // the XML to add "type", add "typeSameAsUuid" tag, so type will be mapped to uuid
+        // However, if type and uuid needs to be different then set type explicitly in
+        // the XML file.
+        library.type = stringToUuid(uuidStr);
+    }
+    RETURN_VALUE_IF((library.uuid == getEffectUuidZero()), false, "invalidUuidAttribute");
+
+    LOG(VERBOSE) << __func__ << (isProxy ? " proxy " : library.name) << " : uuid "
+                 << toString(library.uuid)
+                 << " : type: " << (library.type.has_value() ? toString(library.type.value()) : "");
     return true;
 }
 
@@ -231,7 +247,8 @@ const std::map<Processing::Type, std::vector<EffectConfig::EffectLibraries>>&
     return mProcessingMap;
 }
 
-bool EffectConfig::findUuid(const std::string& xmlEffectName, AudioUuid* uuid) {
+bool EffectConfig::findUuid(const std::pair<std::string, struct EffectLibraries>& effectElem,
+                            AudioUuid* uuid) {
 // Difference from EFFECT_TYPE_LIST_DEF, there could be multiple name mapping to same Effect Type
 #define EFFECT_XML_TYPE_LIST_DEF(V)                        \
     V("acoustic_echo_canceler", AcousticEchoCanceler)      \
@@ -257,18 +274,30 @@ bool EffectConfig::findUuid(const std::string& xmlEffectName, AudioUuid* uuid) {
 
 #define GENERATE_MAP_ENTRY_V(s, symbol) {s, &getEffectTypeUuid##symbol},
 
+    const std::string xmlEffectName = effectElem.first;
     typedef const AudioUuid& (*UuidGetter)(void);
     static const std::map<std::string, UuidGetter> uuidMap{
             {EFFECT_XML_TYPE_LIST_DEF(GENERATE_MAP_ENTRY_V)}};
     if (auto it = uuidMap.find(xmlEffectName); it != uuidMap.end()) {
         *uuid = (*it->second)();
+        LOG(VERBOSE) << __func__ << " " << xmlEffectName << " found in standard effects";
         return true;
+    }
+
+    const auto& libs = effectElem.second.libraries;
+    for (const auto& lib : libs) {
+        if (lib.type.has_value()) {
+            LOG(VERBOSE) << __func__ << " " << xmlEffectName << " found from XML type "
+                         << toString(lib.type.value());
+            *uuid = lib.type.value();
+            return true;
+        }
     }
 
     // find in QTI specific effects
     if (auto it = kUuidNameTypeMap.find(xmlEffectName); it != kUuidNameTypeMap.end()) {
         *uuid = (it->second);
-        LOG(DEBUG) << __func__ << xmlEffectName << " found in QTI effects";
+        LOG(VERBOSE) << __func__ << " " << xmlEffectName << " found in QTI effects";
         return true;
     }
     return false;
