@@ -32,8 +32,8 @@ class ModulePrimary final : public Module {
    public:
     ModulePrimary() : Module(Type::DEFAULT) {}
 
-    std::string toStringInternal();
-    void dumpInternal() ;
+    std::string toStringInternal() override;
+    void dumpInternal(const std::string& identifier = "no_id") override;
 
     // start of Module Parameters
 

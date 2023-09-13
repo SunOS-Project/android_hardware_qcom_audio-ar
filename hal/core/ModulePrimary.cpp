@@ -67,28 +67,46 @@ std::string ModulePrimary::toStringInternal() {
     os << "--- ModulePrimary start ---" << std::endl;
     os << getConfig().toString() << std::endl;
 
+    os << std::endl << " --- mPatches ---" << std::endl;
+    std::for_each(mPatches.cbegin(), mPatches.cend(), [&](const auto& pair) {
+        os << "PortConfigId/PortId:" << pair.first
+           << " Patch Id:" << pair.second << std::endl;
+    });
+    os << std::endl << " --- mPatches end ---" << std::endl << std::endl;
+
+    os << mStreams.toString();
+
     os << mPlatform.toString() << std::endl;
     os << "--- ModulePrimary end ---" << std::endl;
     return os.str();
 }
 
-void ModulePrimary::dumpInternal() {
-    const std::string kDumpPath{"/data/vendor/audio/audio_hal_service.dump"};
+void ModulePrimary::dumpInternal(const std::string& identifier) {
+    const auto realTimeMs =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch())
+            .count();
+    const std::string kDumpPath{
+        std::string("/data/vendor/audio/audio_hal_service_")
+            .append(identifier)
+            .append("_")
+            .append(std::to_string(realTimeMs))
+            .append(".dump")};
 
-    auto fd = ::open(kDumpPath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
-                     S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    const auto fd = ::open(kDumpPath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
+                           S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     if (fd <= 0) {
-        LOG(ERROR) << ": dump internal failed; fd:" << fd
+        LOG(ERROR) << __func__ << ": dump internal failed; fd:" << fd
                    << " unable to open file:" << kDumpPath;
         return;
     }
-    auto dumpData = toStringInternal();
+    const auto dumpData = toStringInternal();
     auto b = ::write(fd, dumpData.c_str(), dumpData.size());
     if (b != static_cast<decltype(b)>(dumpData.size())) {
         LOG(ERROR) << __func__ << ": dump internal failed to write in "
                    << kDumpPath;
     }
-    LOG(INFO) << "dump internal successful to " << kDumpPath;
+    LOG(DEBUG) << __func__ << ": at: " << kDumpPath;
     ::close(fd);
     return;
 }

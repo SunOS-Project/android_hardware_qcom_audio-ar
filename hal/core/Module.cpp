@@ -225,7 +225,7 @@ std::vector<AudioDevice> Module::findConnectedDevices(int32_t portConfigId) {
     for (auto it = portIds.begin(); it != portIds.end(); ++it) {
         auto portIt = findById<AudioPort>(ports, *it);
         if (portIt != ports.end() && portIt->ext.getTag() == AudioPortExt::Tag::device) {
-            result.push_back(portIt->ext.template get<AudioPortExt::Tag::device>().device);
+            result.push_back(portIt->ext.get<AudioPortExt::Tag::device>().device);
         }
     }
     return result;
@@ -357,7 +357,7 @@ ndk::ScopedAStatus Module::updateStreamsConnectedState(const AudioPatch& oldPatc
     idsToConnect.insert(newPatch.sourcePortConfigIds.begin(), newPatch.sourcePortConfigIds.end());
     idsToConnect.insert(newPatch.sinkPortConfigIds.begin(), newPatch.sinkPortConfigIds.end());
     std::for_each(idsToDisconnect.begin(), idsToDisconnect.end(), [&](const auto& portConfigId) {
-        if (idsToConnect.count(portConfigId) == 0 && mStreams.count(portConfigId) != 0) {
+        if (mStreams.count(portConfigId) != 0) { // only for mix port config
             if (auto status = mStreams.setStreamConnectedDevices(portConfigId, {}); status.isOk()) {
                 LOG(DEBUG) << "updateStreamsConnectedState: The stream on port config id "
                            << portConfigId << " has been disconnected";
@@ -369,7 +369,12 @@ ndk::ScopedAStatus Module::updateStreamsConnectedState(const AudioPatch& oldPatc
     });
     if (!maybeFailure.isOk()) return maybeFailure;
     std::for_each(idsToConnect.begin(), idsToConnect.end(), [&](const auto& portConfigId) {
-        if (idsToDisconnect.count(portConfigId) == 0 && mStreams.count(portConfigId) != 0) {
+        if (mStreams.count(portConfigId) != 0) { // only for mix port config
+            /**
+             * Todo verify appropriate way to update devices from related
+             * AudioPort or AudioPortConfig. The current logic to get devices
+             * from the AudioPort
+             **/
             const auto connectedDevices = findConnectedDevices(portConfigId);
             if (connectedDevices.empty()) {
                 // This is important as workers use the vector size to derive the connection status.
@@ -772,7 +777,7 @@ ndk::ScopedAStatus Module::getSupportedPlaybackRateFactors(
 }
 
 ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPatch* _aidl_return) {
-    LOG(DEBUG) << __func__ << ": requested patch " << in_requested.toString();
+    LOG(INFO) << __func__ << ": requested patch " << in_requested.toString();
     if (in_requested.sourcePortConfigIds.empty()) {
         LOG(ERROR) << __func__ << ": requested patch has empty sources list";
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
@@ -853,18 +858,25 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
             return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
         }
     }
+
     *_aidl_return = in_requested;
-    _aidl_return->minimumStreamBufferSizeFrames = kMinimumStreamBufferSizeFrames;
-    _aidl_return->latenciesMs.clear();
-    _aidl_return->latenciesMs.insert(_aidl_return->latenciesMs.end(),
-                                     _aidl_return->sinkPortConfigIds.size(), kLatencyMs);
     AudioPatch oldPatch{};
     if (existing == patches.end()) {
+        // this suggests to create a new patch.
         _aidl_return->id = getConfig().nextPatchId++;
+        _aidl_return->minimumStreamBufferSizeFrames =
+            kMinimumStreamBufferSizeFrames;
+        _aidl_return->latenciesMs.clear();
+        _aidl_return->latenciesMs.insert(_aidl_return->latenciesMs.end(),
+                                         _aidl_return->sinkPortConfigIds.size(),
+                                         kLatencyMs);
         onNewPatchCreation(sources, sinks, *_aidl_return);
         patches.push_back(*_aidl_return);
     } else {
+        // this suggests to update the existing patch.
         oldPatch = *existing;
+        // update the existing patch to requested patch in module config.
+        *existing = *_aidl_return;
     }
     patchesBackup = mPatches;
     registerPatch(*_aidl_return);
@@ -883,8 +895,14 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
         return status;
     }
 
-    LOG(DEBUG) << __func__ << ": " << (oldPatch.id == 0 ? "created" : "updated") << " patch "
-               << _aidl_return->toString();
+    if (oldPatch.id == 0) {
+        LOG(INFO) << __func__ << ": "
+                  << "created" << _aidl_return->toString();
+    } else {
+        LOG(INFO) << __func__ << ": "
+                  << "updated from " << oldPatch.toString() << " to "
+                  << _aidl_return->toString();
+    }
     return ndk::ScopedAStatus::ok();
 }
 

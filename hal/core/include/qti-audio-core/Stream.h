@@ -722,6 +722,17 @@ class Streams {
         return ndk::ScopedAStatus::ok();
     }
 
+    std::string toString() const {
+        std::ostringstream os;
+        os << std::endl << " --- mStreams ---" << std::endl;
+        std::for_each(
+            mStreams.cbegin(), mStreams.cend(), [&](const auto& pair) {
+                os << "PortConfigId/PortId:" << pair.first << std::endl;
+            });
+        os << std::endl << " --- mStreams end ---" << std::endl << std::endl;
+        return os.str();
+    }
+
    private:
     // Maps port ids and port config ids to streams. Multimap because a port
     // (not port config) can have multiple streams opened on it.
