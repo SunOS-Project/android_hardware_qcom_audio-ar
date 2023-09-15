@@ -14,9 +14,9 @@ LOCAL_CFLAGS            += -v -Wall -Wthread-safety
 LOCAL_SRC_FILES:= \
         VolumeListener.cpp \
         VolumeListenerContext.cpp \
-        GlobalVolumeListenerSession.cpp \
-        /../../EffectThread.cpp \
-       /../../EffectImpl.cpp
+        GlobalVolumeListenerSession.cpp
+
+LOCAL_STATIC_LIBRARIES := libaudioeffecthal_base_impl_static
 
 LOCAL_SHARED_LIBRARIES:= \
     libaudioaidlcommon \

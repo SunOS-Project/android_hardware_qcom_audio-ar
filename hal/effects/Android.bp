@@ -29,12 +29,13 @@ cc_defaults {
     ],
 }
 
-filegroup {
-    name: "effectCommonFilesqti",
+cc_library_static {
+    name: "libaudioeffecthal_base_impl_static",
     srcs: [
         "EffectThread.cpp",
         "EffectImpl.cpp",
     ],
+    defaults: ["aidlaudioeffectserviceqti_defaults"],
 }
 
 cc_library_shared {
