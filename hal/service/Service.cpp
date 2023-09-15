@@ -83,7 +83,7 @@ void registerDefaultInterfaces() {
         },
         {
             .name = "sthal",
-            .libraryName = "android.hardware.soundtrigger.audio-impl.so",
+            .libraryName = "libsoundtriggerhal.qti.so",
             .method = "createISoundTriggerFactory",
             .mandatory = true
         },
