@@ -48,6 +48,9 @@ RetCode EffectThread::createThread(const std::string& name, int priority) {
     mName = name;
     mPriority = priority;
     {
+        std::lock_guard lg(mThreadMutex);
+        mStop = true;
+        mExit = false;
         auto statusMQ = mThreadContext->getStatusFmq();
         EventFlag* efGroup = nullptr;
         ::android::status_t status =
