@@ -637,12 +637,9 @@ static void populateMixPorts(const xsd::Modules::Module& module,
 static void populateDevicePorts(const xsd::Modules::Module& module,
                                 std::unique_ptr<ModuleConfig>& moduleConfig) {
     auto getFlags = [](const xsd::DevicePorts::DevicePort& devPort) {
-        if (devPort.hasDeviceType() && !devPort.hasConnection()) {
-            if (devPort.getDeviceType() ==
-                    xsd::AudioDeviceType::IN_MICROPHONE ||
-                devPort.getDeviceType() == xsd::AudioDeviceType::OUT_SPEAKER) {
-                return 1 << AudioPortDeviceExt::FLAG_INDEX_DEFAULT_DEVICE;
-            }
+        if (devPort.hasDefaultDevice() && devPort.getDefaultDevice() &&
+            !devPort.hasConnection()) {
+            return 1 << AudioPortDeviceExt::FLAG_INDEX_DEFAULT_DEVICE;
         }
         return 0;
     };

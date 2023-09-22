@@ -5,23 +5,9 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
 -->
 <modules>
 <module name="default">
-    <!-- Global configuration Decalaration -->
-    <globalConfiguration speaker_drc_enabled="true" supportedAudioModes="NORMAL RINGTONE IN_CALL IN_COMMUNICATION CALL_SCREEN"/>
-    <attachedDevices>
-        <item>earpiece</item>
-        <item>speaker</item>
-        <item>telephony_tx_device_out</item>
-        <item>built_in_mic</item>
-        <item>built_in_back_mic</item>
-        <item>fm_tuner_mic</item>
-        <item>telephony_rx_mic</item>
-        <item>echo_reference_mic</item>
-    </attachedDevices>
-    <defaultOutputDevice>speaker</defaultOutputDevice>
     <mixPorts>
         <!-- based on role, mixport flags are identified as either input flags or
         output flags-->
-
         <!-- start of source mixports-->
         <mixPort name="primary_out" role="source" flags="PRIMARY">
             <profile samplingRates="48000" channelLayouts="LAYOUT_STEREO" formatType="PCM" pcmType="INT_16_BIT" />
@@ -73,7 +59,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <devicePort tagName="earpiece" role="sink" attached="true" deviceType="OUT_SPEAKER_EARPIECE">
             <profile samplingRates="48000" channelLayouts="LAYOUT_MONO" formatType="PCM" pcmType="INT_16_BIT" />
         </devicePort>
-        <devicePort tagName="speaker" role="sink" attached="true" deviceType="OUT_SPEAKER">
+        <devicePort tagName="speaker" role="sink" attached="true" defaultDevice="true" deviceType="OUT_SPEAKER">
             <profile samplingRates="48000" channelLayouts="LAYOUT_STEREO" formatType="PCM" pcmType="INT_16_BIT" />
         </devicePort>
         <devicePort tagName="wired_headset" deviceType="OUT_HEADSET" role="sink" connection="analog">
@@ -136,7 +122,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <!-- end of sink DEVICE PORT -->
 
         <!-- start of source DEVICE PORT -->
-        <devicePort tagName="built_in_mic" deviceType="IN_MICROPHONE" role="source" attached="true" address="bottom">
+        <devicePort tagName="built_in_mic" deviceType="IN_MICROPHONE" role="source" attached="true" defaultDevice="true" address="bottom">
             <profile samplingRates="8000 11025 12000 16000 22050 24000 32000 44100 48000" channelLayouts="LAYOUT_MONO LAYOUT_STEREO LAYOUT_FRONT_BACK" formatType="PCM" pcmType="INT_16_BIT" />
             <!-- To support compress offload capture such that client can query -->
             <profile samplingRates="8000 11025 12000 16000 22050 24000 32000 44100 48000" channelLayouts="LAYOUT_MONO LAYOUT_STEREO LAYOUT_FRONT_BACK" formatType="NON_PCM" encoding="audio/mp4a.40.02" />

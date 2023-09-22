@@ -39,6 +39,7 @@ LOCAL_SRC_FILES := \
     HalOffloadEffects.cpp
 
 LOCAL_HEADER_LIBRARIES :=  \
+    libxsdc-utils \
     libaudioeffects \
     liberror_headers \
     libaudioclient_headers \

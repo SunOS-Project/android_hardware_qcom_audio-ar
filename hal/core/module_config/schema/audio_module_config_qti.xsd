@@ -11,20 +11,6 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
             <xs:element name="module" minOccurs="1">
         <xs:complexType>
             <xs:sequence>
-                <!-- TODO move globalConfiguration to top level -->
-                <xs:element name="globalConfiguration" minOccurs="0">
-                    <xs:complexType>
-                        <xs:attribute name="speaker_drc_enabled" type="xs:boolean" default="false"/>
-                        <xs:attribute name="supportedAudioModes" type="audioModeList" use="optional" />
-                    </xs:complexType>
-                </xs:element>
-                <xs:element name="attachedDevices" type="attachedDevices" minOccurs="0">
-                    <xs:unique name="attachedDevicesUniqueness">
-                        <xs:selector xpath="item" />
-                        <xs:field xpath="." />
-                    </xs:unique>
-                </xs:element>
-                <xs:element name="defaultOutputDevice" type="xs:token" minOccurs="0" />
                 <xs:element name="mixPorts" type="mixPorts" minOccurs="0" />
                 <xs:element name="devicePorts" type="devicePorts" minOccurs="0" />
                 <xs:element name="routes" type="routes" minOccurs="0" />
@@ -53,14 +39,6 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
             <xs:selector xpath="devicePorts/devicePort|mixPorts/mixPort" />
             <xs:field xpath="@tagName|@name" />
         </xs:key>
-        <xs:keyref name="defaultOutputDeviceRef" refer="devicePortNameKey">
-            <xs:selector xpath="defaultOutputDevice" />
-            <xs:field xpath="." />
-        </xs:keyref>
-        <xs:keyref name="attachedDeviceRef" refer="devicePortNameKey">
-            <xs:selector xpath="attachedDevices/item" />
-            <xs:field xpath="." />
-        </xs:keyref>
         <xs:keyref name="routeSinkRef" refer="routeSinkKey">
             <xs:selector xpath="routes/route" />
             <xs:field xpath="@sink" />
@@ -69,23 +47,6 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
 </xs:sequence>
 </xs:complexType>
 </xs:element>
-    <xs:simpleType name="audioMode">
-        <xs:restriction base="xs:string">
-            <xs:enumeration value="NORMAL" />
-            <xs:enumeration value="RINGTONE" />
-            <xs:enumeration value="IN_CALL" />
-            <xs:enumeration value="IN_COMMUNICATION" />
-            <xs:enumeration value="CALL_SCREEN" />
-        </xs:restriction>
-    </xs:simpleType>
-    <xs:simpleType name="audioModeList">
-        <xs:list itemType="audioMode" />
-    </xs:simpleType>
-    <xs:complexType name="attachedDevices">
-        <xs:sequence>
-            <xs:element name="item" type="xs:token" minOccurs="0" maxOccurs="unbounded" />
-        </xs:sequence>
-    </xs:complexType>
     <xs:simpleType name="role">
         <xs:restriction base="xs:string">
             <xs:enumeration value="sink" />
@@ -263,6 +224,9 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
                     check whether deviceport is permanent or not -->
                     <!-- only permanent deviceports must have static profiles loaded -->
                     <xs:attribute name="attached" type="xs:boolean" use="optional" default="false" />
+                    <!-- This attribute indicates whether the device treated as default device by framework -->
+                    <!-- By convention, defaultDevice is also an attached device -->
+                    <xs:attribute name="defaultDevice" type="xs:boolean" use="optional" default="false" />
                     <xs:attribute name="deviceType" type="audioDeviceType" use="required" />
                     <xs:attribute name="role" type="role" use="required" />
                     <!-- some of the device needs address ex: bulit in mic address as bottom -->

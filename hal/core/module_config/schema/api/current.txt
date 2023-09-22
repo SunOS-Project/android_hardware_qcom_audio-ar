@@ -1,11 +1,6 @@
 // Signature format: 2.0
 package audio_module_config_qti {
 
-  public class AttachedDevices {
-    ctor public AttachedDevices();
-    method @Nullable public java.util.List<java.lang.String> getItem();
-  }
-
   public enum AudioChannelIndexMask {
     method @NonNull public String getRawName();
     enum_constant public static final audio_module_config_qti.AudioChannelIndexMask INDEX_MASK_1;
@@ -235,15 +230,6 @@ package audio_module_config_qti {
     enum_constant public static final audio_module_config_qti.AudioMime audioxsbc;
   }
 
-  public enum AudioMode {
-    method @NonNull public String getRawName();
-    enum_constant public static final audio_module_config_qti.AudioMode CALL_SCREEN;
-    enum_constant public static final audio_module_config_qti.AudioMode IN_CALL;
-    enum_constant public static final audio_module_config_qti.AudioMode IN_COMMUNICATION;
-    enum_constant public static final audio_module_config_qti.AudioMode NORMAL;
-    enum_constant public static final audio_module_config_qti.AudioMode RINGTONE;
-  }
-
   public enum AudioOutputFlag {
     method @NonNull public String getRawName();
     enum_constant public static final audio_module_config_qti.AudioOutputFlag COMPRESS_OFFLOAD;
@@ -330,6 +316,7 @@ package audio_module_config_qti {
     method @Nullable public String getAddress();
     method @Nullable public boolean getAttached();
     method @Nullable public audio_module_config_qti.ConnectionType getConnection();
+    method @Nullable public boolean getDefaultDevice();
     method @Nullable public audio_module_config_qti.AudioDeviceType getDeviceType();
     method @Nullable public java.util.List<audio_module_config_qti.AudioMime> getEncodings();
     method @Nullable public audio_module_config_qti.Gains getGains();
@@ -340,6 +327,7 @@ package audio_module_config_qti {
     method public void setAddress(@Nullable String);
     method public void setAttached(@Nullable boolean);
     method public void setConnection(@Nullable audio_module_config_qti.ConnectionType);
+    method public void setDefaultDevice(@Nullable boolean);
     method public void setDeviceType(@Nullable audio_module_config_qti.AudioDeviceType);
     method public void setEncodings(@Nullable java.util.List<audio_module_config_qti.AudioMime>);
     method public void setGains(@Nullable audio_module_config_qti.Gains);
@@ -417,28 +405,14 @@ package audio_module_config_qti {
 
   public static class Modules.Module {
     ctor public Modules.Module();
-    method @Nullable public audio_module_config_qti.AttachedDevices getAttachedDevices();
-    method @Nullable public String getDefaultOutputDevice();
     method @Nullable public audio_module_config_qti.DevicePorts getDevicePorts();
-    method @Nullable public audio_module_config_qti.Modules.Module.GlobalConfiguration getGlobalConfiguration();
     method @Nullable public audio_module_config_qti.MixPorts getMixPorts();
     method @Nullable public String getName();
     method @Nullable public audio_module_config_qti.Routes getRoutes();
-    method public void setAttachedDevices(@Nullable audio_module_config_qti.AttachedDevices);
-    method public void setDefaultOutputDevice(@Nullable String);
     method public void setDevicePorts(@Nullable audio_module_config_qti.DevicePorts);
-    method public void setGlobalConfiguration(@Nullable audio_module_config_qti.Modules.Module.GlobalConfiguration);
     method public void setMixPorts(@Nullable audio_module_config_qti.MixPorts);
     method public void setName(@Nullable String);
     method public void setRoutes(@Nullable audio_module_config_qti.Routes);
-  }
-
-  public static class Modules.Module.GlobalConfiguration {
-    ctor public Modules.Module.GlobalConfiguration();
-    method @Nullable public boolean getSpeaker_drc_enabled();
-    method @Nullable public java.util.List<audio_module_config_qti.AudioMode> getSupportedAudioModes();
-    method public void setSpeaker_drc_enabled(@Nullable boolean);
-    method public void setSupportedAudioModes(@Nullable java.util.List<audio_module_config_qti.AudioMode>);
   }
 
   public class Profile {
