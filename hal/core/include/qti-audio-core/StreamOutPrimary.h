@@ -20,7 +20,7 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
                           offloadInfo);
 
     virtual ~StreamOutPrimary() override;
-    ndk::ScopedAStatus setAggregateSourceMetadata();
+    int32_t setAggregateSourceMetadata(bool voiceActive) override;
 
     std::string toString() const noexcept;
 
@@ -75,7 +75,9 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
             override;
 
     void onClose() override { defaultOnClose(); }
-
+    AudioExtension& mAudExt{AudioExtension::getInstance()};
+    bool isStreamOutPrimary() { return (mTag == Usecase::PRIMARY_PLAYBACK) ? true: false; }
+    static std::mutex sourceMetadata_mutex_;
     protected:
     // This opens, configures and starts pal stream 
     void configure();

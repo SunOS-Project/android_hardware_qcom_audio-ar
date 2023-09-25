@@ -31,6 +31,7 @@
 #include <qti-audio-core/ChildInterface.h>
 #include <qti-audio-core/Stream.h>
 #include <qti-audio-core/ModuleConfig.h>
+#include <extensions/AudioExtension.h>
 
 
 namespace qti::audio::core {
@@ -185,6 +186,7 @@ protected:
     float mMasterVolume = 1.0f;
     ChildInterface<::aidl::android::hardware::audio::core::sounddose::ISoundDose> mSoundDose;
     std::optional<bool> mIsMmapSupported;
+    AudioExtension& mAudExt{AudioExtension::getInstance()};
 
    protected:
     // The following virtual functions are intended for vendor extension via inheritance.

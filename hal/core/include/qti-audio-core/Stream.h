@@ -575,6 +575,7 @@ class StreamIn : virtual public StreamCommonInterface, public ::aidl::android::h
         out_sinkMetadata = std::get<::aidl::android::hardware::audio::common::SinkMetadata>(getMetadataCommon());
         return ndk::ScopedAStatus::ok();
     }
+    virtual int32_t setAggregateSinkMetadata(bool) { return 0; }
   protected:
     void defaultOnClose();
 
@@ -619,6 +620,7 @@ virtual ~StreamOut() override = default;
         out_sourceMetadata = std::get<::aidl::android::hardware::audio::common::SourceMetadata>(getMetadataCommon());
         return ndk::ScopedAStatus::ok();
     }
+    virtual int32_t setAggregateSourceMetadata(bool) { return 0;}
   protected:
     void defaultOnClose();
     ndk::ScopedAStatus getStreamCommon(std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCommon>* _aidl_return) override {

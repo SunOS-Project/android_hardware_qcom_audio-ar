@@ -37,7 +37,11 @@ using ::aidl::android::hardware::audio::core::VendorParameter;
 
 using aidl::android::media::audio::common::AudioPortExt;
 
+static bool karaoke = false;
+
 namespace qti::audio::core {
+
+std::mutex StreamOutPrimary::sourceMetadata_mutex_;
 
 StreamOutPrimary::StreamOutPrimary(
     StreamContext&& context, const SourceMetadata& sourceMetadata,
@@ -79,6 +83,8 @@ StreamOutPrimary::~StreamOutPrimary() {
         ::pal_stream_stop(mPalHandle);
         ::pal_stream_close(mPalHandle);
     }
+    if (karaoke)
+       mAudExt.mKarokeExtension->karaoke_stop();
     LOG(VERBOSE) << __func__ << ": destroy " << getName(mTag) << " " << std::hex
                  << this;
 }
@@ -115,6 +121,14 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
     if (connectedPalDevices.size() != mConnectedDevices.size()) {
         LOG(ERROR) << __func__ << ": pal devices size != aidl devices size";
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+    }
+
+    if (!connectedPalDevices.empty() &&
+         connectedPalDevices[0].id == PAL_DEVICE_OUT_BLUETOOTH_SCO) {
+         if (!mPlatform.isA2dpSuspended()) {
+             LOG(ERROR) << __func__ << " Cannot route stream to SCO if A2dp is not suspended";
+             return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+         }
     }
 
     if (int32_t ret = ::pal_stream_set_device(
@@ -259,6 +273,9 @@ void StreamOutPrimary::shutdown() {
         ::pal_stream_stop(mPalHandle);
         ::pal_stream_close(mPalHandle);
     }
+    if (karaoke)
+       mAudExt.mKarokeExtension->karaoke_stop();
+
     mIsConfigured = false;
     mIsPaused = false;
     mPalHandle = nullptr;
@@ -422,6 +439,92 @@ ndk::ScopedAStatus StreamOutPrimary::setAggregateSourceMetadata() {
              (void*)&btSourceMetadata, 0);
     LOG(DEBUG) << __func__ << "after sending source metadata to PAL";
     return ndk::ScopedAStatus::ok();
+    int callState = mPlatform.getCallState();
+    int callMode = mPlatform.getCallMode();
+    bool voiceActive = ((callState == 2) || (callMode == 2));
+
+    StreamOutPrimary::sourceMetadata_mutex_.lock();
+    setAggregateSourceMetadata(voiceActive);
+    StreamOutPrimary::sourceMetadata_mutex_.unlock();
+
+    return ndk::ScopedAStatus::ok();
+}
+
+int32_t StreamOutPrimary::setAggregateSourceMetadata(bool voiceActive) {
+    ssize_t track_count_total = 0;
+
+    std::vector<playback_track_metadata_t> total_tracks;
+    source_metadata_t btSourceMetadata;
+
+
+    ModulePrimary::outListMutex.lock();
+    std::vector<std::weak_ptr<StreamOut>>& outStreams = ModulePrimary::getOutStreams();
+    if (voiceActive || outStreams.empty()) {
+        ModulePrimary::outListMutex.unlock();
+        return 0;
+    }
+    auto removeStreams = [&](std::weak_ptr<StreamOut> streamOut) -> bool
+      {
+         if (!streamOut.lock()) return true;
+         return streamOut.lock()->isClosed();
+      };
+    outStreams.erase(std::remove_if(outStreams.begin(), outStreams.end(), removeStreams),outStreams.end());
+
+    LOG(DEBUG) << __func__ << " out streams not empty size is " << outStreams.size();
+
+    for (auto it = outStreams.begin(); it < outStreams.end(); it++ ) {
+         if (it->lock() && !it->lock()->isClosed()) {
+             ::aidl::android::hardware::audio::common::SourceMetadata srcMetadata;
+             it->lock()->getMetadata(srcMetadata);
+             track_count_total += srcMetadata.tracks.size();
+         }
+         else {
+         }
+    }
+    LOG(DEBUG) << __func__ << " out streams size after deleting : " << outStreams.size();
+    LOG(DEBUG) << __func__ << " total tracks count is " << track_count_total;
+
+    if (track_count_total <= 0) {
+        ModulePrimary::outListMutex.unlock();
+        return 0;
+    }
+
+    total_tracks.resize(track_count_total);
+    btSourceMetadata.track_count = track_count_total;
+    btSourceMetadata.tracks = total_tracks.data();
+
+    for (auto it = outStreams.begin(); it != outStreams.end() ; it++ ) {
+          ::aidl::android::hardware::audio::common::SourceMetadata srcMetadata;
+          if (it->lock()) {
+              it->lock()->getMetadata(srcMetadata);
+              for (auto& item : srcMetadata.tracks) {
+                   /* currently after cs call ends, we are getting metadata as
+                   * usage voice and content speech, this is causing BT to again
+                   * open call session, so added below check to send metadata of
+                   * voice only if call is active, else discard it
+                   */
+                   if (!voiceActive && (mPlatform.getCallMode() != 3) &&
+                       (AUDIO_USAGE_VOICE_COMMUNICATION == static_cast<audio_usage_t>(item.usage)) &&
+                       (AUDIO_CONTENT_TYPE_SPEECH == static_cast<audio_content_type_t>(item.contentType))) {
+                       btSourceMetadata.track_count--;
+                   }
+                   else {
+                       btSourceMetadata.tracks->usage =static_cast<audio_usage_t>(item.usage);
+                       btSourceMetadata.tracks->content_type = static_cast<audio_content_type_t>(item.contentType);
+                       LOG(DEBUG) << __func__ << " source metadata usage is " << btSourceMetadata.tracks->usage <<
+                                              " content is " << btSourceMetadata.tracks->content_type;
+                       ++btSourceMetadata.tracks;
+                   }
+              }
+         }
+    }
+    btSourceMetadata.tracks = total_tracks.data();
+    LOG(DEBUG) << __func__ << " sending source metadata to PAL";
+    pal_set_param(PAL_PARAM_ID_SET_SOURCE_METADATA,
+             (void*)&btSourceMetadata, 0);
+    LOG(DEBUG) << __func__ << " after sending source metadata to PAL";
+    ModulePrimary::outListMutex.unlock();
+    return 0;
 }
 
 ndk::ScopedAStatus StreamOutPrimary::getVendorParameters(
@@ -575,7 +678,10 @@ void StreamOutPrimary::configure() {
                    << " pal stream open failed!!! ret:" << std::to_string(ret);
         return;
     }
-
+    if (karaoke) {
+        int size = palDevices.size();
+        mAudExt.mKarokeExtension->karaoke_open(palDevices[size-1].id, palFn, attr.get()->out_media_config.ch_info);
+    }
     const size_t ringBufSizeInBytes = getPeriodSize();
     const size_t ringBufCount = getPeriodCount();
     auto palBufferConfig =
@@ -613,6 +719,10 @@ void StreamOutPrimary::configure() {
                    << " pal stream start failed!! ret:" << std::to_string(ret);
         return;
     }
+
+    if (karaoke)
+        mAudExt.mKarokeExtension->karaoke_start();
+
     LOG(VERBOSE) << __func__ << " pal stream start successful";
 
     // configure mExt

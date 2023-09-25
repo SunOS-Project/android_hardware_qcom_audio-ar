@@ -46,4 +46,10 @@ const static std::string kWfdChannelMap{"wfd_channel_cap"};
 const static std::string kHapticsIntensity{"haptics_intensity"};
 const static std::string kIcmdPlayback{"icmd_playback"};
 
+// Audio Extn
+const static std::string kCanOpenProxy{"can_open_proxy"};
+const static std::string kFMStatus{"fm_status"};
+
+// Bluetooth
+const static std::string kA2dpSuspended{"A2dpSuspended"};
 };  // namespace qti::audio::core::Parameters

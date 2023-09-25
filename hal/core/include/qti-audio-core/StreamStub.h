@@ -57,7 +57,7 @@ class StreamInStub final : public StreamIn, public StreamStub {
             const ::aidl::android::hardware::audio::common::SinkMetadata& sinkMetadata,
             const std::vector<::aidl::android::media::audio::common::MicrophoneInfo>& microphones);
     ~StreamInStub() override;
-
+  int32_t setAggregateSinkMetadata(bool) override;
   private:
     void onClose() override { defaultOnClose(); }
 };
@@ -70,6 +70,7 @@ class StreamOutStub final : public StreamOut, public StreamStub {
                   const std::optional<::aidl::android::media::audio::common::AudioOffloadInfo>&
                           offloadInfo);
     ~StreamOutStub() override;
+  int32_t setAggregateSourceMetadata(bool) override;
 
   private:
     void onClose() override { defaultOnClose(); }

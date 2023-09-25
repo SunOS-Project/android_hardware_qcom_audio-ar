@@ -24,7 +24,9 @@
 
 #include <aidl/android/hardware/audio/core/BnTelephony.h>
 #include <aidl/android/media/audio/common/AudioDevice.h>
+#include <extensions/AudioExtension.h>
 #include <qti-audio-core/Platform.h>
+#include <qti-audio-core/Stream.h>
 
 #include <android/binder_enums.h>
 
@@ -97,7 +99,9 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
         const bool isRxUpdate);
     // This API is called for routing devices as per primary playback devices.
     void updateDevicesFromPrimaryPlayback();
-
+    void updateVoiceMetadataForBT(bool call_active);
+    std::weak_ptr<StreamOut> mStreamOutPrimary;
+    std::weak_ptr<StreamIn> mStreamInPrimary;
    protected:
 
     void startCall();

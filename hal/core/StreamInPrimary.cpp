@@ -41,6 +41,8 @@ using ::aidl::android::hardware::audio::effect::getEffectTypeUuidAcousticEchoCan
 using ::aidl::android::hardware::audio::effect::getEffectTypeUuidNoiseSuppression;
 namespace qti::audio::core {
 
+std::mutex StreamInPrimary::sinkMetadata_mutex_;
+
 StreamInPrimary::StreamInPrimary(StreamContext&& context,
                                  const SinkMetadata& sinkMetadata,
                                  const std::vector<MicrophoneInfo>& microphones)
@@ -81,6 +83,14 @@ ndk::ScopedAStatus StreamInPrimary::setConnectedDevices(
     if (mTag == Usecase::PCM_RECORD) {
         std::get<PcmRecord>(mExt).configurePalDevices(mMixPortConfig,
                                                       connectedPalDevices);
+    }
+
+    if (!connectedPalDevices.empty() &&
+         connectedPalDevices[0].id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET) {
+         if (!mPlatform.isA2dpSuspended()) {
+             LOG(ERROR) << __func__ << " Cannot route stream to SCO if A2dp is not suspended";
+             return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+         }
     }
 
     if (this->mPalHandle != nullptr && connectedPalDevices.size() > 0) {
@@ -215,7 +225,13 @@ ndk::ScopedAStatus StreamInPrimary::updateMetadataCommon(
         }
         mMetadata = metadata;
     }
-    setAggregateSinkMetadata();
+    int callState = mPlatform.getCallState();
+    int callMode = mPlatform.getCallMode();
+    bool voiceActive = ((callState == 2) || (callMode == 2));
+
+    StreamInPrimary::sinkMetadata_mutex_.lock();
+    setAggregateSinkMetadata(voiceActive);
+    StreamInPrimary::sinkMetadata_mutex_.unlock();
     LOG(ERROR) << __func__ << ": stream was closed";
     //return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     return ndk::ScopedAStatus::ok();
@@ -270,6 +286,67 @@ ndk::ScopedAStatus StreamInPrimary::setAggregateSinkMetadata() {
              (void*)&btSinkMetadata, 0);
     LOG(DEBUG) << __func__ << "after sending sink metadata to PAL";
     return ndk::ScopedAStatus::ok();
+}
+
+int32_t StreamInPrimary::setAggregateSinkMetadata(bool voiceActive) {
+    ssize_t track_count_total = 0;
+
+    std::vector<record_track_metadata_t> total_tracks;
+    sink_metadata_t btSinkMetadata;
+
+    ModulePrimary::inListMutex.lock();
+    std::vector<std::weak_ptr<StreamIn>>& inStreams = ModulePrimary::getInStreams();
+    //Dont send metadata if voice is active
+    if (voiceActive || inStreams.empty()) {
+        ModulePrimary::inListMutex.unlock();
+        return 0;
+    }
+    auto removeStreams = [&](std::weak_ptr<StreamIn> streamIn) -> bool
+      {
+         if (!streamIn.lock()) return true;
+         return streamIn.lock()->isClosed();
+      };
+
+    inStreams.erase(std::remove_if(inStreams.begin(), inStreams.end(), removeStreams),inStreams.end());
+
+    LOG(DEBUG) << __func__ << " in streams not empty size is " << inStreams.size();
+    for (auto it = inStreams.begin(); it < inStreams.end() ; it++ ) {
+         if (it->lock() && !it->lock()->isClosed()) {
+             ::aidl::android::hardware::audio::common::SinkMetadata sinkMetadata;
+             it->lock()->getMetadata(sinkMetadata);
+             track_count_total += sinkMetadata.tracks.size();
+         }
+         else {
+         }
+    }
+    LOG(DEBUG) << __func__ << " total tracks count is " << track_count_total;
+    if (track_count_total == 0) {
+        ModulePrimary::inListMutex.unlock();
+        return 0;
+    }
+
+    total_tracks.resize(track_count_total);
+    btSinkMetadata.track_count = track_count_total;
+    btSinkMetadata.tracks = total_tracks.data();
+
+    for (auto it = inStreams.begin(); it != inStreams.end() ; it++ ) {
+          ::aidl::android::hardware::audio::common::SinkMetadata sinkMetadata;
+          if (it->lock()) {
+              it->lock()->getMetadata(sinkMetadata);
+               for (auto& item : sinkMetadata.tracks) {
+                   btSinkMetadata.tracks->source =static_cast<audio_source_t>(item.source);
+                   ++btSinkMetadata.tracks;
+               }
+          }
+    }
+
+    btSinkMetadata.tracks = total_tracks.data();
+    LOG(DEBUG) << __func__ << " sending sink metadata to PAL";
+    pal_set_param(PAL_PARAM_ID_SET_SINK_METADATA,
+             (void*)&btSinkMetadata, 0);
+    LOG(DEBUG) << __func__ << " after sending sink metadata to PAL";
+    ModulePrimary::inListMutex.unlock();
+    return 0;
 }
 
 ndk::ScopedAStatus StreamInPrimary::getVendorParameters(

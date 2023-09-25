@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <cutils/properties.h>
 #include <aidl/qti/audio/core/VString.h>
+#include <extensions/AudioExtension.h>
 
 #define LC3_SWB_CODEC_CONFIG_INDEX 4
 #define LC3_BROADCAST_TRANSIT_MODE 1
@@ -59,142 +60,6 @@ namespace qti::audio::core {
 
 btsco_lc3_cfg_t Platform::btsco_lc3_cfg = {};
 
-static int reconfig_cb (tSESSION_TYPE session_type, int state)
-{
-    int ret = 0;
-    pal_param_bta2dp_t param_bt_a2dp;
-//    AHAL_DBG("reconfig_cb enter with state %s for %s", reconfigStateName.at(state).c_str(),
-  //      deviceNameLUT.at(SessionTypePalDevMap.at(session_type)).c_str());
-
-    /* If reconfiguration is in progress state (state = 0), perform a2dp suspend.
-     * If reconfiguration is in complete state (state = 1), perform a2dp resume.
-     * Set LC3 channel mode as mono (state = 2).
-     * Set LC3 channel mode as stereo (state = 3).
-     */
-    if (session_type == LE_AUDIO_HARDWARE_OFFLOAD_ENCODING_DATAPATH) {
-        if ((tRECONFIG_STATE)state == SESSION_SUSPEND) {
-    //        std::unique_lock<std::mutex> guard(reconfig_wait_mutex_);
-            param_bt_a2dp.a2dp_suspended = true;
-            param_bt_a2dp.is_suspend_setparam = false;
-            param_bt_a2dp.dev_id = PAL_DEVICE_OUT_BLUETOOTH_BLE;
-
-            ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_SUSPENDED, (void *)&param_bt_a2dp,
-                                sizeof(pal_param_bta2dp_t));
-        } else if ((tRECONFIG_STATE)state == SESSION_RESUME) {
-      //      std::unique_lock<std::mutex> guard(reconfig_wait_mutex_);
-            param_bt_a2dp.a2dp_suspended = false;
-            param_bt_a2dp.is_suspend_setparam = false;
-            param_bt_a2dp.dev_id = PAL_DEVICE_OUT_BLUETOOTH_BLE;
-
-            ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_SUSPENDED, (void *)&param_bt_a2dp,
-                                sizeof(pal_param_bta2dp_t));
-        } else if ((tRECONFIG_STATE)state == CHANNEL_MONO) {
-            param_bt_a2dp.is_lc3_mono_mode_on = true;
-
-            ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_LC3_CONFIG, (void*)&param_bt_a2dp,
-                sizeof(pal_param_bta2dp_t));
-        } else if ((tRECONFIG_STATE)state == CHANNEL_STEREO) {
-            param_bt_a2dp.is_lc3_mono_mode_on = false;
-
-            ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_LC3_CONFIG, (void*)&param_bt_a2dp,
-                sizeof(pal_param_bta2dp_t));
-        }
-    } else if (session_type == LE_AUDIO_HARDWARE_OFFLOAD_DECODING_DATAPATH) {
-        if ((tRECONFIG_STATE)state == SESSION_SUSPEND) {
-        //    std::unique_lock<std::mutex> guard(reconfig_wait_mutex_);
-            param_bt_a2dp.a2dp_capture_suspended = true;
-            param_bt_a2dp.is_suspend_setparam = false;
-            param_bt_a2dp.dev_id = PAL_DEVICE_IN_BLUETOOTH_BLE;
-
-            ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_CAPTURE_SUSPENDED, (void *)&param_bt_a2dp,
-                                sizeof(pal_param_bta2dp_t));
-        } else if ((tRECONFIG_STATE)state == SESSION_RESUME) {
-          //  std::unique_lock<std::mutex> guard(reconfig_wait_mutex_);
-            param_bt_a2dp.a2dp_capture_suspended = false;
-            param_bt_a2dp.is_suspend_setparam = false;
-            param_bt_a2dp.dev_id = PAL_DEVICE_IN_BLUETOOTH_BLE;
-
-            ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_CAPTURE_SUSPENDED, (void *)&param_bt_a2dp,
-                                sizeof(pal_param_bta2dp_t));
-        }
-    } else if (session_type == A2DP_HARDWARE_OFFLOAD_DATAPATH) {
-        if ((tRECONFIG_STATE)state == SESSION_SUSPEND) {
-            //std::unique_lock<std::mutex> guard(reconfig_wait_mutex_);
-            param_bt_a2dp.a2dp_suspended = true;
-            param_bt_a2dp.is_suspend_setparam = false;
-            param_bt_a2dp.dev_id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
-
-            ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_SUSPENDED, (void*)&param_bt_a2dp,
-                                sizeof(pal_param_bta2dp_t));
-        } else if ((tRECONFIG_STATE)state == SESSION_RESUME) {
-           // std::unique_lock<std::mutex> guard(reconfig_wait_mutex_);
-            param_bt_a2dp.a2dp_suspended = false;
-            param_bt_a2dp.is_suspend_setparam = false;
-            param_bt_a2dp.dev_id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
-
-            ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_SUSPENDED, (void*)&param_bt_a2dp,
-                                sizeof(pal_param_bta2dp_t));
-        }
-    }
-//   AHAL_DBG("reconfig_cb exit with state %s for %s", reconfigStateName.at(state).c_str(),
-       // deviceNameLUT.at(SessionTypePalDevMap.at(session_type)).c_str());
-    return ret;
-}
-int Platform::a2dp_source_feature_init()
-{
-
-    bool is_feature_enabled = property_get_bool("vendor.audio.feature.a2dp_offload.enable", false);
-    //AHAL_DBG("Called with feature %s",
-      //  is_feature_enabled ? "Enabled" : "NOT Enabled");
-
-    if (is_feature_enabled &&
-        (access(BT_IPC_SOURCE_LIB_NAME, R_OK) == 0)) {
-        // dlopen lib
-        a2dp_bt_lib_source_handle = dlopen(BT_IPC_SOURCE_LIB_NAME, RTLD_NOW);
-
-        if (!a2dp_bt_lib_source_handle) {
-            LOG(ERROR) << __func__ << "dlopen " << BT_IPC_SOURCE_LIB_NAME << "failed with" << dlerror();
-            goto feature_disabled;
-        }
-
-        if (!(a2dp_bt_audio_pre_init = (a2dp_bt_audio_pre_init_t)dlsym(
-            a2dp_bt_lib_source_handle, "bt_audio_pre_init")) ) {
-            LOG(ERROR) << __func__ << "dlsym failed";
-            goto feature_disabled;
-        }
-
-        if (a2dp_bt_lib_source_handle && a2dp_bt_audio_pre_init) {
-            LOG(VERBOSE) << __func__ << "calling BT module preinit";
-            // fwk related check's will be done in the BT layer
-            a2dp_bt_audio_pre_init();
-        }
-
-        if (!(register_reconfig_cb = (register_reconfig_cb_t)dlsym(
-            a2dp_bt_lib_source_handle, "register_reconfig_cb")) ) {
-            LOG(ERROR) << __func__ << "dlsym failed for reconfig";
-            goto feature_disabled;
-        }
-
-        if (a2dp_bt_lib_source_handle && register_reconfig_cb) {
-            LOG(VERBOSE) << __func__ << "calling BT module register reconfig";
-            int (*reconfig_cb_ptr)(tSESSION_TYPE, int) = &reconfig_cb;
-            register_reconfig_cb(reconfig_cb_ptr);
-        }
-
-        LOG(VERBOSE) << __func__ << "---- Feature A2DP offload is Enabled ---";
-        return 0;
-    }
-
-feature_disabled:
-    if (a2dp_bt_lib_source_handle) {
-        dlclose(a2dp_bt_lib_source_handle);
-        a2dp_bt_lib_source_handle = NULL;
-    }
-
-    a2dp_bt_audio_pre_init = nullptr;
-    LOG(VERBOSE) << __func__ << "---- Feature A2DP offload is disabled ---";
-    return -ENOSYS;
-}
 size_t Platform::getIOBufferSizeInFrames(
     const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig)
     const {
@@ -574,14 +439,14 @@ bool Platform::setBluetoothParameters(const char *kvpairs){
     struct str_parms *parms = NULL;
     int ret = 0, val = 0;
     char value[256];
-    LOG(VERBOSE) << __func__ << "kvparis " << kvpairs;  
+    LOG(VERBOSE) << __func__ << "kvpairs " << kvpairs;
     parms = str_parms_create_str(kvpairs);
     ret = str_parms_get_str(parms, AUDIO_PARAMETER_RECONFIG_A2DP, value, sizeof(value));
       if (ret >= 0) {
          pal_param_bta2dp_t param_bt_a2dp;
          param_bt_a2dp.reconfig = true;
 
-         LOG(VERBOSE) << __func__ << "BT A2DP Reconfig command received";
+         LOG(VERBOSE) << __func__ << " BT A2DP Reconfig command received";
          ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_RECONFIG, (void *)&param_bt_a2dp,
                              sizeof(pal_param_bta2dp_t));
      }
@@ -597,8 +462,8 @@ bool Platform::setBluetoothParameters(const char *kvpairs){
 
          param_bt_a2dp.dev_id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
 
-         LOG(VERBOSE) << __func__ << "BT A2DP Suspended = " << value;
-     //    std::unique_lock<std::mutex> guard(reconfig_wait_mutex_);
+         LOG(VERBOSE) << __func__ << " BT A2DP Suspended = " << value;
+         std::unique_lock<std::mutex> guard(AudioExtension::reconfig_wait_mutex_);
          ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_SUSPENDED, (void *)&param_bt_a2dp,
                             sizeof(pal_param_bta2dp_t));
      }
@@ -606,7 +471,7 @@ bool Platform::setBluetoothParameters(const char *kvpairs){
     if (ret >= 0) {
         pal_param_bta2dp_t param_bt_a2dp;
 
-        LOG(VERBOSE) << __func__ << "Setting tws channel mode to = " << value;
+        LOG(VERBOSE) << __func__ << " Setting tws channel mode to = " << value;
         if (!(strncmp(value, "mono", strlen(value))))
             param_bt_a2dp.is_tws_mono_mode_on = true;
         else if (!(strncmp(value,"dual-mono",strlen(value))))
@@ -618,7 +483,7 @@ bool Platform::setBluetoothParameters(const char *kvpairs){
     if (ret >= 0) {
         pal_param_bta2dp_t param_bt_a2dp;
 
-        LOG(VERBOSE) << __func__ << "Setting LC3 channel mode to = " << value;
+        LOG(VERBOSE) << __func__ << " Setting LC3 channel mode to = " << value;
         if (!(strncmp(value, "true", strlen(value))))
             param_bt_a2dp.is_lc3_mono_mode_on = true;
         else
@@ -638,7 +503,7 @@ bool Platform::setBluetoothParameters(const char *kvpairs){
             param_bt_sco.bt_sco_on = false;
         }
 
-        LOG(VERBOSE) << __func__ << "BTSCO on = " << param_bt_sco.bt_sco_on;
+        LOG(VERBOSE) << __func__ << " BTSCO on = " << param_bt_sco.bt_sco_on;
         ret = pal_set_param(PAL_PARAM_ID_BT_SCO, (void *)&param_bt_sco,
                             sizeof(pal_param_btsco_t));
 #if 0
@@ -679,7 +544,7 @@ bool Platform::setBluetoothParameters(const char *kvpairs){
         else
             param_bt_sco.bt_wb_speech_enabled = false;
 
-        LOG(VERBOSE) << __func__ << "BTSCO WB mode = " << param_bt_sco.bt_wb_speech_enabled;
+        LOG(VERBOSE) << __func__ << " BTSCO WB mode = " << param_bt_sco.bt_wb_speech_enabled;
         ret = pal_set_param(PAL_PARAM_ID_BT_SCO_WB, (void *)&param_bt_sco,
                             sizeof(pal_param_btsco_t));
     }
@@ -689,7 +554,7 @@ bool Platform::setBluetoothParameters(const char *kvpairs){
 
         val = atoi(value);
         param_bt_sco.bt_swb_speech_mode = val;
-        LOG(VERBOSE) << __func__ << "BTSCO SWB mode = " << val;
+        LOG(VERBOSE) << __func__ << " BTSCO SWB mode = " << val;
         ret = pal_set_param(PAL_PARAM_ID_BT_SCO_SWB, (void *)&param_bt_sco,
                             sizeof(pal_param_btsco_t));
     }
@@ -717,10 +582,10 @@ bool Platform::setBluetoothParameters(const char *kvpairs){
             // clear btsco_lc3_cfg to avoid stale and partial cfg being used in next round
             memset(&btsco_lc3_cfg, 0, sizeof(btsco_lc3_cfg_t));
         }
-        LOG(VERBOSE) << __func__ << "BTSCO LC3 mode = " << bt_lc3_speech_enabled;
+        LOG(VERBOSE) << __func__ << " BTSCO LC3 mode = " << bt_lc3_speech_enabled;
     }
 
-    ret = str_parms_get_str(parms, "bt_ble_swb", value, sizeof(value));
+    ret = str_parms_get_str(parms, "bt_lc3_swb", value, sizeof(value));
     if (ret >= 0) {
         pal_param_btsco_t param_bt_sco_swb = {};
         if (strcmp(value, AUDIO_PARAMETER_VALUE_ON) == 0) {
@@ -746,13 +611,13 @@ bool Platform::setBluetoothParameters(const char *kvpairs){
             strlcpy(param_bt_sco_swb.lc3_cfg.vendor, vendor, PAL_LC3_MAX_STRING_LEN);
 
             //AHAL_INFO("BTSCO LC3 SWB mode = on, sending..");
-            LOG(VERBOSE) << __func__ << "BTSCO LC3 SWB mode = on, sending..";
+            LOG(VERBOSE) << __func__ << " BTSCO LC3 SWB mode = on, sending..";
             ret = pal_set_param(PAL_PARAM_ID_BT_SCO_LC3, (void*)&param_bt_sco_swb,
                 sizeof(pal_param_btsco_t));
         } else {
             param_bt_sco_swb.bt_lc3_speech_enabled = false;
 
-            LOG(VERBOSE) << __func__ << "BTSCO LC3 SWB mode = off, sending..";
+            LOG(VERBOSE) << __func__ << " BTSCO LC3 SWB mode = off, sending..";
             ret = pal_set_param(PAL_PARAM_ID_BT_SCO_LC3, (void*)&param_bt_sco_swb,
                 sizeof(pal_param_btsco_t));
         }
@@ -763,10 +628,10 @@ bool Platform::setBluetoothParameters(const char *kvpairs){
         pal_param_btsco_t param_bt_sco = {};
         if (strcmp(value, AUDIO_PARAMETER_VALUE_ON) == 0) {
             //AHAL_INFO("BTSCO NREC mode = ON");
-            LOG(VERBOSE) << __func__ << "BTSCO NREC mode = ON";
+            LOG(VERBOSE) << __func__ << " BTSCO NREC mode = ON";
             param_bt_sco.bt_sco_nrec = true;
         } else {
-            LOG(VERBOSE) << __func__ << "BTSCO NREC mode = OFF";
+            LOG(VERBOSE) << __func__ << " BTSCO NREC mode = OFF";
             param_bt_sco.bt_sco_nrec = false;
         }
         ret = pal_set_param(PAL_PARAM_ID_BT_SCO_NREC, (void *)&param_bt_sco,
@@ -817,7 +682,7 @@ bool Platform::setBluetoothParameters(const char *kvpairs){
         strlcpy(param_bt_sco.lc3_cfg.streamMap, btsco_lc3_cfg.streamMap, PAL_LC3_MAX_STRING_LEN);
         strlcpy(param_bt_sco.lc3_cfg.vendor, btsco_lc3_cfg.vendor, PAL_LC3_MAX_STRING_LEN);
 
-        LOG(VERBOSE) << __func__ << "BTSCO LC3 mode = on, sending..";
+        LOG(VERBOSE) << __func__ << " BTSCO LC3 mode = on, sending..";
         ret = pal_set_param(PAL_PARAM_ID_BT_SCO_LC3, (void *)&param_bt_sco,
                             sizeof(pal_param_btsco_t));
 
@@ -835,14 +700,41 @@ bool Platform::setBluetoothParameters(const char *kvpairs){
 
         param_bt_a2dp.dev_id = PAL_DEVICE_IN_BLUETOOTH_A2DP;
 
-        LOG(VERBOSE) << __func__ << "BT A2DP Capture Suspended " << value << "command received";
-//        std::unique_lock<std::mutex> guard(reconfig_wait_mutex_);
+        LOG(VERBOSE) << __func__ << " BT A2DP Capture Suspended " << value << "command received";
+        std::unique_lock<std::mutex> guard(AudioExtension::reconfig_wait_mutex_);
         ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_CAPTURE_SUSPENDED, (void*)&param_bt_a2dp,
             sizeof(pal_param_bta2dp_t));
     }
+    ret = str_parms_get_str(parms, "LeAudioSuspended", value, sizeof(value));
+    if (ret >= 0) {
+        pal_param_bta2dp_t param_bt_a2dp;
+        param_bt_a2dp.is_suspend_setparam = true;
 
+        if (strcmp(value, "true") == 0) {
+            param_bt_a2dp.a2dp_suspended = true;
+            param_bt_a2dp.a2dp_capture_suspended = true;
+        } else {
+            param_bt_a2dp.a2dp_suspended = false;
+            param_bt_a2dp.a2dp_capture_suspended = false;
+        }
+
+        LOG(INFO) << __func__ << " BT LEA Suspended = ," << value << " command received";
+        //Synchronize the suspend/resume calls from setparams and reconfig_cb
+        std::unique_lock<std::mutex> guard(AudioExtension::reconfig_wait_mutex_);
+        param_bt_a2dp.dev_id = PAL_DEVICE_OUT_BLUETOOTH_BLE;
+        ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_SUSPENDED, (void*)&param_bt_a2dp,
+            sizeof(pal_param_bta2dp_t));
+
+        param_bt_a2dp.dev_id = PAL_DEVICE_IN_BLUETOOTH_BLE;
+        ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_CAPTURE_SUSPENDED, (void*)&param_bt_a2dp,
+            sizeof(pal_param_bta2dp_t));
+        param_bt_a2dp.dev_id = PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST;
+        ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_SUSPENDED, (void*)&param_bt_a2dp,
+            sizeof(pal_param_bta2dp_t));
+    }
     return true;
 }
+
 bool Platform::setParameter(const std::string& key, const std::string& value) {
     // Todo check for validity of key
     const auto& [first, second] = mParameters.insert_or_assign(key, value);
@@ -931,7 +823,21 @@ uint32_t Platform::getBluetoothLatencyMs(
     }
     return 0;
 }
-
+bool Platform::isA2dpSuspended() {
+    int ret=0;
+    size_t bt_param_size = 0;
+    pal_param_bta2dp_t *param_bt_a2dp_ptr, param_bt_a2dp;
+    param_bt_a2dp_ptr = &param_bt_a2dp;
+    param_bt_a2dp_ptr->dev_id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
+    ret = pal_get_param(PAL_PARAM_ID_BT_A2DP_SUSPENDED, (void **)&param_bt_a2dp_ptr,
+                                &bt_param_size, nullptr);
+    if (!ret && bt_param_size && param_bt_a2dp_ptr &&
+         !param_bt_a2dp_ptr->a2dp_suspended ) {
+        LOG(DEBUG) << __func__ << " A2dp suspended " << param_bt_a2dp_ptr->a2dp_suspended;
+        return param_bt_a2dp_ptr->a2dp_suspended;
+    }
+    return true;
+}
 // start of private
 bool Platform::getBtConfig(pal_param_bta2dp_t* bTConfig) {
     if (bTConfig == nullptr) {

@@ -22,7 +22,7 @@
 
 #define LOG_TAG "AHAL_Bluetooth"
 #include <android-base/logging.h>
-
+#include <cutils/properties.h>
 #include <qti-audio-core/Bluetooth.h>
 
 using aidl::android::hardware::audio::core::VendorParameter;
@@ -47,11 +47,13 @@ ndk::ScopedAStatus Bluetooth::setScoConfig(const ScoConfig& in_config,
                                            ScoConfig* _aidl_return) {
     if (in_config.isEnabled.has_value()) {
         mScoConfig.isEnabled = in_config.isEnabled;
-        mScoConfig.isEnabled.value().value == true ? mPlatform.setBluetoothParameters("BT_SCO=on") : mPlatform.setBluetoothParameters("BT_SCO=off");
+        mScoConfig.isEnabled.value().value == true ? mPlatform.setBluetoothParameters("BT_SCO=on") :
+                                                      mPlatform.setBluetoothParameters("BT_SCO=off");
     }
     if (in_config.isNrecEnabled.has_value()) {
         mScoConfig.isNrecEnabled = in_config.isNrecEnabled;
-        mScoConfig.isNrecEnabled.value().value == true ? mPlatform.setBluetoothParameters("bt_headset_nrec=on") : mPlatform.setBluetoothParameters("bt_headset_nrec=off");
+        mScoConfig.isNrecEnabled.value().value == true ? mPlatform.setBluetoothParameters("bt_headset_nrec=on") :
+                                                         mPlatform.setBluetoothParameters("bt_headset_nrec=off");
     }
     if (in_config.mode != ScoConfig::Mode::UNSPECIFIED) {
         mScoConfig.mode = in_config.mode;
@@ -110,14 +112,17 @@ ndk::ScopedAStatus BluetoothA2dp::isEnabled(bool* _aidl_return) {
 
 ndk::ScopedAStatus BluetoothA2dp::setEnabled(bool in_enabled) {
     mEnabled = in_enabled;
-    mEnabled == true ? mPlatform.setBluetoothParameters("A2dpSuspended=false") : mPlatform.setBluetoothParameters("A2dpSuspended=true");
+    mEnabled == true ? mPlatform.setBluetoothParameters("A2dpSuspended=false") :
+                            mPlatform.setBluetoothParameters("A2dpSuspended=true");
     LOG(DEBUG) << __func__ << ": " << mEnabled;
     return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus BluetoothA2dp::supportsOffloadReconfiguration(
     bool* _aidl_return) {
-    *_aidl_return = true;
+    bool supportReconfig = property_get_bool("ro.bluetooth.a2dp_offload.supported", false) &&
+                                   !property_get_bool("persist.bluetooth.a2dp_offload.disabled", false);
+    *_aidl_return = supportReconfig;
     LOG(DEBUG) << __func__ << ": returning " << *_aidl_return;
     return ndk::ScopedAStatus::ok();
 }

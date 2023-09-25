@@ -59,7 +59,6 @@ class BluetoothA2dp : public ::aidl::android::hardware::audio::core::BnBluetooth
 
     bool mEnabled = false;
     Platform& mPlatform{Platform::getInstance()};
-
 };
 
 class BluetoothLe : public ::aidl::android::hardware::audio::core::BnBluetoothLe {

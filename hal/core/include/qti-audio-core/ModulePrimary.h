@@ -60,7 +60,12 @@ class ModulePrimary final : public Module {
         TELEPHONY,
         BLUETOOTH,
         HDR,
+        AUDIOEXTENSION,
     };
+
+    //Mutex for stream lists protection
+    static std::mutex outListMutex;
+    static std::mutex inListMutex;
 
     // For set parameters
     using SetHandler = std::function<void(
@@ -96,8 +101,8 @@ class ModulePrimary final : public Module {
     static void updateStreamInList(const std::shared_ptr<StreamIn> streamIn) {
       mStreamsIn.push_back(streamIn);
     }
-    static std::vector<std::weak_ptr<StreamOut>> getOutStreams() { return mStreamsOut;}
-    static std::vector<std::weak_ptr<StreamIn>> getInStreams() { return mStreamsIn;}
+    static std::vector<std::weak_ptr<StreamOut>>& getOutStreams() { return mStreamsOut;}
+    static std::vector<std::weak_ptr<StreamIn>>& getInStreams() { return mStreamsIn;}
 
    protected:
     binder_status_t dump(int fd, const char** args, uint32_t numArgs) override;
@@ -173,6 +178,10 @@ class ModulePrimary final : public Module {
     // GetHandler for Telephony
     std::vector<::aidl::android::hardware::audio::core::VendorParameter>
     onGetTelephonyParameters(const std::vector<std::string>&);
+    std::vector<::aidl::android::hardware::audio::core::VendorParameter>
+    onGetAudioExtnParams(const std::vector<std::string>&);
+    std::vector<::aidl::android::hardware::audio::core::VendorParameter>
+    onGetBluetoothParams(const std::vector<std::string>&);
     // end of module parameters handling
 
 

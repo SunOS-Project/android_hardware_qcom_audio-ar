@@ -1167,7 +1167,10 @@ ndk::ScopedAStatus Module::getMicMute(bool* _aidl_return) {
 
 ndk::ScopedAStatus Module::setMicMute(bool in_mute) {
     LOG(DEBUG) << __func__ << ": " << in_mute;
+    int ret = 0;
     mMicMute = in_mute;
+    ret = mAudExt.mHfpExtension->audio_extn_hfp_set_mic_mute(in_mute);
+    // ToDo : set mute on all active streams
     return ndk::ScopedAStatus::ok();
 }
 

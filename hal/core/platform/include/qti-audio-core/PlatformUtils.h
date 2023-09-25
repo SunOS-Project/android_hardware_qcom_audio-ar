@@ -35,7 +35,6 @@ auto getkvPairsForVendorParameter =
     return str;
 };
 
-
 auto getBoolValueFromVString =
     [](const std::vector<
            ::aidl::android::hardware::audio::core::VendorParameter>& parameters,

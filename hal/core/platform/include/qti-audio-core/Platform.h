@@ -9,7 +9,7 @@
 #include <aidl/android/media/audio/common/AudioFormatDescription.h>
 #include <aidl/android/media/audio/common/AudioPort.h>
 #include <aidl/android/media/audio/common/AudioPortConfig.h>
-
+#include <extensions/AudioExtension.h>
 
 #include <qti-audio-core/PlatformConverter.h>
 #include <PalApi.h>
@@ -75,10 +75,13 @@ class Platform {
                                  uint64_t cookie);
 
    public:
+    //BT related params used across
     bool bt_lc3_speech_enabled;
     static btsco_lc3_cfg_t btsco_lc3_cfg;
+
     int a2dp_source_feature_init();
-//    int reconfig_cb (tSESSION_TYPE session_type, int state);
+    int mCallState;
+    int mCallMode;
 
     static Platform& getInstance();
     bool setParameter(const std::string& key, const std::string& value);
@@ -150,6 +153,13 @@ class Platform {
         mPrimaryPlaybackDevices = devices;
     }
 
+    void updateCallState(int callState) { mCallState = callState;}
+    void updateCallMode(int callMode) { mCallMode = callMode;}
+
+    int getCallState() { return mCallState; }
+    int getCallMode() { return mCallMode; }
+    bool isA2dpSuspended();
+
    private:
     bool getBtConfig(pal_param_bta2dp_t* bTConfig);
 
@@ -162,6 +172,7 @@ class Platform {
    private:
     std::vector<::aidl::android::media::audio::common::AudioDevice>
         mPrimaryPlaybackDevices{};
+
     std::map<std::string, std::string> mParameters;
     card_status_t mSndCardStatus{CARD_STATUS_OFFLINE};
     const PlatformConverter& mTypeConverter{PlatformConverter::getInstance()};
