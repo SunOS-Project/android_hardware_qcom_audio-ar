@@ -137,7 +137,6 @@ PRODUCT_COPY_FILES += \
     $(CONFIG_PAL_SRC_DIR)/mixer_paths_sun_mtp.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_sun_mtp.xml \
     $(CONFIG_PAL_SRC_DIR)/mixer_paths_sun_cdp.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_sun_cdp.xml \
     $(CONFIG_PAL_SRC_DIR)/mixer_paths_sun_qrd_sku2.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_sun_qrd_sku2.xml \
-    $(CONFIG_PAL_SRC_DIR)/mixer_paths_sun_cdp_wsa883x.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_sun_cdp_wsa883x.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_sun_qrd.xml:$(CONFIG_SKU_OUT_DIR)/resourcemanager_sun_qrd.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_sun_mtp.xml:$(CONFIG_SKU_OUT_DIR)/resourcemanager_sun_mtp.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_sun_cdp.xml:$(CONFIG_SKU_OUT_DIR)/resourcemanager_sun_cdp.xml \
