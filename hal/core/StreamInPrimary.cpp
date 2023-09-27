@@ -63,6 +63,8 @@ StreamInPrimary::StreamInPrimary(StreamContext&& context,
         mExt.emplace<VoipRecord>();
     } else if (mTag == Usecase::MMAP_RECORD) {
         mExt.emplace<MMapRecord>();
+    } else if(mTag == Usecase::VOICE_CALL_RECORD){
+        mExt.emplace<VoiceCallRecord>();
     }
 }
 
@@ -503,6 +505,8 @@ size_t StreamInPrimary::getPeriodSize() const noexcept {
     } else if (mTag == Usecase::MMAP_RECORD) {
         return MMapRecord::getPeriodSize(
              mMixPortConfig.format.value(), mMixPortConfig.channelMask.value());
+    } else if (mTag == Usecase::VOICE_CALL_RECORD) {
+        return VoiceCallRecord::getPeriodSize(mMixPortConfig);
     }
     return 0;
 }
@@ -516,6 +520,8 @@ size_t StreamInPrimary::getPeriodCount() const noexcept {
         return VoipRecord::kPeriodCount;
     } else if (mTag == Usecase::MMAP_RECORD) {
         return MMapRecord::kPeriodCount;
+    } else if (mTag == Usecase::VOICE_CALL_RECORD) {
+        return VoiceCallRecord::kPeriodCount;
     }
     return 0;
 }
@@ -536,6 +542,10 @@ void StreamInPrimary::configure() {
         attr->type = PAL_STREAM_COMPRESSED;
     } else if (mTag == Usecase::VOIP_RECORD) {
         attr->type = PAL_STREAM_VOIP_TX;
+    } else if(mTag == Usecase::VOICE_CALL_RECORD){
+        attr->type = PAL_STREAM_VOICE_CALL_RECORD;
+        attr->info.voice_rec_info.record_direction =
+            std::get<VoiceCallRecord>(mExt).getRecordDirection(mMixPortConfig);
     } else {
         LOG(ERROR) << __func__
                      << " invalid usecase to configure";

@@ -39,7 +39,8 @@ enum class Usecase : uint16_t {
     VOIP_RECORD,
     ULL_PLAYBACK,
     MMAP_PLAYBACK,
-    MMAP_RECORD
+    MMAP_RECORD,
+    VOICE_CALL_RECORD,
 };
 
 Usecase getUsecaseTag(
@@ -371,11 +372,8 @@ class VoipPlayback final {
     constexpr static size_t kBufferDurationMs = 20;
     constexpr static size_t kPeriodCount = 2;
     static size_t getPeriodSize(
-        const ::aidl::android::media::audio::common::AudioFormatDescription&
-            formatDescription,
-        const ::aidl::android::media::audio::common::AudioChannelLayout&
-            channelLayout,
-        const int32_t sampleRate);
+        const ::aidl::android::media::audio::common::AudioPortConfig&
+            mixPortConfig);
 };
 
 class SpatialPlayback {
@@ -390,6 +388,21 @@ class VoipRecord {
    public:
     constexpr static uint32_t kCaptureDurationMs = 20;
     constexpr static uint32_t kPeriodCount = 4;
+    static size_t getPeriodSize(
+        const ::aidl::android::media::audio::common::AudioPortConfig&
+            mixPortConfig);
+};
+
+class VoiceCallRecord {
+   public:
+    constexpr static size_t kCaptureDurationMs = 20;
+    constexpr static size_t kPeriodCount = 2;
+    static size_t getPeriodSize(
+        const ::aidl::android::media::audio::common::AudioPortConfig&
+            mixPortConfig);
+    pal_incall_record_direction getRecordDirection(
+        const ::aidl::android::media::audio::common::AudioPortConfig&
+            mixPortConfig);
 };
 
 class UllPlayback {

@@ -1108,6 +1108,8 @@ ndk::ScopedAStatus Module::setAudioPortConfig(const AudioPortConfig& in_requeste
                 // 'AudioMixPortExt.handle' is set by the client, copy from in_requested
                 out_suggested->ext.get<AudioPortExt::Tag::mix>().handle =
                         in_requested.ext.get<AudioPortExt::Tag::mix>().handle;
+                out_suggested->ext.get<AudioPortExt::Tag::mix>().usecase =
+                        in_requested.ext.get<AudioPortExt::Tag::mix>().usecase;
             }
         } else {
             LOG(WARNING) << __func__ << ": requested ext tag "

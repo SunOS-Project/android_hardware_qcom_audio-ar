@@ -648,9 +648,7 @@ size_t StreamOutPrimary::getPeriodSize() const noexcept {
             mMixPortConfig.format.value(), mMixPortConfig.channelMask.value(),
             mMixPortConfig.sampleRate.value().value);
     } else if (mTag == Usecase::VOIP_PLAYBACK) {
-        return VoipPlayback::getPeriodSize(
-            mMixPortConfig.format.value(), mMixPortConfig.channelMask.value(),
-            mMixPortConfig.sampleRate.value().value);
+        return VoipPlayback::getPeriodSize(mMixPortConfig);
     } else if (mTag == Usecase::SPATIAL_PLAYBACK) {
         return PrimaryPlayback::kPeriodSize * mFrameSizeBytes;
     } else if (mTag == Usecase::ULL_PLAYBACK) {
@@ -706,7 +704,7 @@ void StreamOutPrimary::configure() {
     } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
         attr->type = PAL_STREAM_PCM_OFFLOAD;
     } else if (mTag == Usecase::VOIP_PLAYBACK) {
-        attr->type = PAL_STREAM_VOIP_TX;
+        attr->type = PAL_STREAM_VOIP_RX;
     } else if (mTag == Usecase::SPATIAL_PLAYBACK) {
         attr->type = PAL_STREAM_SPATIAL_AUDIO;
     } else if (mTag == Usecase::ULL_PLAYBACK) {

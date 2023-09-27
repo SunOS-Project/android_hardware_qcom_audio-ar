@@ -83,7 +83,9 @@ class StreamInPrimary: public StreamIn, public StreamCommonImpl {
     pal_stream_handle_t* mPalHandle{nullptr};
     // used to verify a successful configuration of pal stream
     bool mIsConfigured{false};
-    std::variant<std::monostate, PcmRecord, CompressCapture, VoipRecord, MMapRecord> mExt;
+    std::variant<std::monostate, PcmRecord, CompressCapture, VoipRecord,
+                 MMapRecord, VoiceCallRecord>
+        mExt;
     // references
     Platform& mPlatform {Platform::getInstance()};
     const ::aidl::android::media::audio::common::AudioPortConfig& mMixPortConfig{mContext.getMixPortConfig()};

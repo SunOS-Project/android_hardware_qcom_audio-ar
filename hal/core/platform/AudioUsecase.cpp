@@ -50,6 +50,7 @@ Usecase getUsecaseTag(
         return static_cast<int32_t>(flag);
     };
 
+    constexpr int32_t noneFlags = 0;
     constexpr auto PrimaryPlaybackFlags =
         static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::PRIMARY));
     constexpr auto deepBufferPlaybackFlags =
@@ -107,8 +108,16 @@ Usecase getUsecaseTag(
     } else if (flagsTag == AudioIoFlags::Tag::input) {
         auto& inFlags =
             mixPortConfig.flags.value().get<AudioIoFlags::Tag::input>();
-        if (inFlags == 0) {
+        if (inFlags == noneFlags) {
             tag = Usecase::PCM_RECORD;
+            if( mixUsecaseTag == AudioPortMixExtUseCase::source){
+                auto& source = mixUsecase.get<AudioPortMixExtUseCase::source>();
+                if (source == AudioSource::VOICE_UPLINK ||
+                    source == AudioSource::VOICE_DOWNLINK ||
+                    source == AudioSource::VOICE_CALL) {
+                    tag = Usecase::VOICE_CALL_RECORD;
+                }
+            }
         } else if (inFlags == compressCaptureFlags) {
             tag = Usecase::COMPRESS_CAPTURE;
         } else if (inFlags == recordVoipFlags &&
@@ -155,6 +164,8 @@ std::string getName(const Usecase tag) {
             return "MMAP_PLAYBACK";
         case Usecase::MMAP_RECORD:
             return "MMAP_RECORD";
+        case Usecase::VOICE_CALL_RECORD:
+            return "VOICE_CALL_RECORD";
         default:
             return std::to_string(static_cast<uint16_t>(tag));
     }
@@ -833,16 +844,13 @@ size_t PcmOffloadPlayback::getPeriodSize(
 //start of VoipPlayback
 
 size_t VoipPlayback::getPeriodSize(
-    const ::aidl::android::media::audio::common::AudioFormatDescription&
-        formatDescription,
-    const ::aidl::android::media::audio::common::AudioChannelLayout&
-        channelLayout,
-    const int32_t sampleRate) {
-    const auto frameSize =
-        ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
-            formatDescription, channelLayout);
-    size_t periodSize =
-        sampleRate * (VoipPlayback::kBufferDurationMs / 1000) * frameSize;
+    const ::aidl::android::media::audio::common::AudioPortConfig&
+        mixPortConfig) {
+    const auto frameSize = getFrameSizeInBytes(
+        mixPortConfig.format.value(), mixPortConfig.channelMask.value());
+    size_t periodSize = (VoipPlayback::kBufferDurationMs *
+                         mixPortConfig.sampleRate.value().value * frameSize) /
+                        1000;
     return periodSize;
 }
 
@@ -974,5 +982,53 @@ size_t MMapRecord::getPeriodSize(
 }
 
 //end of MMapRecord
+// start of VoipRecord
+
+// static
+size_t VoipRecord::getPeriodSize(
+    const ::aidl::android::media::audio::common::AudioPortConfig&
+        mixPortConfig) {
+    const auto frameSize = getFrameSizeInBytes(
+        mixPortConfig.format.value(), mixPortConfig.channelMask.value());
+    size_t size = (VoipRecord::kCaptureDurationMs *
+                   mixPortConfig.sampleRate.value().value * frameSize) /
+                  1000;
+    return size;
+}
+
+// end of VoipRecord
+
+// start of VoiceCallRecord
+
+pal_incall_record_direction VoiceCallRecord::getRecordDirection(
+    const ::aidl::android::media::audio::common::AudioPortConfig&
+        mixPortConfig) {
+    auto& source = mixPortConfig.ext.get<AudioPortExt::Tag::mix>()
+                       .usecase.get<AudioPortMixExtUseCase::source>();
+    if (source == AudioSource::VOICE_UPLINK) {
+        return INCALL_RECORD_VOICE_UPLINK;
+    } else if (source == AudioSource::VOICE_DOWNLINK) {
+        return INCALL_RECORD_VOICE_DOWNLINK;
+    } else if (source == AudioSource::VOICE_CALL) {
+        return INCALL_RECORD_VOICE_UPLINK_DOWNLINK;
+    }
+    LOG(ERROR) << __func__ << ": Invalid source for VoiceCallRecord"
+               << static_cast<int>(source);
+    return  static_cast<pal_incall_record_direction>(0);
+}
+
+// static
+size_t VoiceCallRecord::getPeriodSize(
+    const ::aidl::android::media::audio::common::AudioPortConfig&
+        mixPortConfig) {
+    const auto frameSize = getFrameSizeInBytes(
+        mixPortConfig.format.value(), mixPortConfig.channelMask.value());
+    size_t size = (kCaptureDurationMs * mixPortConfig.sampleRate.value().value *
+                   frameSize) /
+                  1000;
+    return size;
+}
+
+// end of VoiceCallRecord
 
 }  // namespace qti::audio::core

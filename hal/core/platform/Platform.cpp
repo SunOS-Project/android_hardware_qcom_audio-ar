@@ -73,6 +73,12 @@ size_t Platform::getIOBufferSizeInFrames(
         numFrames = MMapPlayback::kPeriodSize;
     } else if (tag == Usecase::MMAP_RECORD) {
         numFrames = MMapRecord::kPeriodSize;
+    } else if (tag == Usecase::VOIP_PLAYBACK) {
+        numFrames = VoipPlayback::getPeriodSize(mixPortConfig);
+    } else if (tag == Usecase::VOIP_RECORD) {
+        numFrames = VoipRecord::getPeriodSize(mixPortConfig);
+    } else if (tag == Usecase::VOICE_CALL_RECORD) {
+        numFrames = VoiceCallRecord::getPeriodSize(mixPortConfig);
     }
     LOG(VERBOSE) << __func__
                  << " IOBufferSizeInFrames:" << std::to_string(numFrames)
