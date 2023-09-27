@@ -23,7 +23,7 @@ using aidl::android::media::audio::common::AudioUuid;
 namespace aidl::qti::effects {
 
 Factory::Factory(const std::string& file) : mConfig(EffectConfig(file)) {
-    LOG(DEBUG) << __func__ << " with config file: " << file;
+    LOG(VERBOSE) << __func__ << " with config file: " << file;
     loadEffectLibs();
 }
 

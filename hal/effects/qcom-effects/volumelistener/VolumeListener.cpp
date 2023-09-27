@@ -196,11 +196,4 @@ ndk::ScopedAStatus VolumeListener::setParameterCommon(const Parameter& param) {
     return ndk::ScopedAStatus::ok();
 }
 
-// Processing method running in EffectWorker thread.
-IEffect::Status VolumeListener::effectProcessImpl(float* in, float* out, int samples) {
-    // noProcess effect, no need to provide impl
-    LOG(VERBOSE) << __func__;
-    return {STATUS_OK, samples, samples};
-}
-
 } // namespace aidl::qti::effects

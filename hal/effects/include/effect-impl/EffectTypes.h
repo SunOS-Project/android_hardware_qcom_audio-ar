@@ -75,7 +75,7 @@ inline std::ostream& operator<<(std::ostream& out, const RetCode& code) {
 #define RETURN_IF(expr, exception, message)                                                  \
     do {                                                                                     \
         if (expr) {                                                                          \
-            LOG(ERROR) << __func__ << ":" << __LINE__ << " return with expr " << #expr;      \
+            LOG(VERBOSE) << __func__ << ":" << __LINE__ << " return with expr " << #expr;    \
             return ndk::ScopedAStatus::fromExceptionCodeWithMessage((exception), (message)); \
         }                                                                                    \
     } while (0)

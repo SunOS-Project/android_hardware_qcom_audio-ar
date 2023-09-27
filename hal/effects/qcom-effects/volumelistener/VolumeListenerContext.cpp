@@ -113,7 +113,7 @@ RetCode VolumeListenerContext::setOutputDevice(
 }
 
 RetCode VolumeListenerContext::setVolumeStereo(const Parameter::VolumeStereo& volumeStereo) {
-    LOG(INFO) << __func__ << details() << " " << volumeStereo.toString();
+    LOG(DEBUG) << __func__ << details() << " " << volumeStereo.toString();
     mVolumeStereo = volumeStereo;
     return RetCode::SUCCESS;
 }

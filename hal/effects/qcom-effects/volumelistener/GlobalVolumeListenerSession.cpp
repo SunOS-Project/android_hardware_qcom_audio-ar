@@ -47,17 +47,17 @@ void GlobalConfigs::initGainMappings() {
             }
         }
         mTotalVolumeCalSteps = maxTableEntries;
-        LOG(INFO) << "Using custom volume table";
+        LOG(DEBUG) << "Using custom volume table";
     } else {
-        LOG(INFO) << "Using default volume table";
+        LOG(DEBUG) << "Using default volume table";
     }
     printVolumeTable();
 }
 
 void GlobalConfigs::printVolumeTable() {
     for (int i = 0; i < mTotalVolumeCalSteps; i++) {
-        LOG(DEBUG) << "Index: " << i << " (amp, db, level)" << mGainMappingTable[i].amp << " "
-                   << mGainMappingTable[i].db << " " << mGainMappingTable[i].level;
+        LOG(VERBOSE) << "Index: " << i << " (amp, db, level)" << mGainMappingTable[i].amp << " "
+                     << mGainMappingTable[i].db << " " << mGainMappingTable[i].level;
     }
 }
 
@@ -108,7 +108,7 @@ RetCode GlobalVolumeListenerSession::setOutputDevice(int sessionId,
 
 RetCode GlobalVolumeListenerSession::setVolumeStereo(int sessionId,
                                                      const Parameter::VolumeStereo &volumeStereo) {
-    LOG(DEBUG) << __func__ << " sessionId " << sessionId;
+    LOG(VERBOSE) << __func__ << " sessionId " << sessionId;
     std::lock_guard lg(mSessionMutex);
     if (mSessionsMap.find(sessionId) != mSessionsMap.end()) {
         auto &context = mSessionsMap[sessionId];
@@ -176,8 +176,8 @@ void GlobalVolumeListenerSession::applyUpdatedCalibration(float newVolume) {
             for (int index = 0; index < mTotalVolumeSteps - 1; index++) {
                 if (newVolume < mGainTable[index + 1].amp && newVolume >= mGainTable[index].amp) {
                     gainDepCalLevel = mGainTable[index].level;
-                    LOG(DEBUG) << __func__ << " found " << newVolume << " at " << index << " gain "
-                               << gainDepCalLevel;
+                    LOG(VERBOSE) << __func__ << " found " << newVolume << " at " << index
+                                 << " gain " << gainDepCalLevel;
                     break;
                 }
             }

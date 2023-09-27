@@ -42,7 +42,6 @@ class VolumeListener final : public EffectImpl {
                                             Parameter::Specific* specific) override;
 
     std::string getEffectName() override { return *mEffectName; };
-    IEffect::Status effectProcessImpl(float* in, float* out, int samples) override;
 
   private:
     std::shared_ptr<VolumeListenerContext> mContext;
