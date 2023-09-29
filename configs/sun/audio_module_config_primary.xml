@@ -81,6 +81,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
             <profile samplingRates="8000 16000" channelLayouts="LAYOUT_MONO" formatType="PCM" pcmType="INT_16_BIT" />
         </devicePort>
         <devicePort tagName="telephony_tx_device_out" deviceType="OUT_TELEPHONY_TX" role="sink" attached="true">
+            <profile samplingRates="8000 16000" channelLayouts="LAYOUT_MONO LAYOUT_STEREO" formatType="DEFAULT" pcmType="DEFAULT" />
             <profile samplingRates="8000 16000" channelLayouts="LAYOUT_MONO LAYOUT_STEREO" formatType="PCM" pcmType="INT_16_BIT" />
         </devicePort>
         <!-- Todo check the sanity of below later w.r.t channel layouts -->
@@ -139,6 +140,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
             <profile samplingRates="8000 16000" channelLayouts="LAYOUT_MONO" formatType="PCM" pcmType="INT_16_BIT" />
         </devicePort>
         <devicePort tagName="telephony_rx_mic" deviceType="IN_TELEPHONY_RX" role="source" attached="true">
+            <profile samplingRates="8000 16000" channelLayouts="LAYOUT_MONO LAYOUT_STEREO" formatType="DEFAULT" pcmType="DEFAULT" />
             <profile samplingRates="8000 16000 48000" channelLayouts="LAYOUT_MONO" formatType="PCM" pcmType="INT_16_BIT" />
         </devicePort>
         <!-- Todo check the sanity of the below device port profile -->
@@ -161,10 +163,10 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <!-- end of source DEVICE PORT -->
     </devicePorts>
     <routes>
-        <route type="mix" sink="earpiece" sources="primary_out,low_latency_out,deep_buffer_out,direct_pcm_out,compress_offload_out" />
-        <route type="mix" sink="speaker" sources="primary_out,low_latency_out,deep_buffer_out,direct_pcm_out,compress_offload_out" />
-        <route type="mix" sink="wired_headset" sources="primary_out,low_latency_out,deep_buffer_out,direct_pcm_out,compress_offload_out" />
-        <route type="mix" sink="wired_headphones" sources="primary_out,low_latency_out,deep_buffer_out,direct_pcm_out,compress_offload_out" />
+        <route type="mix" sink="earpiece" sources="primary_out,low_latency_out,deep_buffer_out,direct_pcm_out,compress_offload_out,telephony_rx_mic" />
+        <route type="mix" sink="speaker" sources="primary_out,low_latency_out,deep_buffer_out,direct_pcm_out,compress_offload_out,telephony_rx_mic" />
+        <route type="mix" sink="wired_headset" sources="primary_out,low_latency_out,deep_buffer_out,direct_pcm_out,compress_offload_out,telephony_rx_mic" />
+        <route type="mix" sink="wired_headphones" sources="primary_out,low_latency_out,deep_buffer_out,direct_pcm_out,compress_offload_out,telephony_rx_mic" />
         <route type="mix" sink="line_device_out" sources="primary_out,low_latency_out,deep_buffer_out,direct_pcm_out,compress_offload_out" />
         <route type="mix" sink="hdmi_device_out" sources="primary_out,low_latency_out,deep_buffer_out,direct_pcm_out,compress_offload_out" />
         <route type="mix" sink="proxy_device_out" sources="primary_out,low_latency_out,deep_buffer_out,direct_pcm_out,compress_offload_out" />
@@ -180,8 +182,9 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <route type="mix" sink="bt_a2dp_speaker" sources="primary_out,low_latency_out,deep_buffer_out,direct_pcm_out,compress_offload_out" />
         <route type="mix" sink="bt_ble_speaker" sources="primary_out,low_latency_out,deep_buffer_out,direct_pcm_out,compress_offload_out" />
         <route type="mix" sink="bt_ble_broadcast" sources="primary_out,low_latency_out,deep_buffer_out,direct_pcm_out,compress_offload_out" />
-        <route type="mix" sink="primary_in" sources="built_in_mic,built_in_back_mic,wired_headset_mic,bt_sco_headset_mic,fm_tuner_mic,telephony_rx_mic,bt_a2dp_mic,echo_reference_mic,bt_le_mic" />
-        <route type="mix" sink="compress_in" sources="built_in_mic,built_in_back_mic,wired_headset_mic,bt_sco_headset_mic,fm_tuner_mic,telephony_rx_mic,bt_a2dp_mic,echo_reference_mic,bt_le_mic" />
+        <route type="mix" sink="primary_in" sources="built_in_mic,built_in_back_mic,wired_headset_mic,bt_sco_headset_mic,fm_tuner_mic,bt_a2dp_mic,echo_reference_mic,bt_le_mic" />
+        <route type="mix" sink="compress_in" sources="built_in_mic,built_in_back_mic,wired_headset_mic,bt_sco_headset_mic,fm_tuner_mic,bt_a2dp_mic,echo_reference_mic,bt_le_mic" />
+        <route type="mix" sink="telephony_tx_device_out" sources="built_in_mic,built_in_back_mic,wired_headset_mic,bt_sco_headset_mic,fm_tuner_mic,bt_a2dp_mic,echo_reference_mic,bt_le_mic" />
     </routes>
 </module>
 </modules>
