@@ -78,6 +78,20 @@ class Platform {
     uint32_t getBluetoothLatencyMs(
         const std::vector<::aidl::android::media::audio::common::AudioDevice>&
             bluetoothDevices);
+    std::unique_ptr<pal_stream_attributes> getDefaultTelephonyAttributes() const;
+    void configurePalDevicesCustomKey(std::vector<pal_device>& palDevices,
+                                      const std::string& key) const;
+
+    std::vector<::aidl::android::media::audio::common::AudioDevice>
+    getPrimaryPlaybackDevices() const {
+        return mPrimaryPlaybackDevices;
+    }
+
+    void setPrimaryPlaybackDevices(
+        const std::vector<::aidl::android::media::audio::common::AudioDevice>&
+            devices) {
+        mPrimaryPlaybackDevices = devices;
+    }
 
    private:
     bool getBtConfig(pal_param_bta2dp_t* bTConfig);
@@ -89,6 +103,8 @@ class Platform {
         PAL_AUDIO_FMT_PCM_S16_LE;
 
    private:
+    std::vector<::aidl::android::media::audio::common::AudioDevice>
+        mPrimaryPlaybackDevices{};
     std::map<std::string, std::string> mParameters;
     card_status_t mSndCardStatus{CARD_STATUS_OFFLINE};
     const PlatformConverter& mTypeConverter{PlatformConverter::getInstance()};

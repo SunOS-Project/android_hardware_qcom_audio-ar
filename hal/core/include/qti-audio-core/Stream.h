@@ -51,7 +51,7 @@
 
 #include <Utils.h>
 #include <qti-audio-core/ChildInterface.h>
-#include <qti-audio-core/utils.h>
+#include <qti-audio-core/Utils.h>
 #include <qti-audio-core/Platform.h>
 
 
@@ -720,6 +720,17 @@ class Streams {
             return it->second.setConnectedDevices(devices);
         }
         return ndk::ScopedAStatus::ok();
+    }
+
+    std::string toString() const {
+        std::ostringstream os;
+        os << std::endl << " --- mStreams ---" << std::endl;
+        std::for_each(
+            mStreams.cbegin(), mStreams.cend(), [&](const auto& pair) {
+                os << "PortConfigId/PortId:" << pair.first << std::endl;
+            });
+        os << std::endl << " --- mStreams end ---" << std::endl << std::endl;
+        return os.str();
     }
 
    private:

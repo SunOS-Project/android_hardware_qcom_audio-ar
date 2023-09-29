@@ -35,6 +35,7 @@ LOCAL_SRC_FILES := \
     Telephony.cpp \
     StreamInPrimary.cpp \
     StreamOutPrimary.cpp \
+    Utils.cpp \
     HalOffloadEffects.cpp
 
 LOCAL_HEADER_LIBRARIES :=  \

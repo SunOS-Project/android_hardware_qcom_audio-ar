@@ -22,6 +22,8 @@ using ::aidl::android::media::audio::common::AudioStreamType;
 using ::aidl::android::hardware::audio::common::isBitPositionFlagSet;
 using ::aidl::android::hardware::audio::common::getChannelCount;
 using ::aidl::android::hardware::audio::common::getFrameSizeInBytes;
+using ::aidl::android::hardware::audio::common::getPcmSampleSizeInBytes;
+using ::aidl::android::media::audio::common::AudioPortConfig;
 using ::aidl::android::media::audio::common::AudioPortExt;
 using ::aidl::android::media::audio::common::AudioPortMixExtUseCase;
 
@@ -136,6 +138,19 @@ std::string getName(const Usecase tag) {
             return std::to_string(static_cast<uint16_t>(tag));
     }
 }
+// start of pcm record
+
+// static
+size_t PcmRecord::getMinFrames(const AudioPortConfig& mixPortConfig) {
+    size_t minFrames = kCaptureDurationMs *
+                       (mixPortConfig.sampleRate.value().value / 1000);
+    minFrames = getNearestMultiple(
+        minFrames, getPcmSampleSizeInBytes(mixPortConfig.format.value().pcm));
+    // Adjusting to minFrames as atleast kFMQMinFrameSize (256).
+    // Todo check the sanity of this requirement in the VTS test.
+    minFrames = std::max(minFrames,kFMQMinFrameSize);
+    return minFrames;
+}
 
 PcmRecord::HdrMode PcmRecord::getHdrMode() {
     const auto& platform = Platform::getInstance();
@@ -221,6 +236,8 @@ void PcmRecord::configurePalDevices(
             [&](auto& palDevice) { this->setHdrOnPalDevice(&palDevice); });
     }
 }
+
+// end of pcm record
 
 // start of compress playback
 CompressPlayback::CompressPlayback(
@@ -603,6 +620,11 @@ CompressCapture::CompressCapture(
 
 void CompressCapture::setPalHandle(pal_stream_handle_t* handle) {
     mCompressHandle = handle;
+}
+
+size_t CompressCapture::getLatencyMs() {
+    constexpr size_t kMilliSeconds = 1000;
+    return mPCMSamplesPerFrame * kMilliSeconds / mSampleRate;
 }
 
 std::unique_ptr<uint8_t[]> CompressCapture::getPayloadCodecInfo() const {

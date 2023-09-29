@@ -23,6 +23,7 @@
 #pragma once
 
 #include <qti-audio-core/Module.h>
+#include <qti-audio-core/Telephony.h>
 #include <qti-audio-core/Platform.h>
 
 namespace qti::audio::core {
@@ -31,8 +32,60 @@ class ModulePrimary final : public Module {
    public:
     ModulePrimary() : Module(Type::DEFAULT) {}
 
-    std::string toStringInternal();
-    void dumpInternal() ;
+    std::string toStringInternal() override;
+    void dumpInternal(const std::string& identifier = "no_id") override;
+
+    // start of Module Parameters
+
+    /**
+     * Features to be provided by Set/Get Parameters.
+     * Each Feature can be associated to one or more semantically related Parameters id's.
+     * Each Feature has atmost one set handler or atmost one get handler or both.
+     * Such a group of Parameters acquires a Feature enum and will be
+     * dealt either by set or get or both handlers.
+     *
+     * Example:
+     * {k1,k2,k3} => F1 => SH,GH
+     * {k3,k5} => F2 => SH
+     * {k7} => F3 => GH
+     *
+     * k* -> parameter's Ids,
+     * F* -> Feature enums,
+     * SH -> SetHandler
+     * GH -> GetHandler
+     **/
+    enum class Feature : uint16_t {
+        INVALID = 0,
+        TELEPHONY,
+        BLUETOOTH,
+        HDR,
+    };
+
+    // For set parameters
+    using SetHandler = std::function<void(
+        ModulePrimary*,
+        const std::vector<
+            ::aidl::android::hardware::audio::core::VendorParameter>&)>;
+    using SetParameterToFeatureMap = std::map<std::string, Feature>;
+    using FeatureToSetHandlerMap = std::map<Feature,SetHandler>;
+    static SetParameterToFeatureMap fillSetParameterToFeatureMap();
+    static FeatureToSetHandlerMap fillFeatureToSetHandlerMap();
+    using FeatureToVendorParametersMap = std::map<
+        Feature,
+        std::vector<::aidl::android::hardware::audio::core::VendorParameter>>;
+
+    // For get parameters
+    using GetHandler = std::function<
+        std::vector<::aidl::android::hardware::audio::core::VendorParameter>(
+            ModulePrimary*, const std::vector<std::string>&)>;
+    using GetParameterToFeatureMap = std::map<std::string, Feature>;
+    using FeatureToGetHandlerMap = std::map<Feature,GetHandler>;
+    static GetParameterToFeatureMap fillGetParameterToFeatureMap();
+    static FeatureToGetHandlerMap fillFeatureToGetHandlerMap();
+    using FeatureToStringMap =
+        std::map<Feature, std::vector<std::string>>;
+
+    // end of Module Parameters
 
    protected:
     binder_status_t dump(int fd, const char** args, uint32_t numArgs) override;
@@ -70,15 +123,49 @@ class ModulePrimary final : public Module {
         const std::vector<
             ::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
         ::aidl::android::hardware::audio::core::AudioPatch& newPatch) override;
+    void updateTelephonyPatch(
+        const std::vector<
+            ::aidl::android::media::audio::common::AudioPortConfig*>& sources,
+        const std::vector<
+            ::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
+        const ::aidl::android::hardware::audio::core::AudioPatch& newPatch)
+        override;
     void onExternalDeviceConnectionChanged(
         const ::aidl::android::media::audio::common::AudioPort& audioPort,
         bool connected) override;
 
+    // start of module parameters handling
+    bool processSetVendorParameters(
+        const std::vector<
+            ::aidl::android::hardware::audio::core::VendorParameter>&);
+    // SetHandler For HDR
+    void onSetHDRParameters(
+        const std::vector<
+            ::aidl::android::hardware::audio::core::VendorParameter>&);
+    // SetHandler For Telephony
+    void onSetTelephonyParameters(
+        const std::vector<
+            ::aidl::android::hardware::audio::core::VendorParameter>&);
+
+    std::vector<::aidl::android::hardware::audio::core::VendorParameter>
+    processGetVendorParameters(const std::vector<std::string>&);
+    // GetHandler for Telephony
+    std::vector<::aidl::android::hardware::audio::core::VendorParameter>
+    onGetTelephonyParameters(const std::vector<std::string>&);
+    // end of module parameters handling
+
 
    protected:
-    ChildInterface<::aidl::android::hardware::audio::core::ITelephony>
+    ChildInterface<Telephony>
         mTelephony;
+    const SetParameterToFeatureMap mSetParameterToFeatureMap{
+        fillSetParameterToFeatureMap()};
+    const FeatureToSetHandlerMap mFeatureToSetHandlerMap{fillFeatureToSetHandlerMap()};
+    const GetParameterToFeatureMap mGetParameterToFeatureMap{
+        fillGetParameterToFeatureMap()};
+    const FeatureToGetHandlerMap mFeatureToGetHandlerMap{fillFeatureToGetHandlerMap()};
     Platform& mPlatform{Platform::getInstance()};
+
 };
 
 }  // namespace qti::audio::core

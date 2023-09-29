@@ -79,10 +79,7 @@ class StreamInPrimary: public StreamIn, public StreamCommonImpl {
     const int mSampleRate;
     const bool mIsAsynchronous;
     const bool mIsInput;
-    bool mIsInitialized{false};  // Used for validating the state machine logic.
-    bool mIsStandby{true};       // Used for validating the state machine logic.
     pal_stream_handle_t* mPalHandle{nullptr};
-    bool mIsPaused{false};
     // used to verify a successful configuration of pal stream
     bool mIsConfigured{false};
     std::variant<std::monostate, PcmRecord, CompressCapture, VoipRecord> mExt;

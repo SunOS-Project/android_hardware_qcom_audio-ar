@@ -71,6 +71,10 @@ class PcmRecord final {
    public:
     constexpr static uint32_t kCaptureDurationMs = 20;
     constexpr static uint32_t kPeriodCount = 4;
+    constexpr static size_t kFMQMinFrameSize = 256;
+    static size_t getMinFrames(
+        const ::aidl::android::media::audio::common::AudioPortConfig&
+            mixPortConfig);
     enum class HdrMode : uint8_t {
         NONE = 0,
         ARM,
@@ -316,6 +320,7 @@ class CompressCapture final{
              ::aidl::android::hardware::audio::core::VendorParameter>&
              in_parameters,
          bool in_async);
+    size_t getLatencyMs();
      ndk::ScopedAStatus getVendorParameters(
          const std::vector<std::string>& in_ids,
          std::vector<::aidl::android::hardware::audio::core::VendorParameter>*

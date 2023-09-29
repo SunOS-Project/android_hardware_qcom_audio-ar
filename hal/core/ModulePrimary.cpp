@@ -31,12 +31,17 @@
 #include <qti-audio-core/StreamOutPrimary.h>
 #include <qti-audio-core/StreamStub.h>
 #include <qti-audio-core/Telephony.h>
+#include <qti-audio-core/Parameters.h>
+#include <qti-audio-core/Utils.h>
+
+#include <aidl/qti/audio/core/VString.h>
 
 using aidl::android::hardware::audio::common::SinkMetadata;
 using aidl::android::hardware::audio::common::SourceMetadata;
 using aidl::android::media::audio::common::AudioOffloadInfo;
 using aidl::android::media::audio::common::AudioPort;
 using aidl::android::media::audio::common::AudioPortExt;
+using aidl::android::media::audio::common::AudioDevice;
 using aidl::android::media::audio::common::AudioPortConfig;
 using aidl::android::media::audio::common::MicrophoneInfo;
 using aidl::android::media::audio::common::Boolean;
@@ -53,6 +58,7 @@ using ::aidl::android::hardware::audio::core::IStreamIn;
 using ::aidl::android::hardware::audio::core::IStreamOut;
 using ::aidl::android::hardware::audio::core::ITelephony;
 using ::aidl::android::hardware::audio::core::VendorParameter;
+using ::aidl::qti::audio::core::VString;
 
 namespace qti::audio::core {
 
@@ -61,28 +67,46 @@ std::string ModulePrimary::toStringInternal() {
     os << "--- ModulePrimary start ---" << std::endl;
     os << getConfig().toString() << std::endl;
 
+    os << std::endl << " --- mPatches ---" << std::endl;
+    std::for_each(mPatches.cbegin(), mPatches.cend(), [&](const auto& pair) {
+        os << "PortConfigId/PortId:" << pair.first
+           << " Patch Id:" << pair.second << std::endl;
+    });
+    os << std::endl << " --- mPatches end ---" << std::endl << std::endl;
+
+    os << mStreams.toString();
+
     os << mPlatform.toString() << std::endl;
     os << "--- ModulePrimary end ---" << std::endl;
     return os.str();
 }
 
-void ModulePrimary::dumpInternal() {
-    const std::string kDumpPath{"/data/vendor/audio/audio_hal_service.dump"};
+void ModulePrimary::dumpInternal(const std::string& identifier) {
+    const auto realTimeMs =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch())
+            .count();
+    const std::string kDumpPath{
+        std::string("/data/vendor/audio/audio_hal_service_")
+            .append(identifier)
+            .append("_")
+            .append(std::to_string(realTimeMs))
+            .append(".dump")};
 
-    auto fd = ::open(kDumpPath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
-                     S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    const auto fd = ::open(kDumpPath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
+                           S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     if (fd <= 0) {
-        LOG(ERROR) << ": dump internal failed; fd:" << fd
+        LOG(ERROR) << __func__ << ": dump internal failed; fd:" << fd
                    << " unable to open file:" << kDumpPath;
         return;
     }
-    auto dumpData = toStringInternal();
+    const auto dumpData = toStringInternal();
     auto b = ::write(fd, dumpData.c_str(), dumpData.size());
     if (b != static_cast<decltype(b)>(dumpData.size())) {
         LOG(ERROR) << __func__ << ": dump internal failed to write in "
                    << kDumpPath;
     }
-    LOG(INFO) << "dump internal successful to " << kDumpPath;
+    LOG(DEBUG) << __func__ << ": at: " << kDumpPath;
     ::close(fd);
     return;
 }
@@ -143,10 +167,60 @@ ModulePrimary::getDynamicProfiles(
 void ModulePrimary::onNewPatchCreation(const std::vector<AudioPortConfig*>& sources,
                                 const std::vector<AudioPortConfig*>& sinks,
                                 AudioPatch& newPatch) {
-    auto numFrames = mPlatform.getMinimumStreamSizeFrames(
-        sources, sinks);
-    numFrames != 0 ? (void)(newPatch.minimumStreamBufferSizeFrames = numFrames)
-                   : (void)0;
+    if (!isMixPortConfig(*(sources.at(0))) &&
+        !isMixPortConfig(*(sinks.at(0)))) {
+        LOG(VERBOSE) << __func__ << ": no mix ports detected";
+        return;
+    }
+    auto numFrames = mPlatform.getMinimumStreamSizeFrames(sources, sinks);
+    if (numFrames < kMinimumStreamBufferSizeFrames) {
+        LOG(DEBUG) << __func__ << ": got invalid stream size frames "
+                     << numFrames << " adjusting to "
+                     << kMinimumStreamBufferSizeFrames;
+        numFrames = kMinimumStreamBufferSizeFrames;
+    }
+    newPatch.minimumStreamBufferSizeFrames = numFrames;
+}
+
+void ModulePrimary::updateTelephonyPatch(
+    const std::vector<AudioPortConfig*>& sources,
+    const std::vector<AudioPortConfig*>& sinks, const AudioPatch& patch) {
+
+    if (!mTelephony) {
+        LOG(ERROR) << __func__ << ": Telephony not created";
+        return;
+    }
+
+    // Todo remove this, upon device to device patch works for telephony
+    mTelephony->updateDevicesFromPrimaryPlayback();
+
+    if (!isDevicePortConfig(*(sources.at(0))) ||
+        !isDevicePortConfig(*(sinks.at(0)))) {
+        return;
+    }
+    bool updateRx = isTelephonyRXDevice(
+        sources.at(0)->ext.get<AudioPortExt::Tag::device>().device);
+    bool updateTx = isTelephonyTXDevice(
+        sinks.at(0)->ext.get<AudioPortExt::Tag::device>().device);
+
+    if (!updateRx && !updateTx) {
+        LOG(ERROR) << __func__ << ": neither RX nor TX update ";
+        return;
+    }
+
+    const auto& toBeUpdated = updateRx ? (sinks) : (sources);
+
+    std::vector<AudioDevice> devices;
+    for (const auto configPtr : toBeUpdated) {
+        devices.push_back(
+            configPtr->ext.get<AudioPortExt::Tag::device>().device);
+    }
+
+    // Todo uncomment below ,upon device to device patch works for telephony
+    mTelephony->setDevicesFromPatch(devices, updateRx);
+    LOG(VERBOSE) << __func__ << ": device to device patch, "
+                 << patch.toString();
+    return;
 }
 
 void ModulePrimary::onExternalDeviceConnectionChanged(
@@ -160,22 +234,7 @@ void ModulePrimary::onExternalDeviceConnectionChanged(
     }
 }
 
-namespace {
-
-template <typename W>
-bool extractParameter(const VendorParameter& p, decltype(W::value)* v) {
-    std::optional<W> value;
-    binder_status_t result = p.ext.getParcelable(&value);
-    if (result == STATUS_OK && value.has_value()) {
-        *v = value.value().value;
-        return true;
-    }
-    LOG(ERROR) << __func__ << ": failed to read the value of the parameter \"" << p.id
-               << "\": " << result;
-    return false;
-}
-
-}
+// start of module parameters handling
 
 ndk::ScopedAStatus ModulePrimary::setVendorParameters(
     const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
@@ -193,13 +252,112 @@ ndk::ScopedAStatus ModulePrimary::setVendorParameters(
             if (!extractParameter<Boolean>(p, &mVendorDebug.forceSynchronousDrain)) {
                 return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
             }
-        } else {
-            allParametersKnown = false;
-            LOG(ERROR) << __func__ << ": unrecognized parameter \"" << p.id << "\"";
-        }
+        } 
     }
+    processSetVendorParameters(in_parameters);
     if (allParametersKnown) return ndk::ScopedAStatus::ok();
     return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+}
+
+bool ModulePrimary::processSetVendorParameters(
+    const std::vector<VendorParameter>& parameters) {
+
+    FeatureToVendorParametersMap pendingActions{};
+    for (const auto& p : parameters) {
+        const auto searchId = mSetParameterToFeatureMap.find(p.id);
+        if (searchId == mSetParameterToFeatureMap.cend()) {
+            LOG(ERROR) << __func__ << ": not configured "<< p.id;
+            continue;
+        }
+
+        auto itr = pendingActions.find(searchId->second);
+        if (itr == pendingActions.cend()) {
+            pendingActions[searchId->second] = std::vector<VendorParameter>({p});
+            continue;
+        }
+        itr->second.push_back(p);
+    }
+
+    for (const auto& [key, value] : pendingActions) {
+        const auto search = mFeatureToSetHandlerMap.find(key);
+        if (search == mFeatureToSetHandlerMap.cend()) {
+            LOG(ERROR) << __func__ << ": no handler set on Feature:"
+                       << static_cast<int>(search->first);
+            continue;
+        }
+        auto handler = std::bind(search->second, this, value);
+        handler(); // a dynamic dispatch to a SetHandler
+    }
+    return true;
+}
+
+void ModulePrimary::onSetHDRParameters(const std::vector<VendorParameter>& params) {
+    for (const auto& param : params) {
+        LOG(VERBOSE) << __func__ << param.id;
+    }
+    // LOG(VERBOSE) << __func__;
+    return;
+};
+
+void ModulePrimary::onSetTelephonyParameters(
+    const std::vector<VendorParameter>& parameters) {
+    if(!mTelephony){
+        LOG(ERROR)<<__func__<<": Telephony not created";
+        return;
+    }
+
+    Telephony::SetUpdates setUpdates{};
+
+    for (const auto& p : parameters) {
+        std::string paramValue{};
+        if (!extractParameter<VString>(p, &paramValue)) {
+            LOG(ERROR) << ": extraction failed for " << p.id;
+            continue;
+        }
+        if (Parameters::kVoiceCallState == p.id) {
+            setUpdates.mCallState = static_cast<Telephony::CallState>(
+                getInt64FromString(paramValue));
+        } else if (Parameters::kVoiceVSID == p.id) {
+            setUpdates.mVSID =
+                static_cast<Telephony::VSID>(getInt64FromString(paramValue));
+        } else if (Parameters::kVoiceCallType == p.id) {
+            setUpdates.mCallType = std::move(paramValue);
+        } else if (Parameters::kVoiceCRSCall == p.id) {
+            setUpdates.mIsCrsCall = paramValue == "true" ? true : false;
+        }
+    }
+
+    mTelephony->reconfigure(setUpdates);
+
+    return;
+}
+
+// static
+ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeatureMap() {
+    SetParameterToFeatureMap map {
+        {Parameters::kHdrRecord, Feature::HDR},
+        {Parameters::kWnr, Feature::HDR},
+        {Parameters::kAns, Feature::HDR},
+        {Parameters::kOrientation, Feature::HDR},
+        {Parameters::kInverted, Feature::HDR},
+        {Parameters::kHdrChannelCount, Feature::HDR},
+        {Parameters::kHdrSamplingRate, Feature::HDR},
+        {Parameters::kVoiceCallState, Feature::TELEPHONY},
+        {Parameters::kVoiceCallType, Feature::TELEPHONY},
+        {Parameters::kVoiceVSID, Feature::TELEPHONY},
+        {Parameters::kVoiceCRSCall,Feature::TELEPHONY},
+    };
+    return map;
+}
+
+// static
+ModulePrimary::FeatureToSetHandlerMap
+ModulePrimary::fillFeatureToSetHandlerMap() {
+    FeatureToSetHandlerMap map{
+        {Feature::HDR, &ModulePrimary::onSetHDRParameters},
+        {Feature::TELEPHONY, &ModulePrimary::onSetTelephonyParameters},
+    };
+    return map;
 }
 
 ndk::ScopedAStatus ModulePrimary::getVendorParameters(
@@ -217,13 +375,87 @@ ndk::ScopedAStatus ModulePrimary::getVendorParameters(
             VendorParameter forceSynchronousDrain{.id = id};
             forceSynchronousDrain.ext.setParcelable(Boolean{mVendorDebug.forceSynchronousDrain});
             _aidl_return->push_back(std::move(forceSynchronousDrain));
-        } else {
-            allParametersKnown = false;
-            LOG(ERROR) << __func__ << ": unrecognized parameter \"" << id << "\"";
         }
+        // else {
+        //     allParametersKnown = false;
+        //     LOG(ERROR) << __func__ << ": unrecognized parameter \"" << id << "\"";
+        // }
     }
+
+    auto results = processGetVendorParameters(in_ids);
+    std::move(results.begin(),results.end(),std::back_inserter(*_aidl_return));
+
     if (allParametersKnown) return ndk::ScopedAStatus::ok();
     return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
 }
+
+std::vector<VendorParameter> ModulePrimary::processGetVendorParameters(
+    const std::vector<std::string>& ids) {
+    FeatureToStringMap pendingActions{};
+    for (const auto& id : ids) {
+        auto search = mGetParameterToFeatureMap.find(id);
+        if (search == mGetParameterToFeatureMap.cend()) {
+            LOG(ERROR) << __func__ << ": not configured " << id;
+            continue;
+        }
+        auto itr = pendingActions.find(search->second);
+        if (itr == pendingActions.cend()) {
+            pendingActions[search->second] = std::vector<std::string>({id});
+            continue;
+        }
+        itr->second.push_back(id);
+    }
+
+    std::vector<VendorParameter> result{};
+    for (const auto& [key, value] : pendingActions) {
+        const auto search = mFeatureToGetHandlerMap.find(key);
+        if (search == mFeatureToGetHandlerMap.cend()) {
+            LOG(ERROR) << __func__ << ": no handler set on Feature:"
+                       << static_cast<int>(search->first);
+            continue;
+        }
+        auto handler = std::bind(search->second, this, value);
+        auto keyResult = handler();  // a dynamic dispatch to GetHandler
+        result.insert(result.end(), keyResult.begin(), keyResult.end());
+    }
+    return result;
+}
+
+std::vector<VendorParameter> ModulePrimary::onGetTelephonyParameters(
+    const std::vector<std::string>& ids) {
+    if (!mTelephony) {
+        LOG(ERROR) << __func__ << ": Telephony not created";
+        return {};
+    }
+    std::vector<VendorParameter> results{};
+    for (const auto& id : ids) {
+        if (id == Parameters::kVoiceIsCRsSupported) {
+            VendorParameter param;
+            param.id = id;
+            VString parcel;
+            parcel.value = mTelephony->isCrsCallSupported() ? "1" : "0";
+            setParameter(parcel, param);
+            results.push_back(param);
+        }
+    }
+    return results;
+}
+
+// static 
+ModulePrimary::GetParameterToFeatureMap ModulePrimary::fillGetParameterToFeatureMap(){
+    GetParameterToFeatureMap map{
+        {Parameters::kVoiceIsCRsSupported, Feature::TELEPHONY}};
+    return map;
+}
+
+// static
+ModulePrimary::FeatureToGetHandlerMap
+ModulePrimary::fillFeatureToGetHandlerMap() {
+    FeatureToGetHandlerMap map{
+        {Feature::TELEPHONY, &ModulePrimary::onGetTelephonyParameters}};
+    return map;
+}
+
+// end of module parameters handling
 
 }  // namespace qti::audio::core
