@@ -23,10 +23,6 @@ AUDIO_AGM += agmcompresscap
 AUDIO_AGM += agmvoiceui
 AUDIO_AGM += agmhostless
 
-#PAL Service
-AUDIO_PAL += libpalclient
-AUDIO_PAL += vendor.qti.hardware.pal@1.0-impl
-
 #PAL Module
 AUDIO_PAL := libar-pal
 AUDIO_PAL += lib_bt_bundle
@@ -36,6 +32,9 @@ AUDIO_PAL += catf
 AUDIO_PAL += PalTest
 AUDIO_PAL += libaudiochargerlistener
 AUDIO_PAL += libhfp_pal
+#PAL Service
+AUDIO_PAL += libpalclient
+AUDIO_PAL += libpalipcservice
 
 # C2 Audio
 AUDIO_C2 := libqc2audio_base
