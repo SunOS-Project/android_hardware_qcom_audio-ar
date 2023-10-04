@@ -20,14 +20,12 @@ BassBoostContext::BassBoostContext(const Parameter::Common& common,
                                    const OffloadBundleEffectType& type, bool processData)
     : OffloadBundleContext(common, type, processData) {
     LOG(DEBUG) << __func__ << type << " ioHandle " << common.ioHandle;
+    mState = EffectState::INITIALIZED;
 }
 
-RetCode BassBoostContext::init() {
-    std::lock_guard lg(mMutex);
-    // init with pre-defined preset NORMAL
-    memset(&mBassParams, 0, sizeof(struct BassBoostParams));
-    mState = EffectState::INITIALIZED;
-    return RetCode::SUCCESS;
+BassBoostContext::~BassBoostContext() {
+    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
+    deInit();
 }
 
 void BassBoostContext::deInit() {
@@ -36,22 +34,22 @@ void BassBoostContext::deInit() {
 }
 
 RetCode BassBoostContext::enable() {
+    std::lock_guard lg(mMutex);
     LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
-    if (mState != EffectState::INITIALIZED) return RetCode::ERROR_ILLEGAL_PARAMETER;
-    mEnabled = true;
+    if (isEffectActive()) return RetCode::ERROR_ILLEGAL_PARAMETER;
     mState = EffectState::ACTIVE;
     mBassParams.mEnabled = 1;
-    sendOffloadParametersToPal(OFFLOAD_SEND_BASSBOOST_ENABLE_FLAG);
+    setOffloadParameters(BASSBOOST_ENABLE_FLAG);
     return RetCode::SUCCESS;
 }
 
 RetCode BassBoostContext::disable() {
+    std::lock_guard lg(mMutex);
     LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
-    if (mState != EffectState::ACTIVE) return RetCode::ERROR_ILLEGAL_PARAMETER;
-    mEnabled = false;
+    if (!isEffectActive()) return RetCode::ERROR_ILLEGAL_PARAMETER;
     mState = EffectState::INITIALIZED;
     mBassParams.mEnabled = 0;
-    sendOffloadParametersToPal(OFFLOAD_SEND_BASSBOOST_ENABLE_FLAG);
+    setOffloadParameters(BASSBOOST_ENABLE_FLAG);
     return RetCode::SUCCESS;
 }
 
@@ -60,8 +58,7 @@ RetCode BassBoostContext::start(pal_stream_handle_t* palHandle) {
     LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
     mPalHandle = palHandle;
     if (isEffectActive()) {
-        sendOffloadParametersToPal(OFFLOAD_SEND_BASSBOOST_ENABLE_FLAG |
-                                   OFFLOAD_SEND_BASSBOOST_STRENGTH);
+        setOffloadParameters(BASSBOOST_ENABLE_FLAG | BASSBOOST_STRENGTH);
     } else {
         LOG(DEBUG) << "Not yet enabled";
     }
@@ -69,14 +66,10 @@ RetCode BassBoostContext::start(pal_stream_handle_t* palHandle) {
 }
 
 RetCode BassBoostContext::stop() {
-    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
     std::lock_guard lg(mMutex);
-
-    struct BassBoostParams bassParams;
-    memset(&bassParams, 0, sizeof(struct BassBoostParams));
-    bassParams.mEnabled = 0;
-
-    sendOffloadParametersToPal(&bassParams, OFFLOAD_SEND_BASSBOOST_ENABLE_FLAG);
+    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
+    struct BassBoostParams bassParams; // by default enable is 0
+    setOffloadParameters(&bassParams, BASSBOOST_ENABLE_FLAG);
     mPalHandle = nullptr;
     return RetCode::SUCCESS;
 }
@@ -99,19 +92,20 @@ bool BassBoostContext::deviceSupportsEffect(const std::vector<AudioDeviceDescrip
 
 RetCode BassBoostContext::setOutputDevice(
         const std::vector<aidl::android::media::audio::common::AudioDeviceDescription>& device) {
+    std::lock_guard lg(mMutex);
     mOutputDevice = device;
     if (deviceSupportsEffect(mOutputDevice)) {
         if (mTempDisabled) {
             if (isEffectActive()) {
                 mBassParams.mEnabled = 1;
-                sendOffloadParametersToPal(OFFLOAD_SEND_BASSBOOST_ENABLE_FLAG);
+                setOffloadParameters(BASSBOOST_ENABLE_FLAG);
             }
         }
         mTempDisabled = false;
     } else if (!mTempDisabled) {
         if (isEffectActive()) {
             mBassParams.mEnabled = 0;
-            sendOffloadParametersToPal(OFFLOAD_SEND_BASSBOOST_ENABLE_FLAG);
+            setOffloadParameters(BASSBOOST_ENABLE_FLAG);
         }
         mTempDisabled = true;
     }
@@ -121,19 +115,17 @@ RetCode BassBoostContext::setOutputDevice(
 
 RetCode BassBoostContext::setBassBoostStrength(int strength) {
     LOG(DEBUG) << __func__ << " strength " << strength;
-    mStrength = strength;
     mBassParams.mStrength = strength;
-    sendOffloadParametersToPal(OFFLOAD_SEND_BASSBOOST_ENABLE_FLAG |
-                               OFFLOAD_SEND_BASSBOOST_STRENGTH);
+    setOffloadParameters(BASSBOOST_ENABLE_FLAG | BASSBOOST_STRENGTH);
     return RetCode::SUCCESS;
 }
 
 int BassBoostContext::getBassBoostStrength() {
-    LOG(DEBUG) << __func__ << " strength " << mStrength;
-    return mStrength;
+    LOG(DEBUG) << __func__ << " strength " << mBassParams.mStrength;
+    return mBassParams.mStrength;
 }
 
-int BassBoostContext::sendOffloadParametersToPal(uint64_t flags) {
+int BassBoostContext::setOffloadParameters(uint64_t flags) {
     if (mPalHandle) {
         LOG(DEBUG) << " Strength " << mBassParams.mStrength << " enabled " << mBassParams.mEnabled;
         ParamDelegator::updatePalParameters(mPalHandle, &mBassParams, flags);
@@ -143,7 +135,7 @@ int BassBoostContext::sendOffloadParametersToPal(uint64_t flags) {
     return 0;
 }
 
-int BassBoostContext::sendOffloadParametersToPal(BassBoostParams* bassParams, uint64_t flags) {
+int BassBoostContext::setOffloadParameters(BassBoostParams* bassParams, uint64_t flags) {
     if (mPalHandle) {
         LOG(DEBUG) << " Strength " << bassParams->mStrength << " enabled " << bassParams->mEnabled;
         ParamDelegator::updatePalParameters(mPalHandle, bassParams, flags);

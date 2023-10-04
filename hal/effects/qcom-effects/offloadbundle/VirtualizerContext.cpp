@@ -22,15 +22,12 @@ VirtualizerContext::VirtualizerContext(const Parameter::Common& common,
                                        const OffloadBundleEffectType& type, bool processData)
     : OffloadBundleContext(common, type, processData) {
     LOG(DEBUG) << __func__ << type << " ioHandle " << common.ioHandle;
+    mState = EffectState::INITIALIZED;
 }
 
-RetCode VirtualizerContext::init() {
+VirtualizerContext::~VirtualizerContext() {
     LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
-    std::lock_guard lg(mMutex);
-    // init with pre-defined preset NORMAL
-    memset(&mVirtParams, 0, sizeof(struct VirtualizerParams));
-    mState = EffectState::INITIALIZED;
-    return RetCode::SUCCESS;
+    deInit();
 }
 
 void VirtualizerContext::deInit() {
@@ -39,69 +36,66 @@ void VirtualizerContext::deInit() {
 }
 
 RetCode VirtualizerContext::enable() {
+    std::lock_guard lg(mMutex);
     LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
-    if (mEnabled) return RetCode::ERROR_ILLEGAL_PARAMETER;
-    mEnabled = true;
+    if (isEffectActive()) return RetCode::ERROR_ILLEGAL_PARAMETER;
     mState = EffectState::ACTIVE;
     mVirtParams.enable = 1;
-    sendOffloadParametersToPal(OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG |
-                               OFFLOAD_SEND_VIRTUALIZER_STRENGTH);
+    setOffloadParameters(VIRTUALIZER_ENABLE_FLAG | VIRTUALIZER_STRENGTH);
     return RetCode::SUCCESS;
 }
 
 RetCode VirtualizerContext::disable() {
+    std::lock_guard lg(mMutex);
     LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
-    if (!mEnabled) return RetCode::ERROR_ILLEGAL_PARAMETER;
-    mEnabled = false;
-    mState = EffectState::ACTIVE;
+    if (!isEffectActive()) return RetCode::ERROR_ILLEGAL_PARAMETER;
+
+    mState = EffectState::INITIALIZED;
     mVirtParams.enable = 0;
-    sendOffloadParametersToPal(OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG);
+    setOffloadParameters(VIRTUALIZER_ENABLE_FLAG);
     return RetCode::SUCCESS;
 }
 
 RetCode VirtualizerContext::start(pal_stream_handle_t* palHandle) {
-    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
     std::lock_guard lg(mMutex);
-    // init with pre-defined preset NORMAL
+    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
     mPalHandle = palHandle;
     if (isEffectActive()) {
-        sendOffloadParametersToPal(OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG |
-                                   OFFLOAD_SEND_VIRTUALIZER_STRENGTH);
+        setOffloadParameters(VIRTUALIZER_ENABLE_FLAG | VIRTUALIZER_STRENGTH);
     } else {
-        LOG(DEBUG) << "Not yet enabled";
+        LOG(DEBUG) << __func__ << "Not yet enabled "
+                   << " ioHandle " << getIoHandle();
     }
 
     return RetCode::SUCCESS;
 }
 
 RetCode VirtualizerContext::stop() {
-    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
     std::lock_guard lg(mMutex);
+    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
 
-    struct VirtualizerParams virtParams;
-    memset(&virtParams, 0, sizeof(struct VirtualizerParams));
-    virtParams.enable = 0;
-
-    sendOffloadParametersToPal(&virtParams, OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG);
+    struct VirtualizerParams virtParams; // by default enable is 0.
+    setOffloadParameters(&virtParams, VIRTUALIZER_ENABLE_FLAG);
     mPalHandle = nullptr;
     return RetCode::SUCCESS;
 }
 
 RetCode VirtualizerContext::setOutputDevice(
         const std::vector<aidl::android::media::audio::common::AudioDeviceDescription>& device) {
+    std::lock_guard lg(mMutex);
     mOutputDevice = device;
     if (deviceSupportsEffect(mOutputDevice)) {
         if (mTempDisabled) {
             if (isEffectActive()) {
                 mVirtParams.enable = 1;
-                sendOffloadParametersToPal(OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG);
+                setOffloadParameters(VIRTUALIZER_ENABLE_FLAG);
             }
         }
         mTempDisabled = false;
     } else if (!mTempDisabled) {
         if (isEffectActive()) {
             mVirtParams.enable = 0;
-            sendOffloadParametersToPal(OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG);
+            setOffloadParameters(VIRTUALIZER_ENABLE_FLAG);
         }
         mTempDisabled = true;
     }
@@ -109,23 +103,23 @@ RetCode VirtualizerContext::setOutputDevice(
 }
 
 RetCode VirtualizerContext::setVirtualizerStrength(int strength) {
+    std::lock_guard lg(mMutex);
     LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle() << " strength " << strength;
-    mStrength = strength;
-    sendOffloadParametersToPal(OFFLOAD_SEND_VIRTUALIZER_ENABLE_FLAG |
-                               OFFLOAD_SEND_VIRTUALIZER_STRENGTH);
+    mVirtParams.strength = strength;
+    setOffloadParameters(VIRTUALIZER_ENABLE_FLAG | VIRTUALIZER_STRENGTH);
     return RetCode::SUCCESS;
 }
 
 int VirtualizerContext::getVirtualizerStrength() const {
-    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle() << " strength " << mStrength;
-    return mStrength;
+    LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle() << " strength " << mVirtParams.strength;
+    return mVirtParams.strength;
 }
 
 RetCode VirtualizerContext::setForcedDevice(const AudioDeviceDescription& device) {
+    std::lock_guard lg(mMutex);
     RETURN_VALUE_IF(true != deviceSupportsEffect({device}), RetCode::ERROR_EFFECT_LIB_ERROR,
                     " deviceUnsupported");
     mForcedDevice = device;
-    LOG(DEBUG) << __func__ << " TODO impl";
     return RetCode::SUCCESS;
 }
 
@@ -150,7 +144,7 @@ std::vector<Virtualizer::ChannelAngle> VirtualizerContext::getSpeakerAngles(
     return angles;
 }
 
-int VirtualizerContext::sendOffloadParametersToPal(uint64_t flags) {
+int VirtualizerContext::setOffloadParameters(uint64_t flags) {
     if (mPalHandle) {
         ParamDelegator::updatePalParameters(mPalHandle, &mVirtParams, flags);
     } else {
@@ -159,7 +153,7 @@ int VirtualizerContext::sendOffloadParametersToPal(uint64_t flags) {
     return 0;
 }
 
-int VirtualizerContext::sendOffloadParametersToPal(VirtualizerParams* virtParams, uint64_t flags) {
+int VirtualizerContext::setOffloadParameters(VirtualizerParams* virtParams, uint64_t flags) {
     if (mPalHandle) {
         ParamDelegator::updatePalParameters(mPalHandle, virtParams, flags);
     } else {

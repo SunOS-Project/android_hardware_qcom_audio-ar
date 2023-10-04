@@ -22,7 +22,7 @@ namespace aidl::qti::effects {
 EffectConfig::EffectConfig(const std::string& file) {
     tinyxml2::XMLDocument doc;
     doc.LoadFile(file.c_str());
-    LOG(DEBUG) << __func__ << " loading " << file;
+    LOG(VERBOSE) << __func__ << " loading " << file;
     // parse the xml file into maps
     if (doc.Error()) {
         LOG(ERROR) << __func__ << " tinyxml2 failed to load " << file
@@ -100,7 +100,7 @@ bool EffectConfig::parseLibrary(const tinyxml2::XMLElement& xml) {
         return false;
     }
     mLibraryMap[name] = resolvedPath;
-    LOG(DEBUG) << __func__ << " " << name << " : " << resolvedPath;
+    LOG(VERBOSE) << __func__ << " " << name << " : " << resolvedPath;
     return true;
 }
 
@@ -110,7 +110,6 @@ bool EffectConfig::parseEffect(const tinyxml2::XMLElement& xml) {
     std::string name = xml.Attribute("name");
     RETURN_VALUE_IF(name == "", false, "effectsNoName");
 
-    LOG(DEBUG) << __func__ << dump(xml);
     struct Library library;
     if (std::strcmp(xml.Name(), "effectProxy") == 0) {
         // proxy lib and uuid
@@ -222,7 +221,6 @@ std::optional<Processing::Type> EffectConfig::stringToProcessingType(Processing:
 }
 
 bool EffectConfig::parseProcessing(Processing::Type::Tag typeTag, const tinyxml2::XMLElement& xml) {
-    LOG(DEBUG) << __func__ << dump(xml);
     const char* typeStr = xml.Attribute("type");
     auto aidlType = stringToProcessingType(typeTag, typeStr);
     RETURN_VALUE_IF(!aidlType.has_value(), false, "illegalStreamType");
@@ -236,7 +234,7 @@ bool EffectConfig::parseProcessing(Processing::Type::Tag typeTag, const tinyxml2
         }
         RETURN_VALUE_IF(!name, false, "noEffectAttribute");
         mProcessingMap[aidlType.value()].emplace_back(mEffectsMap[name]);
-        LOG(WARNING) << __func__ << " " << typeStr << " : " << name
+        LOG(VERBOSE) << __func__ << " " << typeStr << " : " << name
                      << " aidl: " << aidlType.value().toString();
     }
     return true;

@@ -40,14 +40,13 @@ class OffloadBundleContext : public EffectContext {
     // Generic APIS
     OffloadBundleEffectType getBundleType() const { return mType; }
     // Each effect context needs to implement these methods
-    virtual RetCode init() = 0;
     virtual void deInit() = 0;
     virtual RetCode enable() = 0;
     virtual RetCode disable() = 0;
     virtual RetCode start(pal_stream_handle_t* palHandle) = 0;
     virtual RetCode stop() = 0;
 
-    virtual int sendOffloadParametersToPal(uint64_t flags) { return 0; }
+    virtual int setOffloadParameters(uint64_t flags) { return 0; }
     // Equalizer methods, implement in EqualizerContext
     virtual RetCode setEqualizerPreset(const std::size_t presetIdx) {
         return RetCode::ERROR_ILLEGAL_PARAMETER;
@@ -121,7 +120,6 @@ class OffloadBundleContext : public EffectContext {
   protected:
     std::mutex mMutex;
     const OffloadBundleEffectType mType;
-    bool mEnabled = false;
     pal_stream_handle_t* mPalHandle;
     EffectState mState = EffectState::UNINITIALIZED;
     bool isEffectActive() { return mState == EffectState::ACTIVE; }
@@ -131,12 +129,7 @@ class BassBoostContext final : public OffloadBundleContext {
   public:
     BassBoostContext(const Parameter::Common& common, const OffloadBundleEffectType& type,
                      bool processData);
-    ~BassBoostContext() override {
-        LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
-        deInit();
-    }
-
-    virtual RetCode init() override;
+    ~BassBoostContext() override;
     virtual void deInit() override;
     virtual RetCode enable() override;
     virtual RetCode disable() override;
@@ -145,14 +138,12 @@ class BassBoostContext final : public OffloadBundleContext {
     RetCode setOutputDevice(const std::vector<AudioDeviceDescription>& device) override;
     RetCode setBassBoostStrength(int strength) override;
     int getBassBoostStrength() override;
-    int sendOffloadParametersToPal(uint64_t flags) override;
-    int sendOffloadParametersToPal(BassBoostParams* bassParam, uint64_t flags);
+    int setOffloadParameters(uint64_t flags) override;
+    int setOffloadParameters(BassBoostParams* bassParam, uint64_t flags);
     bool deviceSupportsEffect(const std::vector<AudioDeviceDescription>& device) override;
 
   private:
     struct BassBoostParams mBassParams;
-    // struct BassParams mParams;
-    int mStrength;
     bool mTempDisabled = false;
 };
 
@@ -160,11 +151,8 @@ class EqualizerContext final : public OffloadBundleContext {
   public:
     EqualizerContext(const Parameter::Common& common, const OffloadBundleEffectType& type,
                      bool processData);
-    ~EqualizerContext() override {
-        LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
-        deInit();
-    }
-    virtual RetCode init() override;
+    ~EqualizerContext() override;
+    void init();
     virtual void deInit() override;
     virtual RetCode enable() override;
     virtual RetCode disable() override;
@@ -176,9 +164,9 @@ class EqualizerContext final : public OffloadBundleContext {
     std::vector<Equalizer::BandLevel> getEqualizerBandLevels() const override;
     std::vector<int32_t> getEqualizerCenterFreqs() override;
     int getEqualizerPreset() const override { return mCurrentPreset; }
-    int sendOffloadParametersToPal(uint64_t flags) override;
-    int sendOffloadParametersToPal(EqualizerParams* params, uint64_t flags);
-    int updateOffloadParameters();
+    int setOffloadParameters(uint64_t flags) override;
+    int setOffloadParameters(EqualizerParams* params, uint64_t flags);
+    void updateOffloadParameters();
 
   private:
     bool isBandLevelIndexInRange(const std::vector<Equalizer::BandLevel>& bandLevels) const;
@@ -191,12 +179,8 @@ class VirtualizerContext final : public OffloadBundleContext {
   public:
     VirtualizerContext(const Parameter::Common& common, const OffloadBundleEffectType& type,
                        bool processData);
-    ~VirtualizerContext() override {
-        LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
-        deInit();
-    }
+    ~VirtualizerContext() override;
 
-    virtual RetCode init() override;
     virtual void deInit() override;
     virtual RetCode enable() override;
     virtual RetCode disable() override;
@@ -215,15 +199,14 @@ class VirtualizerContext final : public OffloadBundleContext {
     std::vector<Virtualizer::ChannelAngle> getSpeakerAngles(
             const Virtualizer::SpeakerAnglesPayload payload) override;
 
-    int sendOffloadParametersToPal(uint64_t flags) override;
-    int sendOffloadParametersToPal(VirtualizerParams* virtParams, uint64_t flags);
+    int setOffloadParameters(uint64_t flags) override;
+    int setOffloadParameters(VirtualizerParams* virtParams, uint64_t flags);
     bool deviceSupportsEffect(const std::vector<AudioDeviceDescription>& device) override;
 
   private:
     bool isConfigSupported(size_t channelCount, const AudioDeviceDescription& device);
 
     struct VirtualizerParams mVirtParams;
-    int mStrength;
     AudioDeviceDescription mForcedDevice;
     bool mTempDisabled = false;
 };
@@ -232,12 +215,8 @@ class ReverbContext final : public OffloadBundleContext {
   public:
     ReverbContext(const Parameter::Common& common, const OffloadBundleEffectType& type,
                   bool processData);
-    ~ReverbContext() override {
-        LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
-        deInit();
-    }
+    ~ReverbContext() override;
 
-    virtual RetCode init() override;
     virtual void deInit() override;
     virtual RetCode enable() override;
     virtual RetCode disable() override;
@@ -247,8 +226,8 @@ class ReverbContext final : public OffloadBundleContext {
             const std::vector<aidl::android::media::audio::common::AudioDeviceDescription>& device)
             override;
 
-    int sendOffloadParametersToPal(uint64_t flags) override;
-    int sendOffloadParametersToPal(ReverbParams* reverbParams, uint64_t flags);
+    int setOffloadParameters(uint64_t flags) override;
+    int setOffloadParameters(ReverbParams* reverbParams, uint64_t flags);
 
     virtual RetCode setPresetReverbPreset(const PresetReverb::Presets& preset) override;
 
@@ -279,18 +258,6 @@ class ReverbContext final : public OffloadBundleContext {
 
   private:
     struct ReverbParams mReverbParams;
-
-    int mRoomLevel = 0;
-    int mRoomHfLevel = 0;
-    int mDecayTime = 0;
-    int mDecayHfRatio = 0;
-    int mLevel = 0;
-    int mDelay = 0;
-    int mDiffusion = 0;
-    int mDensity = 0;
-    int mBypass = 0;
-    int mReflectionsLevel = 0;
-    int mReflectionsDelay = 0;
 
     PresetReverb::Presets mPreset;
     PresetReverb::Presets mNextPreset;

@@ -88,11 +88,6 @@ class GlobalOffloadSession {
         auto context = createContext(type, common, processData);
         RETURN_VALUE_IF(!context, nullptr, "failedToCreateContext");
 
-        RetCode ret = context->init();
-        if (RetCode::SUCCESS != ret) {
-            LOG(ERROR) << __func__ << " context init ret " << ret;
-            return nullptr;
-        }
         list.push_back(context);
 
         // find ioHandle in the mActiveIoHandles
