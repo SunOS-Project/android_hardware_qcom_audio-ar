@@ -1031,7 +1031,20 @@ ndk::ScopedAStatus Module::setAudioPortConfig(const AudioPortConfig& in_requeste
         out_suggested->gain = in_requested.gain.value();
     }
 
-    out_suggested->ext = in_requested.ext;
+    if (in_requested.ext.getTag() != AudioPortExt::Tag::unspecified) {
+        if (in_requested.ext.getTag() == out_suggested->ext.getTag()) {
+            if (out_suggested->ext.getTag() == AudioPortExt::Tag::mix) {
+                // 'AudioMixPortExt.handle' is set by the client, copy from in_requested
+                out_suggested->ext.get<AudioPortExt::Tag::mix>().handle =
+                        in_requested.ext.get<AudioPortExt::Tag::mix>().handle;
+            }
+        } else {
+            LOG(WARNING) << __func__ << ": requested ext tag "
+                         << toString(in_requested.ext.getTag()) << " do not match port's tag "
+                         << toString(out_suggested->ext.getTag());
+            requestedIsValid = false;
+        }
+    }
 
     if (existing == configs.end() && requestedIsValid && requestedIsFullySpecified) {
         out_suggested->id = getConfig().nextPortId++;
