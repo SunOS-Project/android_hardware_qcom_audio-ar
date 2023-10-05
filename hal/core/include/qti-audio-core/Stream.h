@@ -145,6 +145,10 @@ class StreamContext {
 
     void fillDescriptor(
         ::aidl::android::hardware::audio::core::StreamDescriptor* desc);
+    void fillMMapDescriptor(
+        const int32_t fd, const int64_t burstSizeFrames,
+        const int32_t flags, const int32_t bufferSizeFrames,
+        ::aidl::android::hardware::audio::core::StreamDescriptor* desc);
     std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback>
     getAsyncCallback() const {
         return mAsyncCallback;
@@ -237,7 +241,7 @@ struct DriverInterface {
     // No need to implement 'refinePosition' unless the driver can provide more precise
     // data than just total frame count. For example, the driver may correctly account
     // for any intermediate buffers.
-    virtual ::android::status_t refinePosition(::aidl::android::hardware::audio::core::StreamDescriptor::Position* /*position*/) {
+    virtual ::android::status_t refinePosition(::aidl::android::hardware::audio::core::StreamDescriptor::Reply*  /*reply*/) {
         return ::android::OK;
     }
     // This function is only called once.
@@ -421,6 +425,8 @@ struct StreamCommonInterface {
     virtual const ConnectedDevices& getConnectedDevices() const = 0;
     virtual ndk::ScopedAStatus setConnectedDevices(
             const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices) = 0;
+    virtual ndk::ScopedAStatus configureMMapStream(int32_t* fd, int64_t* burstSizeFrames,
+                                                   int32_t* flags, int32_t* bufferSizeFrames) = 0;
 };
 
 // This is equivalent to automatically generated 'IStreamCommonDelegator' but uses
@@ -543,6 +549,8 @@ class StreamCommonImpl : virtual public StreamCommonInterface, virtual public Dr
     ndk::ScopedAStatus setConnectedDevices(
             const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices)
             override;
+    ndk::ScopedAStatus configureMMapStream(int32_t* fd, int64_t* burstSizeFrames, int32_t* flags,
+                                           int32_t* bufferSizeFrames) override;
 
   protected:
     static StreamWorkerInterface::CreateInstance getDefaultInWorkerCreator() {
@@ -705,6 +713,13 @@ public:
         auto s = mStream.lock();
         if (s) return s->setConnectedDevices(devices);
         return ndk::ScopedAStatus::ok();
+    }
+
+    ndk::ScopedAStatus configureMMapStream(int32_t* fd, int64_t* burstSizeFrames, int32_t* flags,
+                                           int32_t* bufferSizeFrames) {
+        auto s = mStream.lock();
+        if (s) return s->configureMMapStream(fd, burstSizeFrames, flags, bufferSizeFrames);
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
   private:

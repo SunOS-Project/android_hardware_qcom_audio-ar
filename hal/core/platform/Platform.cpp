@@ -67,6 +67,12 @@ size_t Platform::getIOBufferSizeInFrames(
     } else if (tag == Usecase::COMPRESS_CAPTURE) {
         numFrames =
             CompressCapture::getPeriodBufferSize(mixPortConfig.format.value());
+    } else if (tag == Usecase::ULL_PLAYBACK) {
+        numFrames = UllPlayback::kPeriodSize;
+    } else if (tag == Usecase::MMAP_PLAYBACK) {
+        numFrames = MMapPlayback::kPeriodSize;
+    } else if (tag == Usecase::MMAP_RECORD) {
+        numFrames = MMapRecord::kPeriodSize;
     }
     LOG(VERBOSE) << __func__
                  << " IOBufferSizeInFrames:" << std::to_string(numFrames)

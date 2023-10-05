@@ -72,6 +72,15 @@ Usecase getUsecaseTag(
         static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::SPATIALIZER));
     constexpr auto recordVoipFlags =
         static_cast<int32_t>(1 << flagCastToint(AudioInputFlags::VOIP_TX));
+    constexpr auto ullPlaybackFlags =
+        static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::FAST) |
+                             1 << flagCastToint(AudioOutputFlags::RAW));
+    constexpr auto mmapPlaybackFlags =
+        static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::DIRECT) |
+                             1 << flagCastToint(AudioOutputFlags::MMAP_NOIRQ));
+    constexpr auto mmapRecordFlags =
+        static_cast<int32_t>(1 << flagCastToint(AudioInputFlags::MMAP_NOIRQ));
+
 
     if (flagsTag == AudioIoFlags::Tag::output) {
         auto& outFlags =
@@ -90,6 +99,10 @@ Usecase getUsecaseTag(
             tag = Usecase::VOIP_PLAYBACK;
         } else if (outFlags == spatialPlaybackFlags) {
             tag = Usecase::SPATIAL_PLAYBACK;
+        } else if (outFlags == ullPlaybackFlags) {
+            tag = Usecase::ULL_PLAYBACK;
+        } else if (outFlags == mmapPlaybackFlags) {
+            tag = Usecase::MMAP_PLAYBACK;
         }
     } else if (flagsTag == AudioIoFlags::Tag::input) {
         auto& inFlags =
@@ -103,6 +116,8 @@ Usecase getUsecaseTag(
                    mixUsecase.get<AudioPortMixExtUseCase::source>() ==
                        AudioSource::VOICE_COMMUNICATION) {
             tag = Usecase::VOIP_RECORD;
+        } else if (inFlags == mmapRecordFlags) {
+            tag = Usecase::MMAP_RECORD;
         }
     }
     LOG(VERBOSE) << __func__ << " choosen tag:" << getName(tag)
@@ -134,6 +149,12 @@ std::string getName(const Usecase tag) {
             return "SPATIAL_PLAYBACK";
         case Usecase::VOIP_RECORD:
             return "VOIP_RECORD";
+        case Usecase::ULL_PLAYBACK:
+            return "ULL_PLAYBACK";
+        case Usecase::MMAP_PLAYBACK:
+            return "MMAP_PLAYBACK";
+        case Usecase::MMAP_RECORD:
+            return "MMAP_RECORD";
         default:
             return std::to_string(static_cast<uint16_t>(tag));
     }
@@ -826,5 +847,132 @@ size_t VoipPlayback::getPeriodSize(
 }
 
 // end of VoipPlayback
+
+//Start of UllPlayback
+
+size_t UllPlayback::getPeriodSize(
+    const ::aidl::android::media::audio::common::AudioFormatDescription&
+        formatDescription,
+    const ::aidl::android::media::audio::common::AudioChannelLayout&
+        channelLayout) {
+    const auto frameSize =
+        ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
+            formatDescription, channelLayout);
+    return kPeriodSize * frameSize;
+}
+
+//End of UllPlayback
+
+//Start of MMapPlayback
+
+void MMapPlayback::setPalHandle(pal_stream_handle_t* handle) {
+    mPalHandle = handle;
+}
+
+int32_t MMapPlayback::createMMapBuffer(int64_t frameSize, int32_t* fd, int64_t* burstSizeFrames,
+                                       int32_t* flags, int32_t* bufferSizeFrames) {
+    if (!mPalHandle) {
+        LOG(ERROR) << __func__ << ": pal stream handle is null";
+        return -EINVAL;
+    }
+    struct pal_mmap_buffer palMMapBuf;
+    if (int32_t ret = pal_stream_create_mmap_buffer(mPalHandle,
+            frameSize, &palMMapBuf); ret) {
+        LOG(ERROR) << __func__ << ": pal stream create mmap buffer failed "
+                << "returned " << ret;
+        return ret;
+    }
+    *fd = palMMapBuf.fd;
+    *burstSizeFrames = palMMapBuf.burst_size_frames;
+    *flags = palMMapBuf.flags;
+    *bufferSizeFrames = palMMapBuf.buffer_size_frames;
+    return 0;
+}
+
+int32_t MMapPlayback::getMMapPosition(int64_t* frames, int64_t* timeNs) {
+    if (!mPalHandle) {
+        LOG(ERROR) << __func__ << ": pal stream handle is null";
+        return -EINVAL;
+    }
+    struct pal_mmap_position pal_mmap_pos;
+    if (int32_t ret = pal_stream_get_mmap_position(mPalHandle, &pal_mmap_pos);
+            ret) {
+        LOG(ERROR) << __func__ << ": failed to get mmap positon "
+                << "returned " << ret;
+        return ret;
+    }
+    *timeNs = pal_mmap_pos.time_nanoseconds;
+    *frames = pal_mmap_pos.position_frames;
+    return 0;
+}
+
+size_t MMapPlayback::getPeriodSize(
+    const ::aidl::android::media::audio::common::AudioFormatDescription&
+        formatDescription,
+    const ::aidl::android::media::audio::common::AudioChannelLayout&
+        channelLayout) {
+    const auto frameSize =
+        ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
+            formatDescription, channelLayout);
+    return kPeriodSize * frameSize;
+}
+
+//end of MMapPlayback
+
+//start of MMapRecord
+
+void MMapRecord::setPalHandle(pal_stream_handle_t* handle) {
+    mPalHandle = handle;
+}
+
+int32_t MMapRecord::createMMapBuffer(int64_t frameSize, int32_t* fd, int64_t* burstSizeFrames,
+                                       int32_t* flags, int32_t* bufferSizeFrames) {
+    if (!mPalHandle) {
+        LOG(ERROR) << __func__ << ": pal stream handle is null";
+        return -EINVAL;
+    }
+    struct pal_mmap_buffer palMMapBuf;
+    if (int32_t ret = pal_stream_create_mmap_buffer(mPalHandle,
+            frameSize, &palMMapBuf); ret) {
+        LOG(ERROR) << __func__ << ": pal stream create mmap buffer failed "
+                << "returned " << ret;
+        return ret;
+    }
+    *fd = palMMapBuf.fd;
+    *burstSizeFrames = palMMapBuf.burst_size_frames;
+    *flags = palMMapBuf.flags;
+    *bufferSizeFrames = palMMapBuf.buffer_size_frames;
+    return 0;
+}
+
+int32_t MMapRecord::getMMapPosition(int64_t* frames, int64_t* timeNs) {
+    if (!mPalHandle) {
+        LOG(ERROR) << __func__ << ": pal stream handle is null";
+        return -EINVAL;
+    }
+    struct pal_mmap_position pal_mmap_pos;
+    if (int32_t ret = pal_stream_get_mmap_position(mPalHandle, &pal_mmap_pos);
+            ret) {
+        LOG(ERROR) << __func__ << ": failed to get mmap positon "
+                << "returned " << ret;
+        return ret;
+    }
+    *timeNs = pal_mmap_pos.time_nanoseconds;
+    *frames = pal_mmap_pos.position_frames;
+    return 0;
+}
+
+size_t MMapRecord::getPeriodSize(
+    const ::aidl::android::media::audio::common::AudioFormatDescription&
+        formatDescription,
+    const ::aidl::android::media::audio::common::AudioChannelLayout&
+        channelLayout) {
+    const auto frameSize =
+        ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
+            formatDescription, channelLayout);
+    return kPeriodSize * frameSize;
+}
+
+//end of MMapRecord
 
 }  // namespace qti::audio::core

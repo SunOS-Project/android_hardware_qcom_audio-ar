@@ -34,10 +34,10 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
     ::android::status_t transfer(void* buffer, size_t frameCount, size_t* actualFrameCount,
                                  int32_t* latencyMs) override;
     ::android::status_t refinePosition(
-        ::aidl::android::hardware::audio::core::StreamDescriptor::
-            Position* /*position*/) override;
+        ::aidl::android::hardware::audio::core::StreamDescriptor::Reply*
+            /*reply*/) override;
     void shutdown() override;
-     
+
     // methods of StreamCommonInterface
 
     ndk::ScopedAStatus getVendorParameters(
@@ -73,6 +73,8 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
     ndk::ScopedAStatus setConnectedDevices(
             const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices)
             override;
+    ndk::ScopedAStatus configureMMapStream(int32_t* fd, int64_t* burstSizeFrames, int32_t* flags,
+                                           int32_t* bufferSizeFrames) override;
 
     void onClose() override { defaultOnClose(); }
     AudioExtension& mAudExt{AudioExtension::getInstance()};
@@ -105,7 +107,7 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
     bool mIsConfigured{false};
     std::variant<std::monostate, PrimaryPlayback, DeepBufferPlayback,
                  CompressPlayback, PcmOffloadPlayback, VoipPlayback,
-                 SpatialPlayback>
+                 SpatialPlayback, MMapPlayback, UllPlayback>
         mExt;
     // references
     Platform& mPlatform {Platform::getInstance()};

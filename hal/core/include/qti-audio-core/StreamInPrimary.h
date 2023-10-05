@@ -32,10 +32,10 @@ class StreamInPrimary: public StreamIn, public StreamCommonImpl {
     ::android::status_t transfer(void* buffer, size_t frameCount, size_t* actualFrameCount,
                                  int32_t* latencyMs) override;
      ::android::status_t refinePosition(
-        ::aidl::android::hardware::audio::core::StreamDescriptor::
-            Position* /*position*/) override;
+        ::aidl::android::hardware::audio::core::StreamDescriptor::Reply*
+        /*reply*/) override;
     void shutdown() override;
-     
+
     // methods of StreamCommonInterface
 
     ndk::ScopedAStatus getVendorParameters(
@@ -62,6 +62,8 @@ class StreamInPrimary: public StreamIn, public StreamCommonImpl {
     ndk::ScopedAStatus setConnectedDevices(
             const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices)
             override;
+    ndk::ScopedAStatus configureMMapStream(int32_t* fd, int64_t* burstSizeFrames, int32_t* flags,
+                                           int32_t* bufferSizeFrames) override;
     
     void onClose() override { defaultOnClose(); }
     static std::mutex sinkMetadata_mutex_;
@@ -81,7 +83,7 @@ class StreamInPrimary: public StreamIn, public StreamCommonImpl {
     pal_stream_handle_t* mPalHandle{nullptr};
     // used to verify a successful configuration of pal stream
     bool mIsConfigured{false};
-    std::variant<std::monostate, PcmRecord, CompressCapture, VoipRecord> mExt;
+    std::variant<std::monostate, PcmRecord, CompressCapture, VoipRecord, MMapRecord> mExt;
     // references
     Platform& mPlatform {Platform::getInstance()};
     const ::aidl::android::media::audio::common::AudioPortConfig& mMixPortConfig{mContext.getMixPortConfig()};

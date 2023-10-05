@@ -165,6 +165,12 @@ protected:
         bool forceSynchronousDrain = false;
     };
 
+    struct MMapBuffer {
+        int32_t fd;
+        int64_t burstSizeFrames;
+        int32_t flags;
+        int32_t bufferSizeFrames;
+    };
     // ids of device ports created at runtime via 'connectExternalDevice'.
     // Also stores a list of ids of mix ports with dynamic profiles that were populated from
     // the connected port. This list can be empty, thus an int->int multimap can't be used.

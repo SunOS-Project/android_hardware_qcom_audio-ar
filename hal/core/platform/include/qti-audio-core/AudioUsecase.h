@@ -37,6 +37,9 @@ enum class Usecase : uint16_t {
     VOIP_PLAYBACK,
     SPATIAL_PLAYBACK,
     VOIP_RECORD,
+    ULL_PLAYBACK,
+    MMAP_PLAYBACK,
+    MMAP_RECORD
 };
 
 Usecase getUsecaseTag(
@@ -387,6 +390,54 @@ class VoipRecord {
    public:
     constexpr static uint32_t kCaptureDurationMs = 20;
     constexpr static uint32_t kPeriodCount = 4;
+};
+
+class UllPlayback {
+    public:
+    constexpr static size_t kPeriodSize = 48; //1ms
+    constexpr static size_t kPeriodMultiplier = 3;
+    constexpr static size_t kPlatformDelayMs = (4 * 1000LL);
+    constexpr static uint32_t kPeriodCount = 512;
+    static size_t getPeriodSize(
+        const ::aidl::android::media::audio::common::AudioFormatDescription&
+            formatDescription,
+        const ::aidl::android::media::audio::common::AudioChannelLayout&
+            channelLayout);
+};
+
+class MMapPlayback {
+    public:
+    constexpr static size_t kPeriodSize = 48; //1ms
+    constexpr static size_t kPlatformDelayMs = (3 * 1000LL);
+    constexpr static uint32_t kPeriodCount = 512;
+    void setPalHandle(pal_stream_handle_t* handle);
+    int32_t createMMapBuffer(int64_t frameSize, int32_t* fd, int64_t* burstSizeFrames,
+                             int32_t* flags, int32_t* bufferSizeFrames);
+    int32_t getMMapPosition(int64_t* frames, int64_t* timeNs);
+    static size_t getPeriodSize(
+        const ::aidl::android::media::audio::common::AudioFormatDescription&
+            formatDescription,
+        const ::aidl::android::media::audio::common::AudioChannelLayout&
+            channelLayout);
+    pal_stream_handle_t* mPalHandle{nullptr};
+
+
+};
+
+class MMapRecord {
+    public:
+    constexpr static uint32_t kPeriodSize = 48; //Same as Playback?
+    constexpr static size_t kPeriodCount = 512;
+    void setPalHandle(pal_stream_handle_t* handle);
+    int32_t createMMapBuffer(int64_t frameSize, int32_t* fd, int64_t* burstSizeFrames,
+                             int32_t* flags, int32_t* bufferSizeFrames);
+    int32_t getMMapPosition(int64_t* frames, int64_t* timeNs);
+    static size_t getPeriodSize(
+        const ::aidl::android::media::audio::common::AudioFormatDescription&
+            formatDescription,
+        const ::aidl::android::media::audio::common::AudioChannelLayout&
+            channelLayout);
+    pal_stream_handle_t* mPalHandle{nullptr};
 };
 
 }  // namespace qti::audio::core
