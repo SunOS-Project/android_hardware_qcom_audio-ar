@@ -39,8 +39,6 @@ Bluetooth::Bluetooth() {
     mHfpConfig.isEnabled = Boolean{false};
     mHfpConfig.sampleRate = Int{8000};
     mHfpConfig.volume = Float{HfpConfig::VOLUME_MAX};
-    mPlatform.a2dp_source_feature_init();
-//    mPlatform.setBluetoothParameters("BT_SCO=on");
 }
 
 ndk::ScopedAStatus Bluetooth::setScoConfig(const ScoConfig& in_config,

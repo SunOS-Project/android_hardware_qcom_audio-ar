@@ -44,18 +44,6 @@ using ::aidl::android::media::audio::common::PcmType;
 using ::aidl::android::hardware::audio::common::getChannelCount;
 using ::aidl::android::hardware::audio::common::isBitPositionFlagSet;
 
-#if 1 //move to AudioExtn
-// START: A2DP ======================================================================
-// Need to call this init for BT HIDL registration. It is expected that Audio HAL
-// do need to do this initialization. Hence -
-#define LIBS "/vendor/lib64/"
-typedef void (*a2dp_bt_audio_pre_init_t)(void);
-static void *a2dp_bt_lib_source_handle = NULL;
-static a2dp_bt_audio_pre_init_t a2dp_bt_audio_pre_init = nullptr;
-typedef void (*register_reconfig_cb_t)(int (*reconfig_cb)(tSESSION_TYPE, int));
-static register_reconfig_cb_t register_reconfig_cb = nullptr;
-#define BT_IPC_SOURCE_LIB_NAME LIBS"btaudio_offload_if.so"
-#endif
 namespace qti::audio::core {
 
 btsco_lc3_cfg_t Platform::btsco_lc3_cfg = {};
