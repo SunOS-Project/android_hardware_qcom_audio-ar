@@ -142,5 +142,12 @@ StreamOutStub::StreamOutStub(StreamContext&& context, const SourceMetadata& sour
 StreamOutStub::~StreamOutStub(){
     LOG(DEBUG)<<__func__<<": destroy";
 }
-
+int32_t StreamOutStub::setAggregateSourceMetadata(bool value)
+{
+    return 0;
+}
+int32_t StreamInStub::setAggregateSinkMetadata(bool value)
+{
+    return 0;
+}
 }  // namespace qti::audio::core

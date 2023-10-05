@@ -411,6 +411,7 @@ struct StreamCommonInterface {
     virtual ndk::ScopedAStatus getStreamCommonCommon(
             std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCommon>* _aidl_return) = 0;
     virtual ndk::ScopedAStatus updateMetadataCommon(const Metadata& metadata) = 0;
+    virtual Metadata getMetadataCommon() = 0;
 
     // Methods below are called by implementation of 'IModule', 'IStreamIn' and 'IStreamOut'.
     virtual ndk::ScopedAStatus initInstance(
@@ -531,6 +532,8 @@ class StreamCommonImpl : virtual public StreamCommonInterface, virtual public Dr
 
     ndk::ScopedAStatus getStreamCommonCommon(std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCommon>* _aidl_return) override;
     ndk::ScopedAStatus updateMetadataCommon(const Metadata& metadata) override;
+    Metadata getMetadataCommon()
+               { return mMetadata; }
 
     ndk::ScopedAStatus initInstance(
             const std::shared_ptr<StreamCommonInterface>& delegate) override;
@@ -567,6 +570,12 @@ class StreamCommonImpl : virtual public StreamCommonInterface, virtual public Dr
 class StreamIn : virtual public StreamCommonInterface, public ::aidl::android::hardware::audio::core::BnStreamIn {
   public:
     virtual ~StreamIn() override = default;
+    ndk::ScopedAStatus getMetadata(::aidl::android::hardware::audio::common::SinkMetadata&
+                                              out_sinkMetadata) {
+        out_sinkMetadata = std::get<::aidl::android::hardware::audio::common::SinkMetadata>(getMetadataCommon());
+        return ndk::ScopedAStatus::ok();
+    }
+    virtual int32_t setAggregateSinkMetadata(bool) { return 0; }
   protected:
     void defaultOnClose();
 
@@ -606,6 +615,12 @@ class StreamIn : virtual public StreamCommonInterface, public ::aidl::android::h
 class StreamOut : virtual public StreamCommonInterface, public ::aidl::android::hardware::audio::core::BnStreamOut {
   public:
 virtual ~StreamOut() override = default;
+    ndk::ScopedAStatus getMetadata(::aidl::android::hardware::audio::common::SourceMetadata&
+                                              out_sourceMetadata) {
+        out_sourceMetadata = std::get<::aidl::android::hardware::audio::common::SourceMetadata>(getMetadataCommon());
+        return ndk::ScopedAStatus::ok();
+    }
+    virtual int32_t setAggregateSourceMetadata(bool) { return 0;}
   protected:
     void defaultOnClose();
     ndk::ScopedAStatus getStreamCommon(std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCommon>* _aidl_return) override {
@@ -721,7 +736,6 @@ class Streams {
         }
         return ndk::ScopedAStatus::ok();
     }
-
     std::string toString() const {
         std::ostringstream os;
         os << std::endl << " --- mStreams ---" << std::endl;
@@ -732,7 +746,6 @@ class Streams {
         os << std::endl << " --- mStreams end ---" << std::endl << std::endl;
         return os.str();
     }
-
    private:
     // Maps port ids and port config ids to streams. Multimap because a port
     // (not port config) can have multiple streams opened on it.

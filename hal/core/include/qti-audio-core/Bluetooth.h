@@ -21,7 +21,7 @@
  */
 
 #pragma once
-
+#include <qti-audio-core/Platform.h>
 #include <aidl/android/hardware/audio/core/BnBluetooth.h>
 #include <aidl/android/hardware/audio/core/BnBluetoothA2dp.h>
 #include <aidl/android/hardware/audio/core/BnBluetoothLe.h>
@@ -40,6 +40,7 @@ class Bluetooth : public ::aidl::android::hardware::audio::core::BnBluetooth {
 
     ScoConfig mScoConfig;
     HfpConfig mHfpConfig;
+    Platform& mPlatform{Platform::getInstance()};
 };
 
 class BluetoothA2dp : public ::aidl::android::hardware::audio::core::BnBluetoothA2dp {
@@ -57,6 +58,7 @@ class BluetoothA2dp : public ::aidl::android::hardware::audio::core::BnBluetooth
             in_parameters) override;
 
     bool mEnabled = false;
+    Platform& mPlatform{Platform::getInstance()};
 };
 
 class BluetoothLe : public ::aidl::android::hardware::audio::core::BnBluetoothLe {
@@ -74,6 +76,7 @@ class BluetoothLe : public ::aidl::android::hardware::audio::core::BnBluetoothLe
             in_parameters) override;
 
     bool mEnabled = false;
+    Platform& mPlatform{Platform::getInstance()};
 };
 
 }  // namespace qti::audio::core

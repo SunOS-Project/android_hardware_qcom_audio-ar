@@ -28,6 +28,7 @@
 #include <utils/SystemClock.h>
 
 #include <qti-audio-core/Module.h>
+#include <qti-audio-core/ModulePrimary.h>
 #include <qti-audio-core/Stream.h>
 
 using aidl::android::hardware::audio::common::AudioOffloadMetadata;
@@ -721,6 +722,7 @@ ndk::ScopedAStatus StreamCommonImpl::removeEffect(
 }
 
 ndk::ScopedAStatus StreamCommonImpl::close() {
+    ModulePrimary::outListMutex.lock();
     LOG(DEBUG) << __func__;
     if (!isClosed()) {
         stopWorker();
@@ -729,9 +731,11 @@ ndk::ScopedAStatus StreamCommonImpl::close() {
         LOG(DEBUG) << __func__ << ": worker thread joined";
         onClose();
         mWorker->setClosed();
+        ModulePrimary::outListMutex.unlock();
         return ndk::ScopedAStatus::ok();
     } else {
         LOG(ERROR) << __func__ << ": stream was already closed";
+        ModulePrimary::outListMutex.unlock();
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 }

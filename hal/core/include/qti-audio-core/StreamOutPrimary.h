@@ -18,8 +18,9 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
                   const ::aidl::android::hardware::audio::common::SourceMetadata& sourceMetadata,
                   const std::optional<::aidl::android::media::audio::common::AudioOffloadInfo>&
                           offloadInfo);
-    
+
     virtual ~StreamOutPrimary() override;
+    int32_t setAggregateSourceMetadata(bool voiceActive) override;
 
     std::string toString() const noexcept;
 
@@ -74,7 +75,9 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
             override;
 
     void onClose() override { defaultOnClose(); }
-
+    AudioExtension& mAudExt{AudioExtension::getInstance()};
+    bool isStreamOutPrimary() { return (mTag == Usecase::PRIMARY_PLAYBACK) ? true: false; }
+    static std::mutex sourceMetadata_mutex_;
     protected:
     // This opens, configures and starts pal stream 
     void configure();

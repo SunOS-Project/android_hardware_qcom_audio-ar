@@ -4,18 +4,64 @@
  */
 
 #pragma once
-
+#include <aidl/android/hardware/audio/core/VendorParameter.h>
 #include <aidl/android/media/audio/common/AudioDevice.h>
 #include <aidl/android/media/audio/common/AudioFormatDescription.h>
 #include <aidl/android/media/audio/common/AudioPort.h>
 #include <aidl/android/media/audio/common/AudioPortConfig.h>
-
+#include <extensions/AudioExtension.h>
 
 #include <qti-audio-core/PlatformConverter.h>
 #include <PalApi.h>
 
+typedef enum {
+    SESSION_UNKNOWN,
+    /** A2DP legacy that AVDTP media is encoded by Bluetooth Stack */
+    A2DP_SOFTWARE_ENCODING_DATAPATH,
+    /** The encoding of AVDTP media is done by HW and there is control only */
+    A2DP_HARDWARE_OFFLOAD_DATAPATH,
+    /** Used when encoded by Bluetooth Stack and streaming to Hearing Aid */
+    HEARING_AID_SOFTWARE_ENCODING_DATAPATH,
+    /** Used when encoded by Bluetooth Stack and streaming to LE Audio device */
+    LE_AUDIO_SOFTWARE_ENCODING_DATAPATH,
+    /** Used when decoded by Bluetooth Stack and streaming to audio framework */
+    LE_AUDIO_SOFTWARE_DECODED_DATAPATH,
+    /** Encoding is done by HW an there is control only */
+    LE_AUDIO_HARDWARE_OFFLOAD_ENCODING_DATAPATH,
+    /** Decoding is done by HW an there is control only */
+    LE_AUDIO_HARDWARE_OFFLOAD_DECODING_DATAPATH,
+    /** SW Encoding for LE Audio Broadcast */
+    LE_AUDIO_BROADCAST_SOFTWARE_ENCODING_DATAPATH,
+    /** HW Encoding for LE Audio Broadcast */
+    LE_AUDIO_BROADCAST_HARDWARE_OFFLOAD_ENCODING_DATAPATH,
+}tSESSION_TYPE;
+
+const std::map<tSESSION_TYPE, pal_device_id_t> SessionTypePalDevMap
+{
+    {A2DP_HARDWARE_OFFLOAD_DATAPATH, PAL_DEVICE_OUT_BLUETOOTH_A2DP},
+    {LE_AUDIO_HARDWARE_OFFLOAD_ENCODING_DATAPATH, PAL_DEVICE_OUT_BLUETOOTH_BLE},
+    {LE_AUDIO_HARDWARE_OFFLOAD_DECODING_DATAPATH, PAL_DEVICE_IN_BLUETOOTH_BLE},
+    {LE_AUDIO_BROADCAST_HARDWARE_OFFLOAD_ENCODING_DATAPATH, PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST},
+};
+
+typedef enum {
+    /**If reconfiguration is in progress state */
+    SESSION_SUSPEND,
+    /**If reconfiguration is in complete state */
+    SESSION_RESUME,
+    /**To set Lc3 channel mode as Mono */
+    CHANNEL_MONO,
+    /**To set LC3 channel mode as Stereo */
+    CHANNEL_STEREO,
+}tRECONFIG_STATE;
+
+const std::map<int32_t, std::string> reconfigStateName{
+    {SESSION_SUSPEND, std::string{"SESSION_SUSPEND"}},
+    {SESSION_RESUME,  std::string{"SESSION_RESUME"}},
+    {CHANNEL_MONO,    std::string{"CHANNEL_MONO"}},
+    {CHANNEL_STEREO,  std::string{"CHANNEL_STEREO"}},
+};
 namespace qti::audio::core {
-// Singleton
 class Platform {
    private:
     explicit Platform();
@@ -29,8 +75,22 @@ class Platform {
                                  uint64_t cookie);
 
    public:
+    //BT related params used across
+    bool bt_lc3_speech_enabled;
+    static btsco_lc3_cfg_t btsco_lc3_cfg;
+
+    int a2dp_source_feature_init();
+    int mCallState;
+    int mCallMode;
+
     static Platform& getInstance();
     bool setParameter(const std::string& key, const std::string& value);
+    bool setBluetoothParameters(const char *kvpairs);
+    bool setVendorParameters(
+    const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
+        in_parameters,
+    bool in_async);
+
     std::string getParameter(const std::string& key) const;
     std::string toString() const;
     bool isFormatTypePCM(
@@ -93,6 +153,13 @@ class Platform {
         mPrimaryPlaybackDevices = devices;
     }
 
+    void updateCallState(int callState) { mCallState = callState;}
+    void updateCallMode(int callMode) { mCallMode = callMode;}
+
+    int getCallState() { return mCallState; }
+    int getCallMode() { return mCallMode; }
+    bool isA2dpSuspended();
+
    private:
     bool getBtConfig(pal_param_bta2dp_t* bTConfig);
 
@@ -105,6 +172,7 @@ class Platform {
    private:
     std::vector<::aidl::android::media::audio::common::AudioDevice>
         mPrimaryPlaybackDevices{};
+
     std::map<std::string, std::string> mParameters;
     card_status_t mSndCardStatus{CARD_STATUS_OFFLINE};
     const PlatformConverter& mTypeConverter{PlatformConverter::getInstance()};

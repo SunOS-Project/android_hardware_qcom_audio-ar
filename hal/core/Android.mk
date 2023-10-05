@@ -6,12 +6,13 @@ LOCAL_VENDOR_MODULE     := true
 LOCAL_MODULE_RELATIVE_PATH := hw
 
 LOCAL_C_INCLUDES    :=  $(LOCAL_PATH)/include \
-                        $(LOCAL_PATH)/adapter/include
+                        $(LOCAL_PATH)/extensions/include \
+                        $(TOP)/system/media/audio/include \
+                        $(TOP)/hardware/libhardware/include
 
 # LOCAL_CFLAGS += -Wall -Wextra -Werror -Wthread-safety
 
-# LOCAL_CPPFLAGS += -fexceptions
-
+#LOCAL_CPPFLAGS += -frtti
 LOCAL_CFLAGS += -DPAL_HIDL_ENABLED
 LOCAL_CFLAGS += -DAGM_HIDL_ENABLED
 

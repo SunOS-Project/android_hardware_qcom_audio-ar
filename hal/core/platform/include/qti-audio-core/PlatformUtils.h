@@ -21,7 +21,19 @@ constexpr size_t getNearestMultiple(size_t num, size_t multiplier) {
     return num;
 }
 
-
+//std::string getStringForVendorParameter(
+auto getkvPairsForVendorParameter =
+    [](const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& param) -> std::string {
+    std::string str="";
+    std::optional<::aidl::qti::audio::core::VString> parcel;
+    for (const auto& p : param) {
+        if (p.ext.getParcelable(&parcel) == STATUS_OK && parcel.has_value()) {
+            std::string keyvalue = p.id + "=" + parcel.value().value + ";";
+            str.append(keyvalue);
+        }
+    }
+    return str;
+};
 
 auto getBoolValueFromVString =
     [](const std::vector<

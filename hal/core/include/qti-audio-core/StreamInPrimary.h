@@ -21,7 +21,7 @@ class StreamInPrimary: public StreamIn, public StreamCommonImpl {
     virtual ~StreamInPrimary() override;
 
     std::string toString() const noexcept;
-
+    int32_t setAggregateSinkMetadata(bool voiceActive) override;
     // Methods of 'DriverInterface'.
     ::android::status_t init() override;
     ::android::status_t drain(::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode) override;
@@ -64,7 +64,7 @@ class StreamInPrimary: public StreamIn, public StreamCommonImpl {
             override;
     
     void onClose() override { defaultOnClose(); }
-
+    static std::mutex sinkMetadata_mutex_;
     protected:
     // This opens, configures and starts pal stream 
     void configure();
@@ -72,7 +72,6 @@ class StreamInPrimary: public StreamIn, public StreamCommonImpl {
     size_t getPeriodSize() const noexcept;
     size_t getPeriodCount() const noexcept;
     size_t getPlatformDelay() const noexcept;
-
     protected:
     const Usecase mTag;
     const size_t mFrameSizeBytes;

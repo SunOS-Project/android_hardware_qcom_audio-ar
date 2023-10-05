@@ -25,6 +25,7 @@
 #define LOG_TAG "AHAL_QModulePri"
 #include <Utils.h>
 #include <android-base/logging.h>
+#include <cutils/str_parms.h>
 
 #include <qti-audio-core/ModulePrimary.h>
 #include <qti-audio-core/StreamInPrimary.h>
@@ -33,8 +34,9 @@
 #include <qti-audio-core/Telephony.h>
 #include <qti-audio-core/Parameters.h>
 #include <qti-audio-core/Utils.h>
-
+#include <qti-audio-core/Bluetooth.h>
 #include <aidl/qti/audio/core/VString.h>
+#include <qti-audio-core/PlatformUtils.h>
 
 using aidl::android::hardware::audio::common::SinkMetadata;
 using aidl::android::hardware::audio::common::SourceMetadata;
@@ -59,8 +61,17 @@ using ::aidl::android::hardware::audio::core::IStreamOut;
 using ::aidl::android::hardware::audio::core::ITelephony;
 using ::aidl::android::hardware::audio::core::VendorParameter;
 using ::aidl::qti::audio::core::VString;
+using ::aidl::android::hardware::audio::core::IBluetooth;
+using ::aidl::android::hardware::audio::core::IBluetoothA2dp;
+using ::aidl::android::hardware::audio::core::IBluetoothLe;
 
 namespace qti::audio::core {
+
+std::vector<std::weak_ptr<::qti::audio::core::StreamOut>> ModulePrimary::mStreamsOut;
+std::vector<std::weak_ptr<::qti::audio::core::StreamIn>> ModulePrimary::mStreamsIn;
+
+std::mutex ModulePrimary::outListMutex;
+std::mutex ModulePrimary::inListMutex;
 
 std::string ModulePrimary::toStringInternal() {
     std::ostringstream os;
@@ -126,6 +137,39 @@ binder_status_t ModulePrimary::dump(int fd, const char** args, uint32_t numArgs)
     return 0;
 }
 
+ndk::ScopedAStatus ModulePrimary::getBluetooth(
+    std::shared_ptr<IBluetooth>* _aidl_return) {
+    if (!mBluetooth) {
+        mBluetooth = ndk::SharedRefBase::make<::qti::audio::core::Bluetooth>();
+    }
+    *_aidl_return = mBluetooth.getInstance();
+    LOG(DEBUG) << __func__
+               << ": returning instance of IBluetooth: " << _aidl_return->get()->asBinder().get();
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus ModulePrimary::getBluetoothA2dp(
+    std::shared_ptr<IBluetoothA2dp>* _aidl_return) {
+    if (!mBluetoothA2dp) {
+        mBluetoothA2dp = ndk::SharedRefBase::make<::qti::audio::core::BluetoothA2dp>();
+    }
+    *_aidl_return = mBluetoothA2dp.getInstance();
+    LOG(DEBUG) << __func__ << ": returning instance of IBluetoothA2dp: "
+               << _aidl_return->get()->asBinder().get();
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus ModulePrimary::getBluetoothLe(
+    std::shared_ptr<IBluetoothLe>* _aidl_return) {
+    if (!mBluetoothLe) {
+        mBluetoothLe = ndk::SharedRefBase::make<::qti::audio::core::BluetoothLe>();
+    }
+    *_aidl_return = mBluetoothLe.getInstance();
+    LOG(DEBUG) << __func__
+               << ": returning instance of IBluetoothLe: " << _aidl_return->get()->asBinder().get();
+    return ndk::ScopedAStatus::ok();
+}
+
 ndk::ScopedAStatus ModulePrimary::getTelephony(
     std::shared_ptr<ITelephony>* _aidl_return) {
     if (!mTelephony) {
@@ -141,15 +185,26 @@ ndk::ScopedAStatus ModulePrimary::createInputStream(StreamContext&& context,
                                                     const SinkMetadata& sinkMetadata,
                                                     const std::vector<MicrophoneInfo>& microphones,
                                                     std::shared_ptr<StreamIn>* result) {
-    return createStreamInstance<StreamInPrimary>(result, std::move(context), sinkMetadata,
+    createStreamInstance<StreamInPrimary>(result, std::move(context), sinkMetadata,
                                               microphones);
+    ModulePrimary::inListMutex.lock();
+    ModulePrimary::updateStreamInList(*result);
+    if (!mTelephony) mTelephony->mStreamInPrimary = *result;
+    ModulePrimary::inListMutex.unlock();
+    return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus ModulePrimary::createOutputStream(
         StreamContext&& context, const SourceMetadata& sourceMetadata,
         const std::optional<AudioOffloadInfo>& offloadInfo, std::shared_ptr<StreamOut>* result) {
-    return createStreamInstance<StreamOutPrimary>(result, std::move(context), sourceMetadata,
+    createStreamInstance<StreamOutPrimary>(result, std::move(context), sourceMetadata,
                                                offloadInfo);
+    ModulePrimary::outListMutex.lock();
+    ModulePrimary::updateStreamOutList(*result);
+    //save primary out stream weak ptr, as some other modules need it.
+    if (!mTelephony) mTelephony->mStreamOutPrimary = *result;
+    ModulePrimary::outListMutex.unlock();
+    return ndk::ScopedAStatus::ok();
 }
 
 std::vector<::aidl::android::media::audio::common::AudioProfile>
@@ -252,7 +307,18 @@ ndk::ScopedAStatus ModulePrimary::setVendorParameters(
             if (!extractParameter<Boolean>(p, &mVendorDebug.forceSynchronousDrain)) {
                 return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
             }
-        } 
+        } else {
+            struct str_parms *parms = NULL;
+            std::string kvpairs = getkvPairsForVendorParameter(in_parameters);
+            if (!kvpairs.empty()) {
+                parms = str_parms_create_str(kvpairs.c_str());
+                mAudExt.audio_extn_set_parameters(parms);
+            }
+
+            mPlatform.setVendorParameters(in_parameters,in_async);
+            allParametersKnown = false;
+            LOG(ERROR) << __func__ << ": unrecognized parameter \"" << p.id << "\"";
+        }
     }
     processSetVendorParameters(in_parameters);
     if (allParametersKnown) return ndk::ScopedAStatus::ok();
@@ -421,6 +487,55 @@ std::vector<VendorParameter> ModulePrimary::processGetVendorParameters(
     return result;
 }
 
+std::vector<VendorParameter> ModulePrimary::onGetAudioExtnParams(
+    const std::vector<std::string>& ids) {
+
+    std::vector<VendorParameter> results{};
+    for (const auto& id : ids) {
+        if (id == Parameters::kFMStatus) {
+            bool fm_status = mAudExt.mFmExtension->audio_extn_fm_get_status();
+            VendorParameter param;
+            param.id = id;
+            VString parcel;
+            parcel.value = fm_status ? "true" : "false";
+            setParameter(parcel, param);
+            results.push_back(param);
+        }
+        else if (id == Parameters::kCanOpenProxy) {
+            VendorParameter param;
+            param.id = id;
+            VString parcel;
+            parcel.value = "1";
+            setParameter(parcel, param);
+            results.push_back(param);
+        }
+    }
+    return results;
+}
+
+std::vector<VendorParameter> ModulePrimary::onGetBluetoothParams(
+    const std::vector<std::string>& ids) {
+    if (!mBluetoothA2dp) {
+        LOG(ERROR) << __func__ << ": Bluetooth not created";
+        return {};
+    }
+    std::vector<VendorParameter> results{};
+    for (const auto& id : ids) {
+        if (id == Parameters::kA2dpSuspended) {
+            VendorParameter param;
+            bool a2dpSuspended = false;
+            param.id = id;
+            VString parcel;
+            mBluetoothA2dp->isEnabled(&a2dpSuspended);
+            parcel.value = a2dpSuspended ? "1" : "0";
+            setParameter(parcel, param);
+            results.push_back(param);
+        }
+    }
+    return results;
+
+}
+
 std::vector<VendorParameter> ModulePrimary::onGetTelephonyParameters(
     const std::vector<std::string>& ids) {
     if (!mTelephony) {
@@ -442,9 +557,12 @@ std::vector<VendorParameter> ModulePrimary::onGetTelephonyParameters(
 }
 
 // static 
-ModulePrimary::GetParameterToFeatureMap ModulePrimary::fillGetParameterToFeatureMap(){
+ModulePrimary::GetParameterToFeatureMap ModulePrimary::fillGetParameterToFeatureMap() {
     GetParameterToFeatureMap map{
-        {Parameters::kVoiceIsCRsSupported, Feature::TELEPHONY}};
+        {Parameters::kVoiceIsCRsSupported, Feature::TELEPHONY},
+        {Parameters::kA2dpSuspended, Feature::BLUETOOTH},
+        {Parameters::kFMStatus, Feature::AUDIOEXTENSION},
+        {Parameters::kCanOpenProxy, Feature::AUDIOEXTENSION}};
     return map;
 }
 
@@ -452,7 +570,9 @@ ModulePrimary::GetParameterToFeatureMap ModulePrimary::fillGetParameterToFeature
 ModulePrimary::FeatureToGetHandlerMap
 ModulePrimary::fillFeatureToGetHandlerMap() {
     FeatureToGetHandlerMap map{
-        {Feature::TELEPHONY, &ModulePrimary::onGetTelephonyParameters}};
+        {Feature::TELEPHONY, &ModulePrimary::onGetTelephonyParameters},
+        {Feature::BLUETOOTH, &ModulePrimary::onGetBluetoothParams},
+        {Feature::AUDIOEXTENSION, &ModulePrimary::onGetAudioExtnParams}};
     return map;
 }
 

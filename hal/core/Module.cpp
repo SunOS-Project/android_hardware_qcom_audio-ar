@@ -765,6 +765,7 @@ ndk::ScopedAStatus Module::openOutputStream(const OpenOutputStreamArguments& in_
     AIBinder_setMinSchedulerPolicy(streamWrapper.getBinder().get(), SCHED_NORMAL,
                                    ANDROID_PRIORITY_AUDIO);
     mStreams.insert(port->id, in_args.portConfigId, std::move(streamWrapper));
+//    Module::updateStreamOutList(stream);
     _aidl_return->stream = std::move(stream);
     return ndk::ScopedAStatus::ok();
 }
@@ -1166,7 +1167,10 @@ ndk::ScopedAStatus Module::getMicMute(bool* _aidl_return) {
 
 ndk::ScopedAStatus Module::setMicMute(bool in_mute) {
     LOG(DEBUG) << __func__ << ": " << in_mute;
+    int ret = 0;
     mMicMute = in_mute;
+    ret = mAudExt.mHfpExtension->audio_extn_hfp_set_mic_mute(in_mute);
+    // ToDo : set mute on all active streams
     return ndk::ScopedAStatus::ok();
 }
 
@@ -1432,4 +1436,4 @@ ndk::ScopedAStatus Module::onMasterVolumeChanged(float volume __unused) {
     return ndk::ScopedAStatus::ok();
 }
 
-}  // namespace aidl::android::hardware::audio::core
+}  // namespace qti::audio::core

@@ -25,6 +25,7 @@
 #include <qti-audio-core/Module.h>
 #include <qti-audio-core/Telephony.h>
 #include <qti-audio-core/Platform.h>
+#include <qti-audio-core/Bluetooth.h>
 
 namespace qti::audio::core {
 
@@ -59,7 +60,12 @@ class ModulePrimary final : public Module {
         TELEPHONY,
         BLUETOOTH,
         HDR,
+        AUDIOEXTENSION,
     };
+
+    //Mutex for stream lists protection
+    static std::mutex outListMutex;
+    static std::mutex inListMutex;
 
     // For set parameters
     using SetHandler = std::function<void(
@@ -86,9 +92,29 @@ class ModulePrimary final : public Module {
         std::map<Feature, std::vector<std::string>>;
 
     // end of Module Parameters
+    static std::vector<std::weak_ptr<::qti::audio::core::StreamOut>> mStreamsOut;
+    static std::vector<std::weak_ptr<::qti::audio::core::StreamIn>> mStreamsIn;
+
+    static void updateStreamOutList(const std::shared_ptr<StreamOut> streamOut) {
+      mStreamsOut.push_back(streamOut);
+    }
+    static void updateStreamInList(const std::shared_ptr<StreamIn> streamIn) {
+      mStreamsIn.push_back(streamIn);
+    }
+    static std::vector<std::weak_ptr<StreamOut>>& getOutStreams() { return mStreamsOut;}
+    static std::vector<std::weak_ptr<StreamIn>>& getInStreams() { return mStreamsIn;}
 
    protected:
     binder_status_t dump(int fd, const char** args, uint32_t numArgs) override;
+    ndk::ScopedAStatus getBluetooth(
+        std::shared_ptr<::aidl::android::hardware::audio::core::IBluetooth>*
+            _aidl_return) override;
+    ndk::ScopedAStatus getBluetoothA2dp(
+        std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothA2dp>*
+            _aidl_return) override;
+    ndk::ScopedAStatus getBluetoothLe(
+        std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothLe>*
+            _aidl_return) override;
     ndk::ScopedAStatus getTelephony(
         std::shared_ptr<::aidl::android::hardware::audio::core::ITelephony>*
             _aidl_return) override;
@@ -152,6 +178,10 @@ class ModulePrimary final : public Module {
     // GetHandler for Telephony
     std::vector<::aidl::android::hardware::audio::core::VendorParameter>
     onGetTelephonyParameters(const std::vector<std::string>&);
+    std::vector<::aidl::android::hardware::audio::core::VendorParameter>
+    onGetAudioExtnParams(const std::vector<std::string>&);
+    std::vector<::aidl::android::hardware::audio::core::VendorParameter>
+    onGetBluetoothParams(const std::vector<std::string>&);
     // end of module parameters handling
 
 
@@ -164,6 +194,12 @@ class ModulePrimary final : public Module {
     const GetParameterToFeatureMap mGetParameterToFeatureMap{
         fillGetParameterToFeatureMap()};
     const FeatureToGetHandlerMap mFeatureToGetHandlerMap{fillFeatureToGetHandlerMap()};
+    ChildInterface<::aidl::android::hardware::audio::core::IBluetooth>
+        mBluetooth;
+    ChildInterface<::aidl::android::hardware::audio::core::IBluetoothA2dp>
+        mBluetoothA2dp;
+    ChildInterface<::aidl::android::hardware::audio::core::IBluetoothLe>
+        mBluetoothLe;
     Platform& mPlatform{Platform::getInstance()};
 
 };
