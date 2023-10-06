@@ -22,7 +22,7 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
     virtual ~StreamOutPrimary() override;
     int32_t setAggregateSourceMetadata(bool voiceActive) override;
 
-    std::string toString() const noexcept;
+    operator const char*() const noexcept;
 
     // Methods of 'DriverInterface'.
     ::android::status_t init() override;
@@ -77,47 +77,44 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
                                            int32_t* bufferSizeFrames) override;
 
     void onClose() override { defaultOnClose(); }
-    AudioExtension& mAudExt{AudioExtension::getInstance()};
+
     bool isStreamOutPrimary() { return (mTag == Usecase::PRIMARY_PLAYBACK) ? true: false; }
     static std::mutex sourceMetadata_mutex_;
     protected:
-    // This opens, configures and starts pal stream 
+    /*
+     * This API opens, configures and starts pal stream.
+     * also responsible for validity of pal handle.
+     */
     void configure();
     void resume();
     size_t getPeriodSize() const noexcept;
     size_t getPeriodCount() const noexcept;
     size_t getPlatformDelay() const noexcept;
 
-    private:
+    // This API calls startEffect/stopEffect only on offload/pcm offload
+    // outputs.
+    void enableOffloadEffects(const bool enable);
+
+   protected:
     const Usecase mTag;
+    const std::string mTagName;
     const size_t mFrameSizeBytes;
-    const int mSampleRate;
-    const bool mIsAsynchronous;
-    const bool mIsInput;
-    bool mIsInitialized{false};  // Used for validating the state machine logic.
-    bool mIsStandby{true};       // Used for validating the state machine logic.
     bool mIsPaused{false};
     std::vector<float> mVolumes{};
+
+    // All the public must check the validity of this resource, if using
     pal_stream_handle_t* mPalHandle{nullptr};
-    /**
-     * used to verify a successful configuration of pal stream
-     * on true expected mPalHandle is valid pal stream handle (hardware up)
-     * on false expected mPalHandle is nullptr (hardware down)
-     **/
-    bool mIsConfigured{false};
+
     std::variant<std::monostate, PrimaryPlayback, DeepBufferPlayback,
                  CompressPlayback, PcmOffloadPlayback, VoipPlayback,
                  SpatialPlayback, MMapPlayback, UllPlayback>
         mExt;
     // references
     Platform& mPlatform {Platform::getInstance()};
-    const ::aidl::android::media::audio::common::AudioPortConfig& mMixPortConfig{mContext.getMixPortConfig()};
-    int mIoHandle;
-
+    const ::aidl::android::media::audio::common::AudioPortConfig&
+        mMixPortConfig;
     HalOffloadEffects& mHalEffects {HalOffloadEffects::getInstance()};
-
-    // This API calls startEffect/stopEffect only on offload/pcm offload outputs.
-    void enableOffloadEffects(bool enable);
+    AudioExtension& mAudExt{AudioExtension::getInstance()};
 };
 
 

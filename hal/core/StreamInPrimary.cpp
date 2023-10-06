@@ -27,6 +27,7 @@ using aidl::android::media::audio::common::AudioDevice;
 using aidl::android::media::audio::common::AudioDualMonoMode;
 using aidl::android::media::audio::common::AudioLatencyMode;
 using aidl::android::media::audio::common::AudioOffloadInfo;
+using aidl::android::media::audio::common::AudioPortExt;
 using aidl::android::media::audio::common::AudioPlaybackRate;
 using aidl::android::media::audio::common::MicrophoneDynamicInfo;
 using aidl::android::media::audio::common::MicrophoneInfo;
@@ -39,6 +40,7 @@ using ::aidl::android::hardware::audio::core::StreamDescriptor;
 using ::aidl::android::hardware::audio::core::VendorParameter;
 using ::aidl::android::hardware::audio::effect::getEffectTypeUuidAcousticEchoCanceler;
 using ::aidl::android::hardware::audio::effect::getEffectTypeUuidNoiseSuppression;
+
 namespace qti::audio::core {
 
 std::mutex StreamInPrimary::sinkMetadata_mutex_;
@@ -49,10 +51,9 @@ StreamInPrimary::StreamInPrimary(StreamContext&& context,
     : StreamIn(std::move(context), microphones),
       StreamCommonImpl(&(StreamIn::mContext), sinkMetadata),
       mTag(getUsecaseTag(getContext().getMixPortConfig())),
+      mTagName(getName(mTag)),
       mFrameSizeBytes(getContext().getFrameSize()),
-      mSampleRate(getContext().getSampleRate()),
-      mIsAsynchronous(!!getContext().getAsyncCallback()),
-      mIsInput(true) {
+      mMixPortConfig(getContext().getMixPortConfig()) {
     if (mTag == Usecase::PCM_RECORD) {
         mExt.emplace<PcmRecord>();
     } else if (mTag == Usecase::COMPRESS_CAPTURE) {
@@ -66,15 +67,20 @@ StreamInPrimary::StreamInPrimary(StreamContext&& context,
     } else if(mTag == Usecase::VOICE_CALL_RECORD){
         mExt.emplace<VoiceCallRecord>();
     }
+    LOG(VERBOSE) << __func__ << ": " << *this;
 }
 
 StreamInPrimary::~StreamInPrimary() {
     shutdown();
+    LOG(VERBOSE) << __func__ << ": " << *this;
 }
 
-std::string StreamInPrimary::toString() const noexcept {
+StreamInPrimary::operator const char*() const noexcept {
     std::ostringstream os;
-    return os.str();
+    os << " " << mTagName;
+    os << " IoHandle:"
+       << mMixPortConfig.ext.get<AudioPortExt::Tag::mix>().handle;
+    return os.str().c_str();
 }
 
 // start of methods called from IModule
@@ -148,6 +154,7 @@ ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd,
         ret) {
         LOG(ERROR) << __func__
                    << " pal stream open failed!!! ret:" << std::to_string(ret);
+        mPalHandle = nullptr;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
     const size_t ringBufSizeInBytes = getPeriodSize();
@@ -162,6 +169,8 @@ ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd,
         ret) {
         LOG(ERROR) << __func__ << " pal stream set buffer size failed!!! ret:"
                    << std::to_string(ret);
+        ::pal_stream_close(mPalHandle);
+        mPalHandle = nullptr;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
     LOG(VERBOSE) << __func__ << " pal stream set buffer size successful";
@@ -174,16 +183,19 @@ ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd,
         burstSizeFrames, flags, bufferSizeFrames);
     if (ret != 0) {
         LOG(ERROR) << __func__ << " Create MMap buffer failed!";
+        ::pal_stream_close(mPalHandle);
+        mPalHandle = nullptr;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
     if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
         LOG(ERROR) << __func__
                    << " pal stream start failed!! ret:" << std::to_string(ret);
+        ::pal_stream_close(mPalHandle);
+        mPalHandle = nullptr;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
-    LOG(INFO) << __func__ << ": stream is configured for " << getName(mTag);
-    mIsConfigured = true;
+    LOG(INFO) << __func__ << ": stream is configured for " << mTagName;
 
     return ndk::ScopedAStatus::ok();
 }
@@ -198,11 +210,19 @@ ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd,
 
 ::android::status_t StreamInPrimary::drain(
     ::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode mode) {
+    if (!mPalHandle) {
+        LOG(WARNING) << __func__ << ": stream not configured " << mTagName;
+        return ::android::OK;
+    }
     // No op
     return ::android::OK;
 }
 
 ::android::status_t StreamInPrimary::flush() {
+    if (!mPalHandle) {
+        LOG(WARNING) << __func__ << ": stream not configured " << mTagName;
+        return ::android::OK;
+    }
     // No op
     return ::android::OK;
 }
@@ -229,8 +249,12 @@ void StreamInPrimary::resume() {
 ::android::status_t StreamInPrimary::transfer(void* buffer, size_t frameCount,
                                               size_t* actualFrameCount,
                                               int32_t* latencyMs) {
-    if (!mIsConfigured) {
+    if (!mPalHandle) {
         configure();
+        if (!mPalHandle) {
+            LOG(ERROR) << __func__ << ": failed to configure " << mTagName;
+            return ::android::UNEXPECTED_NULL;
+        }
     }
 
     pal_buffer palBuffer{};
@@ -265,6 +289,10 @@ void StreamInPrimary::resume() {
 ::android::status_t StreamInPrimary::refinePosition(
     ::aidl::android::hardware::audio::core::StreamDescriptor::Reply*
         reply) {
+    if (!mPalHandle) {
+            LOG(WARNING) << __func__ << ": stream not configured " << mTagName;
+            return ::android::OK;
+        }
     if (mTag == Usecase::COMPRESS_CAPTURE) {
         auto& compressCapture = std::get<CompressCapture>(mExt);
         reply->observable.frames =
@@ -295,7 +323,6 @@ void StreamInPrimary::shutdown() {
         ::pal_stream_stop(mPalHandle);
         ::pal_stream_close(mPalHandle);
     }
-    mIsConfigured = false;
     mPalHandle = nullptr;
 }
 
@@ -553,7 +580,7 @@ void StreamInPrimary::configure() {
     }
 
     LOG(VERBOSE) << __func__ << " assigned pal stream type:" << attr->type
-                 << " for " << getName(mTag);
+                 << " for " << mTagName;
 
     auto palDevices = mPlatform.getPalDevices(getConnectedDevices());
     if (!palDevices.size()) {
@@ -567,10 +594,11 @@ void StreamInPrimary::configure() {
 
     if (int32_t ret =
             ::pal_stream_open(attr.get(), palDevices.size(), palDevices.data(),
-                              0, nullptr, palFn, cookie, &(this->mPalHandle));
+                              0, nullptr, palFn, cookie, &(mPalHandle));
         ret) {
         LOG(ERROR) << __func__
-                   << " pal stream open failed!!! ret:" << std::to_string(ret);
+                   << " pal stream open failed!!! ret:" << ret;
+        mPalHandle = nullptr;
         return;
     }
 
@@ -582,11 +610,12 @@ void StreamInPrimary::configure() {
                  << ringBufSizeInBytes << " with count "
                  << ringBufCount;
     if (int32_t ret = ::pal_stream_set_buffer_size(
-            this->mPalHandle, (mIsInput ? palBufferConfig.get() : nullptr),
-            ((!mIsInput) ? palBufferConfig.get() : nullptr));
+            mPalHandle, palBufferConfig.get(), nullptr);
         ret) {
         LOG(ERROR) << __func__ << " pal stream set buffer size failed!!! ret:"
-                   << std::to_string(ret);
+                   << ret;
+        ::pal_stream_close(mPalHandle);
+        mPalHandle = nullptr;
         return;
     }
     LOG(VERBOSE) << __func__ << " pal stream set buffer size successful";
@@ -598,13 +627,17 @@ void StreamInPrimary::configure() {
             ret) {
             LOG(VERBOSE) << __func__
                          << " pal stream set param failed!!! ret:" << ret;
+            ::pal_stream_close(mPalHandle);
+            mPalHandle = nullptr;
             return;
         }
     }
 
     if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
         LOG(ERROR) << __func__
-                   << " pal stream start failed!! ret:" << std::to_string(ret);
+                   << " pal stream start failed!! ret:" << ret;
+        ::pal_stream_close(mPalHandle);
+        mPalHandle = nullptr;
         return;
     }
     LOG(VERBOSE) << __func__ << " pal stream start successful";
@@ -613,8 +646,6 @@ void StreamInPrimary::configure() {
     if (mTag == Usecase::COMPRESS_CAPTURE) {
         std::get<CompressCapture>(mExt).setPalHandle(mPalHandle);
     }
-
-    mIsConfigured = true;
 }
 
 

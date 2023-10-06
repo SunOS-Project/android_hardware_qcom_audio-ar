@@ -49,10 +49,9 @@ StreamOutPrimary::StreamOutPrimary(
     : StreamOut(std::move(context), offloadInfo),
       StreamCommonImpl(&(StreamOut::mContext), sourceMetadata),
       mTag(getUsecaseTag(getContext().getMixPortConfig())),
+      mTagName(getName(mTag)),
       mFrameSizeBytes(getContext().getFrameSize()),
-      mSampleRate(getContext().getSampleRate()),
-      mIsAsynchronous(!!getContext().getAsyncCallback()),
-      mIsInput(false) {
+      mMixPortConfig(getContext().getMixPortConfig()) {
     if (mTag == Usecase::PRIMARY_PLAYBACK) {
         mExt.emplace<PrimaryPlayback>();
     } else if (mTag == Usecase::DEEP_BUFFER_PLAYBACK) {
@@ -72,30 +71,24 @@ StreamOutPrimary::StreamOutPrimary(
         mExt.emplace<UllPlayback>();
     }
 
-    if (mMixPortConfig.ext.getTag() == AudioPortExt::Tag::mix) {
-        auto mixExt = mMixPortConfig.ext.get<AudioPortExt::Tag::mix>();
-        mIoHandle = mixExt.handle;
-        LOG(INFO) << __func__ << " mIoHandle " << mIoHandle;
-    }
-    LOG(VERBOSE) << __func__ << ": create " << getName(mTag) << " " << std::hex
-                 << this;
+    LOG(VERBOSE) << __func__ << ": " << *this;
 }
 
 StreamOutPrimary::~StreamOutPrimary() {
-    LOG(INFO) << __func__ << ": destroy stream with handle " << mIoHandle;
     if (mPalHandle != nullptr) {
         ::pal_stream_stop(mPalHandle);
         ::pal_stream_close(mPalHandle);
     }
-    if (karaoke)
-       mAudExt.mKarokeExtension->karaoke_stop();
-    LOG(VERBOSE) << __func__ << ": destroy " << getName(mTag) << " " << std::hex
-                 << this;
+    if (karaoke) mAudExt.mKarokeExtension->karaoke_stop();
+    LOG(VERBOSE) << __func__ << ": " << *this;
 }
 
-std::string StreamOutPrimary::toString() const noexcept {
+StreamOutPrimary::operator const char*() const noexcept {
     std::ostringstream os;
-    return os.str();
+    os << " " << mTagName;
+    os << " IoHandle:"
+       << mMixPortConfig.ext.get<AudioPortExt::Tag::mix>().handle;
+    return os.str().c_str();
 }
 
 // start of methods called from IModule
@@ -111,7 +104,7 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
                      << mConnectedDevices;
     }
 
-    if (!mIsConfigured) {
+    if (!mPalHandle) {
         LOG(WARNING) << __func__ << ": stream not configured";
         return ndk::ScopedAStatus::ok();
     }
@@ -183,6 +176,7 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd,
         ret) {
         LOG(ERROR) << __func__
                    << " pal stream open failed!!! ret:" << std::to_string(ret);
+        mPalHandle = nullptr;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
     const size_t ringBufSizeInBytes = getPeriodSize();
@@ -192,12 +186,13 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd,
     LOG(VERBOSE) << __func__ << " pal stream set buffer size "
                  << std::to_string(ringBufSizeInBytes) << " with count "
                  << std::to_string(ringBufCount);
-    if (int32_t ret = ::pal_stream_set_buffer_size(
-            this->mPalHandle, (mIsInput ? palBufferConfig.get() : nullptr),
-            ((!mIsInput) ? palBufferConfig.get() : nullptr));
+    if (int32_t ret = ::pal_stream_set_buffer_size(this->mPalHandle, nullptr,
+                                                   palBufferConfig.get());
         ret) {
         LOG(ERROR) << __func__ << " pal stream set buffer size failed!!! ret:"
                    << std::to_string(ret);
+        ::pal_stream_close(mPalHandle);
+        mPalHandle = nullptr;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
     LOG(VERBOSE) << __func__ << " pal stream set buffer size successful";
@@ -210,16 +205,19 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd,
         burstSizeFrames, flags, bufferSizeFrames);
     if (ret != 0) {
         LOG(ERROR) << __func__ << " Create MMap buffer failed!";
+        ::pal_stream_close(mPalHandle);
+        mPalHandle = nullptr;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
     if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
         LOG(ERROR) << __func__
                    << " pal stream start failed!! ret:" << std::to_string(ret);
+        ::pal_stream_close(mPalHandle);
+        mPalHandle = nullptr;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
-    LOG(INFO) << __func__ << ": stream is configured for " << getName(mTag);
-    mIsConfigured = true;
+    LOG(INFO) << __func__ << ": stream is configured for " << mTagName;
 
     return ndk::ScopedAStatus::ok();
 }
@@ -229,12 +227,15 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd,
 // start of DriverInterface Methods
 
 ::android::status_t StreamOutPrimary::init() {
-    mIsInitialized = true;
     return ::android::OK;
 }
 
 ::android::status_t StreamOutPrimary::drain(
     ::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode mode) {
+    if (!mPalHandle) {
+        LOG(WARNING) << __func__ << ": stream not configured " << mTagName;
+        return ::android::OK;
+    }
     auto palDrainMode = mode == ::aidl::android::hardware::audio::core::
                                     StreamDescriptor::DrainMode::DRAIN_ALL
                             ? PAL_DRAIN
@@ -243,11 +244,15 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd,
         LOG(ERROR) << __func__ << " failed to drain the stream, ret:" << ret;
         return ret;
     }
-    LOG(VERBOSE) << __func__ << " drained "<<getName(mTag);
+    LOG(VERBOSE) << __func__ << " drained "<<mTagName;
     return ::android::OK;
 }
 
 ::android::status_t StreamOutPrimary::flush() {
+    if (!mPalHandle) {
+        LOG(WARNING) << __func__ << ": stream not configured " << mTagName;
+        return ::android::OK;
+    }
     if (mTag == Usecase::MMAP_PLAYBACK) {
         LOG(WARNING) << __func__ << " Flushing of MMAP streams is unsupported.";
         return ::android::OK;
@@ -256,11 +261,15 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd,
         LOG(ERROR) << __func__ << " failed to flush the stream, ret:" << ret;
         return ret;
     }
-    LOG(VERBOSE) << __func__ << " "<<getName(mTag);
+    LOG(VERBOSE) << __func__ << " "<<mTagName;
     return ::android::OK;
 }
 
 ::android::status_t StreamOutPrimary::pause() {
+    if (!mPalHandle) {
+        LOG(WARNING) << __func__ << ": stream not configured " << mTagName;
+        return ::android::OK;
+    }
     if (mTag == Usecase::MMAP_PLAYBACK) {
         if (int32_t ret = pal_stream_stop(mPalHandle); ret) {
             LOG(ERROR) << __func__
@@ -277,7 +286,7 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd,
         }
     }
     mIsPaused = true;
-    LOG(VERBOSE) << __func__ << " "<<getName(mTag) ;
+    LOG(VERBOSE) << __func__ << " "<<mTagName ;
     return ::android::OK;
 }
 
@@ -292,16 +301,20 @@ void StreamOutPrimary::resume() {
             LOG(ERROR) << __func__ << " failed to resume the stream, ret:" << ret;
         }
     }
-    LOG(VERBOSE) <<__func__ <<" "<< getName(mTag);
+    LOG(VERBOSE) <<__func__ <<" "<< mTagName;
     mIsPaused = false;
 }
 
 ::android::status_t StreamOutPrimary::standby() {
+    if (!mPalHandle) {
+        LOG(WARNING) << __func__ << ": stream not configured " << mTagName;
+        return ::android::OK;
+    }
     if (mTag == Usecase::MMAP_PLAYBACK)
         return ::android::OK;
     else {
         shutdown();
-        LOG(VERBOSE) <<__func__ <<" "<< getName(mTag);
+        LOG(VERBOSE) <<__func__ <<" "<< mTagName;
         return ::android::OK;
     }
 }
@@ -309,17 +322,22 @@ void StreamOutPrimary::resume() {
 ::android::status_t StreamOutPrimary::start() {
     // hardware is expected to up on start
     // but we are doing on first write
-    LOG(VERBOSE) <<__func__ <<" "<< getName(mTag);
+    LOG(VERBOSE) <<__func__ <<" "<< mTagName;
     return ::android::OK;
 }
 
 ::android::status_t StreamOutPrimary::transfer(void* buffer, size_t frameCount,
                                                size_t* actualFrameCount,
                                                int32_t* latencyMs) {
-    if (!mIsConfigured) {
+    if (!mPalHandle) {
         // configure on first transfer or after stand by
         configure();
+        if (!mPalHandle) {
+            LOG(ERROR) << __func__ << ": failed to configure " << mTagName;
+            return ::android::UNEXPECTED_NULL;
+        }
     }
+
     if(mIsPaused){
         resume();
     }
@@ -345,7 +363,7 @@ void StreamOutPrimary::resume() {
 ::android::status_t StreamOutPrimary::refinePosition(
     ::aidl::android::hardware::audio::core::StreamDescriptor::Reply*
         reply) {
-    if (!mIsConfigured) {
+    if (!mPalHandle) {
         return ::android::OK;
     }
 
@@ -355,7 +373,8 @@ void StreamOutPrimary::resume() {
         LOG(VERBOSE) << __func__ << " dspFrames consumed:" << frames;
         const auto latencyMs =
             mPlatform.getBluetoothLatencyMs(mConnectedDevices);
-        const auto offset = latencyMs * mSampleRate / 1000;
+        const auto sampleRate = mMixPortConfig.sampleRate.value().value;
+        const auto offset = latencyMs * sampleRate / 1000;
         frames = (frames > offset) ? (frames - offset) : 0;
         reply->observable.frames = frames;
     } else if (mTag == Usecase::MMAP_PLAYBACK) {
@@ -388,10 +407,9 @@ void StreamOutPrimary::shutdown() {
     if (karaoke)
        mAudExt.mKarokeExtension->karaoke_stop();
 
-    mIsConfigured = false;
     mIsPaused = false;
     mPalHandle = nullptr;
-    LOG(VERBOSE) <<__func__ <<" "<< getName(mTag);
+    LOG(VERBOSE) <<__func__ <<" "<< mTagName;
 }
 
 // end of DriverInterface Methods
@@ -431,7 +449,7 @@ ndk::ScopedAStatus StreamOutPrimary::updateOffloadMetadata(
     if (mTag != Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         LOG(WARNING) << __func__
                      << ": expected COMPRESS_OFFLOAD_PLAYBACK instead of "
-                     << getName(mTag);
+                     << mTagName;
         return ndk::ScopedAStatus::ok();
     }
 
@@ -451,7 +469,7 @@ ndk::ScopedAStatus StreamOutPrimary::getHwVolume(std::vector<float>* _aidl_retur
 ndk::ScopedAStatus StreamOutPrimary::setHwVolume(
     const std::vector<float>& in_channelVolumes) {
 
-    if (!mIsConfigured) {
+    if (!mPalHandle) {
         mVolumes = in_channelVolumes;
         return ndk::ScopedAStatus::ok();
     }
@@ -716,7 +734,7 @@ void StreamOutPrimary::configure() {
     }
 
     LOG(VERBOSE) << __func__ << " assigned pal stream type:" << attr->type
-                 << " for " << getName(mTag);
+                 << " for " << mTagName;
 
     auto palDevices = mPlatform.getPalDevices(getConnectedDevices());
     if (!palDevices.size()) {
@@ -749,7 +767,8 @@ void StreamOutPrimary::configure() {
                               0, nullptr, palFn, cookie, &(this->mPalHandle));
         ret) {
         LOG(ERROR) << __func__
-                   << " pal stream open failed!!! ret:" << std::to_string(ret);
+                   << " pal stream open failed!!! ret:" << ret;
+        mPalHandle = nullptr;
         return;
     }
     if (karaoke) {
@@ -763,12 +782,13 @@ void StreamOutPrimary::configure() {
     LOG(VERBOSE) << __func__ << " pal stream set buffer size "
                  << std::to_string(ringBufSizeInBytes) << " with count "
                  << std::to_string(ringBufCount);
-    if (int32_t ret = ::pal_stream_set_buffer_size(
-            this->mPalHandle, (mIsInput ? palBufferConfig.get() : nullptr),
-            ((!mIsInput) ? palBufferConfig.get() : nullptr));
+    if (int32_t ret = ::pal_stream_set_buffer_size(this->mPalHandle, nullptr,
+                                                   palBufferConfig.get());
         ret) {
         LOG(ERROR) << __func__ << " pal stream set buffer size failed!!! ret:"
-                   << std::to_string(ret);
+                   << ret;
+        ::pal_stream_close(mPalHandle);
+        mPalHandle = nullptr;
         return;
     }
     LOG(VERBOSE) << __func__ << " pal stream set buffer size successful";
@@ -779,8 +799,10 @@ void StreamOutPrimary::configure() {
                 this->mPalHandle, PAL_PARAM_ID_CODEC_CONFIGURATION,
                 reinterpret_cast<pal_param_payload*>(palParamPayload.get()));
             ret) {
-            LOG(VERBOSE) << __func__
+            LOG(ERROR) << __func__
                          << " pal stream set param failed!!! ret:" << ret;
+            ::pal_stream_close(mPalHandle);
+            mPalHandle = nullptr;
             return;
         }
         LOG(VERBOSE) << __func__
@@ -790,7 +812,9 @@ void StreamOutPrimary::configure() {
 
     if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
         LOG(ERROR) << __func__
-                   << " pal stream start failed!! ret:" << std::to_string(ret);
+                   << " pal stream start failed!! ret:" << ret;
+        ::pal_stream_close(mPalHandle);
+        mPalHandle = nullptr;
         return;
     }
 
@@ -804,9 +828,8 @@ void StreamOutPrimary::configure() {
         std::get<CompressPlayback>(mExt).setPalHandle(mPalHandle);
     }
 
-    LOG(INFO) << __func__ << ": stream is configured for " << getName(mTag);
+    LOG(INFO) << __func__ << ": stream is configured for " << mTagName;
     enableOffloadEffects(true);
-    mIsConfigured = true;
 
     // after configuration operations
 
@@ -816,12 +839,16 @@ void StreamOutPrimary::configure() {
     }
 }
 
-void StreamOutPrimary::enableOffloadEffects(bool enable) {
-    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK || mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
+void StreamOutPrimary::enableOffloadEffects(const bool enable) {
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK ||
+        mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
+        auto& ioHandle =
+            mMixPortConfig.ext.get<AudioPortExt::Tag::mix>().handle;
         if (enable) {
-            mHalEffects.startEffect(mIoHandle, mPalHandle);
+            mHalEffects.startEffect(ioHandle, mPalHandle);
+            LOG(VERBOSE) << __func__ << ": IOHandle: " << ioHandle;
         } else {
-            mHalEffects.stopEffect(mIoHandle);
+            mHalEffects.stopEffect(ioHandle);
         }
     }
 }

@@ -17,10 +17,10 @@ class StreamInPrimary: public StreamIn, public StreamCommonImpl {
             StreamContext&& context,
             const ::aidl::android::hardware::audio::common::SinkMetadata& sinkMetadata,
             const std::vector<::aidl::android::media::audio::common::MicrophoneInfo>& microphones);
-    
+
     virtual ~StreamInPrimary() override;
 
-    std::string toString() const noexcept;
+    operator const char*() const noexcept;
     int32_t setAggregateSinkMetadata(bool voiceActive) override;
     // Methods of 'DriverInterface'.
     ::android::status_t init() override;
@@ -64,35 +64,38 @@ class StreamInPrimary: public StreamIn, public StreamCommonImpl {
             override;
     ndk::ScopedAStatus configureMMapStream(int32_t* fd, int64_t* burstSizeFrames, int32_t* flags,
                                            int32_t* bufferSizeFrames) override;
-    
+
     void onClose() override { defaultOnClose(); }
     static std::mutex sinkMetadata_mutex_;
     protected:
-    // This opens, configures and starts pal stream 
+    /*
+     * This API opens, configures and starts pal stream.
+     * also responsible for validity of pal handle.
+     */
     void configure();
     void resume();
     size_t getPeriodSize() const noexcept;
     size_t getPeriodCount() const noexcept;
     size_t getPlatformDelay() const noexcept;
+
     protected:
     const Usecase mTag;
+    const std::string mTagName;
     const size_t mFrameSizeBytes;
-    const int mSampleRate;
-    const bool mIsAsynchronous;
-    const bool mIsInput;
+
+    bool mAECEnabled = false;
+    bool mNSEnabled = false;
+
+    // All the public must check the validity of this resource, if using
     pal_stream_handle_t* mPalHandle{nullptr};
-    // used to verify a successful configuration of pal stream
-    bool mIsConfigured{false};
+
     std::variant<std::monostate, PcmRecord, CompressCapture, VoipRecord,
                  MMapRecord, VoiceCallRecord>
         mExt;
     // references
-    Platform& mPlatform {Platform::getInstance()};
-    const ::aidl::android::media::audio::common::AudioPortConfig& mMixPortConfig{mContext.getMixPortConfig()};
-
-private:
-    bool mAECEnabled = false;
-    bool mNSEnabled = false;
+    Platform& mPlatform{Platform::getInstance()};
+    const ::aidl::android::media::audio::common::AudioPortConfig&
+        mMixPortConfig;
 };
 
 }  // namespace qti::audio::core
