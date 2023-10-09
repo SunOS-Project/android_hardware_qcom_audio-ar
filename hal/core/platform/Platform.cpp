@@ -79,6 +79,8 @@ size_t Platform::getIOBufferSizeInFrames(
         numFrames = VoipRecord::getPeriodSize(mixPortConfig);
     } else if (tag == Usecase::VOICE_CALL_RECORD) {
         numFrames = VoiceCallRecord::getPeriodSize(mixPortConfig);
+    } else if (tag == Usecase::IN_CALL_MUSIC) {
+        numFrames = InCallMusic::kPeriodSize;
     }
     LOG(VERBOSE) << __func__
                  << " IOBufferSizeInFrames:" << std::to_string(numFrames)

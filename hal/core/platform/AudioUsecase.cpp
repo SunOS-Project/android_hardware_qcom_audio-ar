@@ -51,7 +51,7 @@ Usecase getUsecaseTag(
     };
 
     constexpr int32_t noneFlags = 0;
-    constexpr auto PrimaryPlaybackFlags =
+    constexpr auto primaryPlaybackFlags =
         static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::PRIMARY));
     constexpr auto deepBufferPlaybackFlags =
         static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::DEEP_BUFFER));
@@ -81,12 +81,13 @@ Usecase getUsecaseTag(
                              1 << flagCastToint(AudioOutputFlags::MMAP_NOIRQ));
     constexpr auto mmapRecordFlags =
         static_cast<int32_t>(1 << flagCastToint(AudioInputFlags::MMAP_NOIRQ));
-
+    constexpr auto inCallMusicFlags = static_cast<int32_t>(
+        1 << flagCastToint(AudioOutputFlags::INCALL_MUSIC));
 
     if (flagsTag == AudioIoFlags::Tag::output) {
         auto& outFlags =
             mixPortConfig.flags.value().get<AudioIoFlags::Tag::output>();
-        if(outFlags == PrimaryPlaybackFlags) {
+        if(outFlags == primaryPlaybackFlags) {
             tag = Usecase::PRIMARY_PLAYBACK;
         } else if (outFlags == deepBufferPlaybackFlags ) {
             tag = Usecase::DEEP_BUFFER_PLAYBACK;
@@ -104,6 +105,8 @@ Usecase getUsecaseTag(
             tag = Usecase::ULL_PLAYBACK;
         } else if (outFlags == mmapPlaybackFlags) {
             tag = Usecase::MMAP_PLAYBACK;
+        } else if (outFlags == inCallMusicFlags) {
+            tag = Usecase::IN_CALL_MUSIC;
         }
     } else if (flagsTag == AudioIoFlags::Tag::input) {
         auto& inFlags =
@@ -166,6 +169,8 @@ std::string getName(const Usecase tag) {
             return "MMAP_RECORD";
         case Usecase::VOICE_CALL_RECORD:
             return "VOICE_CALL_RECORD";
+        case Usecase::IN_CALL_MUSIC:
+            return "IN_CALL_MUSIC";
         default:
             return std::to_string(static_cast<uint16_t>(tag));
     }

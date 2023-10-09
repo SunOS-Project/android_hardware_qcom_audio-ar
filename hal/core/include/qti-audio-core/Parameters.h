@@ -44,7 +44,7 @@ const static std::string kFbspValiWaitTime{"fbsp_v_vali_wait_time"};
 const static std::string kTriggerSpeakerCall{"trigger_spkr_cal"};
 const static std::string kWfdChannelMap{"wfd_channel_cap"};
 const static std::string kHapticsIntensity{"haptics_intensity"};
-const static std::string kIcmdPlayback{"icmd_playback"};
+const static std::string kInCallMusic{"icmd_playback"};
 
 // Audio Extn
 const static std::string kCanOpenProxy{"can_open_proxy"};

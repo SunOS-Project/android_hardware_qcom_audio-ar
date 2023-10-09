@@ -67,8 +67,7 @@ bool operator==(const std::vector<T>& left, const std::vector<T>& right) noexcep
 
 int64_t getInt64FromString(const std::string& s) noexcept;
 
-void extractBoolFromVString(const ::aidl::qti::audio::core::VString& vs,
-                            bool& out) noexcept;
+bool getBoolFromString(const std::string& s) noexcept;
 
 bool setParameter(const ::aidl::qti::audio::core::VString& parcel,
                   ::aidl::android::hardware::audio::core::VendorParameter&

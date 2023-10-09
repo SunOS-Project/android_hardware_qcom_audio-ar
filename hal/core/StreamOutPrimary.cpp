@@ -69,6 +69,8 @@ StreamOutPrimary::StreamOutPrimary(
         mExt.emplace<MMapPlayback>();
     } else if (mTag == Usecase::ULL_PLAYBACK) {
         mExt.emplace<UllPlayback>();
+    } else if (mTag == Usecase::IN_CALL_MUSIC) {
+        mExt.emplace<InCallMusic>();
     }
 
     LOG(VERBOSE) << __func__ << ": " << *this;
@@ -675,6 +677,8 @@ size_t StreamOutPrimary::getPeriodSize() const noexcept {
     } else if (mTag == Usecase::MMAP_PLAYBACK) {
         return MMapPlayback::getPeriodSize(
              mMixPortConfig.format.value(), mMixPortConfig.channelMask.value());
+    } else if( mTag == Usecase::IN_CALL_MUSIC) {
+        return InCallMusic::kPeriodSize;
     }
     return 0;
 }
@@ -698,6 +702,8 @@ size_t StreamOutPrimary::getPeriodCount() const noexcept {
         return UllPlayback::kPeriodCount;
     } else if (mTag == Usecase::MMAP_PLAYBACK) {
         return MMapPlayback::kPeriodCount;
+    } else if( mTag == Usecase::IN_CALL_MUSIC) {
+        return InCallMusic::kPeriodCount;
     }
     return 0;
 }
@@ -727,6 +733,10 @@ void StreamOutPrimary::configure() {
         attr->type = PAL_STREAM_SPATIAL_AUDIO;
     } else if (mTag == Usecase::ULL_PLAYBACK) {
         attr->type = PAL_STREAM_ULTRA_LOW_LATENCY;
+    } else if(mTag == Usecase::IN_CALL_MUSIC) {
+        attr->type = PAL_STREAM_VOICE_CALL_MUSIC;
+        attr->info.incall_music_info.local_playback =
+            mPlatform.getInCallMusicState();
     } else {
         LOG(VERBOSE) << __func__
                      << " invalid usecase to configure";

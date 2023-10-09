@@ -357,6 +357,23 @@ bool ModulePrimary::processSetVendorParameters(
     return true;
 }
 
+void ModulePrimary::onSetGenericParameters(
+        const std::vector<
+            ::aidl::android::hardware::audio::core::VendorParameter>& params) {
+    for (const auto& param : params) {
+        std::string paramValue{};
+        if (!extractParameter<VString>(param, &paramValue)) {
+            LOG(ERROR) << ": extraction failed for " << param.id;
+            continue;
+        }
+        if (Parameters::kInCallMusic == param.id) {
+            const auto isOn = getBoolFromString(paramValue);
+            mPlatform.setInCallMusicState(isOn);
+            LOG(INFO) << __func__ << ": ICMD playback:" << isOn;
+        }
+    }
+}
+
 void ModulePrimary::onSetHDRParameters(const std::vector<VendorParameter>& params) {
     for (const auto& param : params) {
         LOG(VERBOSE) << __func__ << param.id;
@@ -400,7 +417,7 @@ void ModulePrimary::onSetTelephonyParameters(
 
 // static
 ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeatureMap() {
-    SetParameterToFeatureMap map {
+    SetParameterToFeatureMap map{
         {Parameters::kHdrRecord, Feature::HDR},
         {Parameters::kWnr, Feature::HDR},
         {Parameters::kAns, Feature::HDR},
@@ -411,8 +428,8 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
         {Parameters::kVoiceCallState, Feature::TELEPHONY},
         {Parameters::kVoiceCallType, Feature::TELEPHONY},
         {Parameters::kVoiceVSID, Feature::TELEPHONY},
-        {Parameters::kVoiceCRSCall,Feature::TELEPHONY},
-    };
+        {Parameters::kVoiceCRSCall, Feature::TELEPHONY},
+        {Parameters::kInCallMusic, Feature::GENERIC}};
     return map;
 }
 
@@ -420,6 +437,7 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
 ModulePrimary::FeatureToSetHandlerMap
 ModulePrimary::fillFeatureToSetHandlerMap() {
     FeatureToSetHandlerMap map{
+        {Feature::GENERIC, &ModulePrimary::onSetGenericParameters},
         {Feature::HDR, &ModulePrimary::onSetHDRParameters},
         {Feature::TELEPHONY, &ModulePrimary::onSetTelephonyParameters},
     };

@@ -105,6 +105,9 @@ class Platform {
         mPrimaryPlaybackDevices = devices;
     }
 
+    void setInCallMusicState(const bool state) noexcept { mInCallMusicEnabled = state; }
+    bool getInCallMusicState() noexcept { return mInCallMusicEnabled; }
+
     void updateCallState(int callState) { mCallState = callState;}
     void updateCallMode(int callMode) { mCallMode = callMode;}
 
@@ -127,6 +130,7 @@ class Platform {
 
     std::map<std::string, std::string> mParameters;
     card_status_t mSndCardStatus{CARD_STATUS_OFFLINE};
+    bool mInCallMusicEnabled{false};
     const PlatformConverter& mTypeConverter{PlatformConverter::getInstance()};
 };
 }  // namespace qti::audio::core

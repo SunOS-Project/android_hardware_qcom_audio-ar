@@ -56,7 +56,7 @@ class ModulePrimary final : public Module {
      * GH -> GetHandler
      **/
     enum class Feature : uint16_t {
-        INVALID = 0,
+        GENERIC = 0, // this enum groups much generic parameters
         TELEPHONY,
         BLUETOOTH,
         HDR,
@@ -162,6 +162,10 @@ class ModulePrimary final : public Module {
 
     // start of module parameters handling
     bool processSetVendorParameters(
+        const std::vector<
+            ::aidl::android::hardware::audio::core::VendorParameter>&);
+    // setHandler for Generic
+    void onSetGenericParameters(
         const std::vector<
             ::aidl::android::hardware::audio::core::VendorParameter>&);
     // SetHandler For HDR

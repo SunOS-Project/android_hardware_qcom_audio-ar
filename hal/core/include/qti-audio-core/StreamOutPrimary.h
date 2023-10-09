@@ -107,7 +107,7 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
 
     std::variant<std::monostate, PrimaryPlayback, DeepBufferPlayback,
                  CompressPlayback, PcmOffloadPlayback, VoipPlayback,
-                 SpatialPlayback, MMapPlayback, UllPlayback>
+                 SpatialPlayback, MMapPlayback, UllPlayback, InCallMusic>
         mExt;
     // references
     Platform& mPlatform {Platform::getInstance()};

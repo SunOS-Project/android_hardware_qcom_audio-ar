@@ -41,6 +41,7 @@ enum class Usecase : uint16_t {
     MMAP_PLAYBACK,
     MMAP_RECORD,
     VOICE_CALL_RECORD,
+    IN_CALL_MUSIC,
 };
 
 Usecase getUsecaseTag(
@@ -451,6 +452,12 @@ class MMapRecord {
         const ::aidl::android::media::audio::common::AudioChannelLayout&
             channelLayout);
     pal_stream_handle_t* mPalHandle{nullptr};
+};
+
+class InCallMusic {
+   public:
+    constexpr static size_t kPeriodSize = 960 * 4;
+    constexpr static size_t kPeriodCount = 4;
 };
 
 }  // namespace qti::audio::core

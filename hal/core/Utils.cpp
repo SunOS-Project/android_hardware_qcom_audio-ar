@@ -42,8 +42,8 @@ int64_t getInt64FromString(const std::string& s) noexcept {
     return static_cast<int64_t>(strtol(s.c_str(), nullptr, 10));
 }
 
-void extractBoolFromVString(const VString& vs, bool& out) noexcept {
-    out = (vs.value == "true");
+bool getBoolFromString(const std::string& s) noexcept {
+    return (s == "true");
 }
 
 bool setParameter(const VString& parcel, VendorParameter& parameter) noexcept {
