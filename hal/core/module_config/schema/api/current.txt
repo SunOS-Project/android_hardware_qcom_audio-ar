@@ -211,6 +211,7 @@ package audio_module_config_qti {
     enum_constant public static final audio_module_config_qti.AudioMime audiovnd_dts_uhd;
     enum_constant public static final audio_module_config_qti.AudioMime audiovnd_qcom_aptx_adaptive;
     enum_constant public static final audio_module_config_qti.AudioMime audiovnd_qcom_aptx_adaptive_r3;
+    enum_constant public static final audio_module_config_qti.AudioMime audiovnd_qcom_aptx_adaptive_r4;
     enum_constant public static final audio_module_config_qti.AudioMime audiovnd_qcom_aptx_hd;
     enum_constant public static final audio_module_config_qti.AudioMime audiovnd_qcom_aptx_twsp;
     enum_constant public static final audio_module_config_qti.AudioMime audiovnd_sony_ldac;

@@ -461,6 +461,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
             <xs:enumeration value="audio/x-lc3" />
             <xs:enumeration value="audio/vnd.qcom.aptx.adaptive.r3" />
             <xs:enumeration value="audio/x-ms-wma.pro"/>
+            <xs:enumeration value="audio/vnd.qcom.aptx.adaptive.r4"/>
         </xs:restriction>
     </xs:simpleType>
     <xs:simpleType name="audioMimeList">
