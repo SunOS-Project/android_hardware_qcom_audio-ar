@@ -465,7 +465,7 @@ static std::vector<AudioProfile> populateProfiles(
     auto getFormat = [](const xsd::Profile& profile)
         -> std::variant<PcmType, const std::string> {
         if (profile.hasEncoding()) {
-            return xsd::toString(profile.getEncoding());
+            return profile.getEncoding();
         }
         if (XsdToPcmType.find(profile.getPcmType()) == XsdToPcmType.end()) {
             return PcmType::DEFAULT;
@@ -651,7 +651,7 @@ static void populateDevicePorts(const xsd::Modules::Module& module,
         for (const auto& encodingType : devPort.getEncodings()) {
             auto format =
                 AudioFormatDescription{.type = AudioFormatType::NON_PCM,
-                                       .encoding = xsd::toString(encodingType)};
+                                       .encoding = encodingType};
             encodings.push_back(format);
         }
         return encodings;

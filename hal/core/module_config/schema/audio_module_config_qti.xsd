@@ -232,6 +232,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
                     <!-- some of the device needs address ex: bulit in mic address as bottom -->
                     <xs:attribute name="address" type="xs:string" use="optional" default="" />
                     <xs:attribute name="connection" type="connectionType" use="optional" />
+                    <!-- encodings is expected to have series of valid mime strings which are seperated by space -->
                     <xs:attribute name="encodings" type="audioMimeList" use="optional" />
                     <!-- Note that XSD 1.0 can not check that a type only has one default. -->
                     <xs:attribute name="default" type="xs:boolean" use="optional" />
@@ -367,105 +368,8 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
             <xs:enumeration value="INT_24_BIT" />
         </xs:restriction>
     </xs:simpleType>
-    <xs:simpleType name="audioMime">
-        <xs:restriction base="xs:string">
-            <xs:enumeration value="audio/3gpp" />
-            <xs:enumeration value="audio/amr-wb" />
-            <xs:enumeration value="audio/mpeg" />
-            <xs:enumeration value="audio/mpeg-L1" />
-            <xs:enumeration value="audio/mpeg-L2" />
-            <xs:enumeration value="audio/midi" />
-            <xs:enumeration value="audio/mp4a-latm" />
-            <xs:enumeration value="audio/qcelp" />
-            <xs:enumeration value="audio/vorbis" />
-            <xs:enumeration value="audio/opus" />
-            <xs:enumeration value="audio/g711-alaw" />
-            <xs:enumeration value="audio/g711-mlaw" />
-            <xs:enumeration value="audio/raw" />
-            <xs:enumeration value="audio/flac" />
-            <xs:enumeration value="audio/aac-adts" />
-            <xs:enumeration value="audio/gsm" />
-            <xs:enumeration value="audio/ac3" />
-            <xs:enumeration value="audio/eac3" />
-            <xs:enumeration value="audio/eac3-joc" />
-            <xs:enumeration value="audio/ac4" />
-            <xs:enumeration value="audio/mha1" />
-            <xs:enumeration value="audio/mhm1" />
-            <xs:enumeration value="audio/mhm1.03" />
-            <xs:enumeration value="audio/mhm1.04" />
-            <xs:enumeration value="audio/mhm1.0d" />
-            <xs:enumeration value="audio/mhm1.0e" />
-            <xs:enumeration value="audio/scrambled" />
-            <xs:enumeration value="audio/alac" />
-            <xs:enumeration value="audio/x-ms-wma" />
-            <xs:enumeration value="audio/x-adpcm-ms" />
-            <xs:enumeration value="audio/x-adpcm-dvi-ima" />
-            <xs:enumeration value="audio/vnd.dts" />
-            <xs:enumeration value="audio/vnd.dts.hd" />
-            <xs:enumeration value="audio/vnd.dts.uhd" />
-            <xs:enumeration value="audio/evrc" />
-            <xs:enumeration value="audio/evrcb" />
-            <xs:enumeration value="audio/evrcwb" />
-            <xs:enumeration value="audio/evrcnw" />
-            <!-- + is not valid character in identifier -->
-            <!--xs:enumeration value="audio/amr-wb+" /-->
-            <xs:enumeration value="audio/aptx" />
-            <xs:enumeration value="audio/vnd.dra" />
-            <xs:enumeration value="audio/vnd.dolby.mat" />
-            <xs:enumeration value="audio/vnd.dolby.mat.1.0" />
-            <xs:enumeration value="audio/vnd.dolby.mat.2.0" />
-            <xs:enumeration value="audio/vnd.dolby.mat.2.1" />
-            <xs:enumeration value="audio/vnd.dolby.mlp" />
-            <xs:enumeration value="audio/mp4a.40" />
-            <xs:enumeration value="audio/mp4a.40.01" />
-            <xs:enumeration value="audio/mp4a.40.02" />
-            <xs:enumeration value="audio/mp4a.40.03" />
-            <xs:enumeration value="audio/mp4a.40.04" />
-            <xs:enumeration value="audio/mp4a.40.05" />
-            <xs:enumeration value="audio/mp4a.40.06" />
-            <xs:enumeration value="audio/mp4a.40.17" />
-            <xs:enumeration value="audio/mp4a.40.23" />
-            <xs:enumeration value="audio/mp4a.40.29" />
-            <xs:enumeration value="audio/mp4a.40.39" />
-            <xs:enumeration value="audio/mp4a.40.42" />
-            <xs:enumeration value="audio/aac-adif" />
-            <xs:enumeration value="audio/aac-adts.01" />
-            <xs:enumeration value="audio/aac-adts.02" />
-            <xs:enumeration value="audio/aac-adts.03" />
-            <xs:enumeration value="audio/aac-adts.04" />
-            <xs:enumeration value="audio/aac-adts.05" />
-            <xs:enumeration value="audio/aac-adts.06" />
-            <xs:enumeration value="audio/aac-adts.17" />
-            <xs:enumeration value="audio/aac-adts.23" />
-            <xs:enumeration value="audio/aac-adts.29" />
-            <xs:enumeration value="audio/aac-adts.39" />
-            <xs:enumeration value="audio/aac-adts.42" />
-            <xs:enumeration value="audio/mp4a-latm.02" />
-            <xs:enumeration value="audio/mp4a-latm.05" />
-            <xs:enumeration value="audio/mp4a-latm.29" />
-            <xs:enumeration value="audio/x-iec61937" />
-            <xs:enumeration value="audio/x-iec60958" />
-            <xs:enumeration value="audio/x-ms-wma-pro" />
-            <xs:enumeration value="audio/x-ms-wma-lossless" />
-            <xs:enumeration value="audio/dts-lbr" />
-            <xs:enumeration value="audio/amr-wb-plus" />
-            <xs:enumeration value="audio/x-aiff" />
-            <xs:enumeration value="audio/x-ape" />
-            <xs:enumeration value="audio/dsd" />
-            <xs:enumeration value="audio/x-sbc" />
-            <xs:enumeration value="audio/vnd.qcom.aptx.hd" />
-            <xs:enumeration value="audio/vnd.sony.ldac" />
-            <xs:enumeration value="audio/x-celt" />
-            <xs:enumeration value="audio/vnd.qcom.aptx.adaptive" />
-            <xs:enumeration value="audio/vnd.qcom.aptx.twsp" />
-            <xs:enumeration value="audio/x-lc3" />
-            <xs:enumeration value="audio/vnd.qcom.aptx.adaptive.r3" />
-            <xs:enumeration value="audio/x-ms-wma.pro"/>
-            <xs:enumeration value="audio/vnd.qcom.aptx.adaptive.r4"/>
-        </xs:restriction>
-    </xs:simpleType>
     <xs:simpleType name="audioMimeList">
-        <xs:list itemType="audioMime" />
+        <xs:list itemType="xs:string" />
     </xs:simpleType>
     <xs:complexType name="profile">
         <xs:attribute name="name" type="xs:token" use="optional" />
@@ -475,7 +379,8 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <xs:attribute name="encapsulationType" type="audioEncapsulationType" use="optional" default="NONE" />
         <xs:attribute name="formatType" type="audioFormatType" use="required" />
         <xs:attribute name="pcmType" type="audioPcmType" use="optional" />
-        <xs:attribute name="encoding" type="audioMime" use="optional" />
+        <!-- encoding value is expected to be a valid mime string such as "audio/flac" -->
+        <xs:attribute name="encoding" type="xs:string" use="optional" />
     </xs:complexType>
     <xs:simpleType name="audioGainMode">
         <xs:restriction base="xs:string">
