@@ -504,6 +504,8 @@ Module::getDynamicProfiles(
 
 ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdAndAdditionalData,
                                                  AudioPort* _aidl_return) {
+    LOG(DEBUG) << __func__ << ": requested template port: "
+               << in_templateIdAndAdditionalData.toString();
     const int32_t templateId = in_templateIdAndAdditionalData.id;
     auto& ports = getConfig().ports;
     AudioPort connectedPort;
@@ -534,8 +536,6 @@ ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdA
                 in_templateIdAndAdditionalData.ext.get<AudioPortExt::Tag::device>();
         auto& connectedDevicePort = connectedPort.ext.get<AudioPortExt::Tag::device>();
         connectedDevicePort.device.address = inputDevicePort.device.address;
-        LOG(DEBUG) << __func__ << ": device port " << connectedPort.id << " device set to "
-                   << connectedDevicePort.device.toString();
         // Check if there is already a connected port with for the same external device.
         for (auto connectedPortPair : mConnectedDevicePorts) {
             auto connectedPortIt = findById<AudioPort>(ports, connectedPortPair.first);
@@ -550,11 +550,15 @@ ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdA
     }
 
     if (!mDebug.simulateDeviceConnections) {
-        RETURN_STATUS_IF_ERROR(populateConnectedDevicePort(&connectedPort,templateId));
-        const auto& dynamicProfiles = getDynamicProfiles(in_templateIdAndAdditionalData);
-        dynamicProfiles.size() != 0
-                ? (void)(connectedPort.profiles = dynamicProfiles)
-                : (void)0;
+        RETURN_STATUS_IF_ERROR(
+            populateConnectedDevicePort(&connectedPort, templateId));
+        const auto& dynamicProfiles =
+            getDynamicProfiles(in_templateIdAndAdditionalData);
+        if (dynamicProfiles.size() != 0) {
+            connectedPort.profiles = dynamicProfiles;
+            LOG(VERBOSE) << __func__ << ": over writing with dynamic profiles "
+                         << connectedPort.profiles;
+        }
     } else {
         auto& connectedProfiles = getConfig().connectedProfiles;
         if (auto connectedProfilesIt = connectedProfiles.find(templateId);
@@ -580,10 +584,9 @@ ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdA
 
     connectedPort.id = getConfig().nextPortId++;
     auto [connectedPortsIt, _] =
-            mConnectedDevicePorts.insert(std::pair(connectedPort.id, std::vector<int32_t>()));
-    LOG(DEBUG) << __func__ << ": template port " << templateId << " external device connected, "
-               << "connected port ID " << connectedPort.id;
+            mConnectedDevicePorts.insert(std::pair(connectedPort.id, std::set<int32_t>()));
     ports.push_back(connectedPort);
+    // Upon this, we must let platform know about external device connection
     onExternalDeviceConnectionChanged(connectedPort, true /*connected*/);
 
     std::vector<int32_t> routablePortIds;
@@ -613,14 +616,27 @@ ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdA
     // of all profiles from all routable dynamic device ports would be more involved.
     for (const auto mixPortId : routablePortIds) {
         auto portsIt = findById<AudioPort>(ports, mixPortId);
-        if (portsIt != ports.end() && portsIt->profiles.empty()) {
-            portsIt->profiles = connectedPort.profiles;
-            connectedPortsIt->second.push_back(portsIt->id);
+        if (portsIt != ports.end()) {
+            if (portsIt->profiles.empty()) {
+                portsIt->profiles = connectedPort.profiles;
+                connectedPortsIt->second.insert(portsIt->id);
+            } else {
+                // Check if profiles are non empty because they were populated
+                // by a previous connection. Otherwise, it means that they are
+                // not empty because the mix port has static profiles.
+                for (const auto cp : mConnectedDevicePorts) {
+                    if (cp.second.count(portsIt->id) > 0) {
+                        connectedPortsIt->second.insert(portsIt->id);
+                        break;
+                    }
+                }
+            }
         }
     }
     *_aidl_return = std::move(connectedPort);
-    LOG(VERBOSE) << __func__ << ": created external device port "
-                 << _aidl_return->toString();
+    LOG(DEBUG) << __func__ << ": for template port ID: " << templateId
+               << " created new external device port: "
+               << _aidl_return->toString();
     return ndk::ScopedAStatus::ok();
 }
 
@@ -655,9 +671,10 @@ ndk::ScopedAStatus Module::disconnectExternalDevice(int32_t in_portId) {
                    << configIt->id;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
+    // upon this point let platform know about disconnection.
     onExternalDeviceConnectionChanged(*portIt, false /*connected*/);
+    LOG(DEBUG) << __func__ << ": removed device port " << portIt->toString();
     ports.erase(portIt);
-    LOG(DEBUG) << __func__ << ": connected device port " << in_portId << " released";
 
     auto& routes = getConfig().routes;
     for (auto routesIt = routes.begin(); routesIt != routes.end();) {
@@ -671,13 +688,20 @@ ndk::ScopedAStatus Module::disconnectExternalDevice(int32_t in_portId) {
         }
     }
 
-    for (const auto mixPortId : connectedPortsIt->second) {
+    // Clear profiles for mix ports that are not connected to any other ports.
+    std::set<int32_t> mixPortsToClear = std::move(connectedPortsIt->second);
+    mConnectedDevicePorts.erase(connectedPortsIt);
+    for (const auto& connectedPort : mConnectedDevicePorts) {
+        for (int32_t mixPortId : connectedPort.second) {
+            mixPortsToClear.erase(mixPortId);
+        }
+    }
+    for (int32_t mixPortId : mixPortsToClear) {
         auto mixPortIt = findById<AudioPort>(ports, mixPortId);
         if (mixPortIt != ports.end()) {
             mixPortIt->profiles = {};
         }
     }
-    mConnectedDevicePorts.erase(connectedPortsIt);
 
     return ndk::ScopedAStatus::ok();
 }
@@ -1469,16 +1493,21 @@ bool Module::isMmapSupported() {
 ndk::ScopedAStatus Module::populateConnectedDevicePort(
     AudioPort* connectedDevicePort, const int32_t templateDevicePortId) {
     auto& externalDeviceProfiles = getConfig().mExternalDevicePortProfiles;
-    if (auto connectedProfilesIt =
-            externalDeviceProfiles.find(templateDevicePortId);
-        connectedProfilesIt != externalDeviceProfiles.end()) {
+    auto connectedProfilesIt =
+        externalDeviceProfiles.find(templateDevicePortId);
+
+    if (connectedProfilesIt != externalDeviceProfiles.end()) {
         connectedDevicePort->profiles = connectedProfilesIt->second;
+    } else {
+        LOG(ERROR) << __func__
+                   << ": failed to find profiles for template device port ID: "
+                   << templateDevicePortId;
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
-    LOG(VERBOSE) << __func__ << " profiles"
-                 << (connectedDevicePort->profiles.size() != 0
-                         ? " attached"
-                         : " not attached")
-                 << " for " << connectedDevicePort->toString();
+
+    LOG(VERBOSE) << __func__
+                 << ": template device port ID: " << templateDevicePortId
+                 << " attached profiles: " << connectedDevicePort->profiles;
     return ndk::ScopedAStatus::ok();
 }
 
