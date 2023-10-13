@@ -4,13 +4,13 @@
  */
 #pragma once
 
-#include <memory>
-#include <string>
-#include <mutex>
-#include <cutils/properties.h>
 #include <PalApi.h>
-#include "extensions/battery_listener.h"
+#include <cutils/properties.h>
 #include <cutils/str_parms.h>
+#include <memory>
+#include <mutex>
+#include <string>
+#include "extensions/battery_listener.h"
 
 typedef enum {
     SESSION_UNKNOWN,
@@ -33,7 +33,7 @@ typedef enum {
     /** HW Encoding for LE Audio Broadcast */
     LE_AUDIO_BROADCAST_HARDWARE_OFFLOAD_ENCODING_DATAPATH,
     MAX,
-}tSESSION_TYPE;
+} tSESSION_TYPE;
 
 namespace qti::audio::core {
 // RAII based classes to dlopen/dysym on init and dlclose on dest.
@@ -43,27 +43,22 @@ static std::string kBluetoothIpcLibrary = "/vendor/lib64/btaudio_offload_if.so";
 #else
 static std::string kBluetoothIpcLibrary = "/vendor/lib/btaudio_offload_if.so";
 #endif
-static std::string kBatteryListenerLibrary =
-    std::string("libbatterylistener.so");
+static std::string kBatteryListenerLibrary = std::string("libbatterylistener.so");
 static std::string kHfpLibrary = "libhfp_pal.so";
 static std::string kFmLibrary = "libfmpal.so";
-static std::string kKarokeLibrary = "dummy.so";  // TODO
+static std::string kKarokeLibrary = "dummy.so"; // TODO
 
-static std::string kBatteryListenerProperty =
-    "vendor.audio.feature.battery_listener.enable";
+static std::string kBatteryListenerProperty = "vendor.audio.feature.battery_listener.enable";
 static std::string kHfpProperty = "vendor.audio.feature.hfp.enable";
-static std::string kPerfLockProperty =
-    "vendor.audio.feature.kpi_optimize.enable";
-static std::string kBluetoothProperty =
-    "vendor.audio.feature.a2dp_offload.enable";
+static std::string kPerfLockProperty = "vendor.audio.feature.kpi_optimize.enable";
+static std::string kBluetoothProperty = "vendor.audio.feature.a2dp_offload.enable";
 
-
-const std::map<tSESSION_TYPE, pal_device_id_t> SessionTypePalDevMap
-{
-    {A2DP_HARDWARE_OFFLOAD_DATAPATH, PAL_DEVICE_OUT_BLUETOOTH_A2DP},
-    {LE_AUDIO_HARDWARE_OFFLOAD_ENCODING_DATAPATH, PAL_DEVICE_OUT_BLUETOOTH_BLE},
-    {LE_AUDIO_HARDWARE_OFFLOAD_DECODING_DATAPATH, PAL_DEVICE_IN_BLUETOOTH_BLE},
-    {LE_AUDIO_BROADCAST_HARDWARE_OFFLOAD_ENCODING_DATAPATH, PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST},
+const std::map<tSESSION_TYPE, pal_device_id_t> SessionTypePalDevMap{
+        {A2DP_HARDWARE_OFFLOAD_DATAPATH, PAL_DEVICE_OUT_BLUETOOTH_A2DP},
+        {LE_AUDIO_HARDWARE_OFFLOAD_ENCODING_DATAPATH, PAL_DEVICE_OUT_BLUETOOTH_BLE},
+        {LE_AUDIO_HARDWARE_OFFLOAD_DECODING_DATAPATH, PAL_DEVICE_IN_BLUETOOTH_BLE},
+        {LE_AUDIO_BROADCAST_HARDWARE_OFFLOAD_ENCODING_DATAPATH,
+         PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST},
 };
 
 typedef enum {
@@ -75,31 +70,29 @@ typedef enum {
     CHANNEL_MONO,
     /**To set LC3 channel mode as Stereo */
     CHANNEL_STEREO,
-}tRECONFIG_STATE;
+} tRECONFIG_STATE;
 
 const std::map<int32_t, std::string> reconfigStateName{
-    {SESSION_SUSPEND, std::string{"SESSION_SUSPEND"}},
-    {SESSION_RESUME,  std::string{"SESSION_RESUME"}},
-    {CHANNEL_MONO,    std::string{"CHANNEL_MONO"}},
-    {CHANNEL_STEREO,  std::string{"CHANNEL_STEREO"}},
+        {SESSION_SUSPEND, std::string{"SESSION_SUSPEND"}},
+        {SESSION_RESUME, std::string{"SESSION_RESUME"}},
+        {CHANNEL_MONO, std::string{"CHANNEL_MONO"}},
+        {CHANNEL_STEREO, std::string{"CHANNEL_STEREO"}},
 };
 
 typedef void (*batt_listener_init_t)(battery_status_change_fn_t);
 typedef void (*batt_listener_deinit_t)();
 typedef bool (*batt_prop_is_charging_t)();
 
-typedef void (*set_parameters_t) (struct str_parms*);
-typedef void (*hfp_set_parameters_t) (bool val, struct str_parms*);
-typedef void (*get_parameters_t) (struct str_parms*, struct str_parms*);
-typedef bool (*fm_running_status_t) ();
+typedef void (*set_parameters_t)(struct str_parms*);
+typedef void (*hfp_set_parameters_t)(bool val, struct str_parms*);
+typedef void (*get_parameters_t)(struct str_parms*, struct str_parms*);
+typedef bool (*fm_running_status_t)();
 
-
-typedef void(*hfp_init_t)();
-typedef bool(*hfp_is_active_t)();
-typedef int(*hfp_get_usecase_t)();
-typedef int(*hfp_set_mic_mute_t)(bool state);
-typedef int(*hfp_set_mic_mute2_t)(bool state);
-
+typedef void (*hfp_init_t)();
+typedef bool (*hfp_is_active_t)();
+typedef int (*hfp_get_usecase_t)();
+typedef int (*hfp_set_mic_mute_t)(bool state);
+typedef int (*hfp_set_mic_mute2_t)(bool state);
 
 typedef void (*a2dp_bt_audio_pre_init_t)(void);
 typedef void (*register_reconfig_cb_t)(int (*reconfig_cb)(tSESSION_TYPE, int));
@@ -108,21 +101,21 @@ static bool isExtensionEnabled(std::string property) {
     return property_get_bool(property.c_str(), false);
 }
 class AudioExtensionBase {
-   public:
+  public:
     AudioExtensionBase(std::string library, bool enabled = true);
     ~AudioExtensionBase();
 
-   protected:
+  protected:
     void* mHandle = nullptr;
     bool mEnabled;
     std::string mLibraryName;
 
-   private:
+  private:
     void cleanUp();
 };
 
 class BatteryListenerExtension : public AudioExtensionBase {
-   public:
+  public:
     BatteryListenerExtension();
     ~BatteryListenerExtension();
     void battery_properties_listener_init();
@@ -130,8 +123,8 @@ class BatteryListenerExtension : public AudioExtensionBase {
     bool battery_properties_is_charging();
     static void setChargingMode(bool is_charging);
     static bool isCharging;
-    //void on_battery_status_changed(bool charging);
-   private:
+    // void on_battery_status_changed(bool charging);
+  private:
     batt_listener_init_t batt_listener_init;
     batt_listener_deinit_t batt_listener_deinit;
     batt_prop_is_charging_t batt_prop_is_charging;
@@ -139,7 +132,7 @@ class BatteryListenerExtension : public AudioExtensionBase {
 };
 
 class PerfLockExtension : public AudioExtensionBase {
-   public:
+  public:
     PerfLockExtension();
     ~PerfLockExtension();
 
@@ -152,7 +145,7 @@ class PerfLockExtension : public AudioExtensionBase {
 };
 
 class A2dpExtension : public AudioExtensionBase {
-   public:
+  public:
     A2dpExtension();
     ~A2dpExtension();
 
@@ -161,14 +154,15 @@ class A2dpExtension : public AudioExtensionBase {
 };
 
 class HfpExtension : public AudioExtensionBase {
-   public:
+  public:
     HfpExtension();
     ~HfpExtension();
     bool audio_extn_hfp_is_active();
     int audio_extn_hfp_set_mic_mute(bool state);
     int audio_extn_hfp_set_mic_mute2(bool state);
-    void audio_extn_hfp_set_parameters(struct str_parms *params);
-    private:
+    void audio_extn_hfp_set_parameters(struct str_parms* params);
+
+  private:
     hfp_init_t hfp_init;
     hfp_is_active_t hfp_is_active;
     hfp_get_usecase_t hfp_get_usecase;
@@ -179,31 +173,33 @@ class HfpExtension : public AudioExtensionBase {
 };
 
 class FmExtension : public AudioExtensionBase {
-   public:
+  public:
     FmExtension();
     ~FmExtension();
     set_parameters_t fm_set_params;
     fm_running_status_t fm_running_status;
-    void audio_extn_fm_set_parameters(struct str_parms *params);
+    void audio_extn_fm_set_parameters(struct str_parms* params);
     bool audio_extn_fm_get_status();
 };
 
 class KarokeExtension : public AudioExtensionBase {
-   public:
+  public:
     KarokeExtension();
     ~KarokeExtension();
 
-    int karaoke_open(pal_device_id_t device_out, pal_stream_callback pal_callback, pal_channel_info ch_info);
+    int karaoke_open(pal_device_id_t device_out, pal_stream_callback pal_callback,
+                     pal_channel_info ch_info);
     int karaoke_start();
     int karaoke_stop();
     int karaoke_close();
-   protected:
-    pal_stream_handle_t *karaoke_stream_handle;
+
+  protected:
+    pal_stream_handle_t* karaoke_stream_handle;
     struct pal_stream_attributes sattr;
 };
 
 class AudioExtension {
-   public:
+  public:
     static AudioExtension& getInstance() {
         static const auto kAudioExtension = []() {
             std::unique_ptr<AudioExtension> audioExt{new AudioExtension()};
@@ -211,9 +207,9 @@ class AudioExtension {
         }();
         return *(kAudioExtension.get());
     }
-    void audio_extn_set_parameters(struct str_parms *params);
-    void audio_extn_get_parameters(struct str_parms *params, struct str_parms *reply);
-    void audio_feature_stats_set_parameters(struct str_parms *params);
+    void audio_extn_set_parameters(struct str_parms* params);
+    void audio_extn_get_parameters(struct str_parms* params, struct str_parms* reply);
+    void audio_feature_stats_set_parameters(struct str_parms* params);
     explicit AudioExtension() = default;
     AudioExtension(const AudioExtension&) = delete;
     AudioExtension& operator=(const AudioExtension& x) = delete;
@@ -221,16 +217,12 @@ class AudioExtension {
     AudioExtension(AudioExtension&& other) = delete;
     AudioExtension& operator=(AudioExtension&& other) = delete;
     std::unique_ptr<BatteryListenerExtension> mBatteryListenerExtension =
-        std::make_unique<BatteryListenerExtension>();
-    std::unique_ptr<A2dpExtension> mA2dpExtension =
-        std::make_unique<A2dpExtension>();
-    std::unique_ptr<HfpExtension> mHfpExtension =
-        std::make_unique<HfpExtension>();
+            std::make_unique<BatteryListenerExtension>();
+    std::unique_ptr<A2dpExtension> mA2dpExtension = std::make_unique<A2dpExtension>();
+    std::unique_ptr<HfpExtension> mHfpExtension = std::make_unique<HfpExtension>();
     std::unique_ptr<FmExtension> mFmExtension = std::make_unique<FmExtension>();
-    std::unique_ptr<KarokeExtension> mKarokeExtension =
-        std::make_unique<KarokeExtension>();
-    std::unique_ptr<PerfLockExtension> mPerfLockExtension =
-        std::make_unique<PerfLockExtension>();
-     static std::mutex reconfig_wait_mutex_;
+    std::unique_ptr<KarokeExtension> mKarokeExtension = std::make_unique<KarokeExtension>();
+    std::unique_ptr<PerfLockExtension> mPerfLockExtension = std::make_unique<PerfLockExtension>();
+    static std::mutex reconfig_wait_mutex_;
 };
-}  // namespace qti::audio::core
+} // namespace qti::audio::core

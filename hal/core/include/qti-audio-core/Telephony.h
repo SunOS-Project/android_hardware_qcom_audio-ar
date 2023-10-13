@@ -33,7 +33,7 @@
 namespace qti::audio::core {
 
 class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
-   public:
+  public:
     Telephony();
     virtual ~Telephony() override;
 
@@ -63,8 +63,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
         std::string toString() const {
             std::ostringstream os;
             os << "{ mCallState:" << mCallState << ", mVSID:" << mVSID
-               << ", mIsCrsCall:" << mIsCrsCall << ", mCallType:" << mCallType
-               << "}";
+               << ", mIsCrsCall:" << mIsCrsCall << ", mCallType:" << mCallType << "}";
             return os.str();
         }
     };
@@ -74,12 +73,11 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
 
     /* All the public APIs are guarded by mLock, Hence never call a public
      * API from anther public API */
-   public:
+  public:
     ndk::ScopedAStatus getSupportedAudioModes(
-        std::vector<::aidl::android::media::audio::common::AudioMode>*
-            _aidl_return) override;
+            std::vector<::aidl::android::media::audio::common::AudioMode>* _aidl_return) override;
     ndk::ScopedAStatus switchAudioMode(
-        ::aidl::android::media::audio::common::AudioMode in_mode) override;
+            ::aidl::android::media::audio::common::AudioMode in_mode) override;
     ndk::ScopedAStatus setTelecomConfig(const TelecomConfig& in_config,
                                         TelecomConfig* _aidl_return) override;
 
@@ -94,57 +92,53 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
 
     // This API is called when there is device to device patch
     void setDevicesFromPatch(
-        const std::vector<::aidl::android::media::audio::common::AudioDevice>&
-            devices,
-        const bool isRxUpdate);
+            const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices,
+            const bool isRxUpdate);
     // This API is called for routing devices as per primary playback devices.
     void updateDevicesFromPrimaryPlayback();
     void updateVoiceMetadataForBT(bool call_active);
     std::weak_ptr<StreamOut> mStreamOutPrimary;
     std::weak_ptr<StreamIn> mStreamInPrimary;
-   protected:
 
+  protected:
     void startCall();
     void stopCall();
     void updateVoiceVolume();
     void updateDevices();
     void updateTtyMode();
-    std::vector<::aidl::android::media::audio::common::AudioDevice>
-    getMatchingTxDevices(
-        const std::vector<::aidl::android::media::audio::common::AudioDevice>&
-            rxDevices);
+    std::vector<::aidl::android::media::audio::common::AudioDevice> getMatchingTxDevices(
+            const std::vector<::aidl::android::media::audio::common::AudioDevice>& rxDevices);
 
-   protected:
+  protected:
     // Gaurd all the public APIs
     std::mutex mLock;
     TelecomConfig mTelecomConfig;
-    const std::vector<::aidl::android::media::audio::common::AudioMode>
-        mSupportedAudioModes = {
+    const std::vector<::aidl::android::media::audio::common::AudioMode> mSupportedAudioModes = {
             ::aidl::android::media::audio::common::AudioMode::NORMAL,
             ::aidl::android::media::audio::common::AudioMode::RINGTONE,
             ::aidl::android::media::audio::common::AudioMode::IN_CALL,
             ::aidl::android::media::audio::common::AudioMode::IN_COMMUNICATION,
             // Omit CALL_SCREEN for a better VTS coverage.
-        };
+    };
 
     ::aidl::android::media::audio::common::AudioMode mAudioMode{
-        ::aidl::android::media::audio::common::AudioMode::NORMAL};
+            ::aidl::android::media::audio::common::AudioMode::NORMAL};
 
     SetUpdates mSetUpdates{};
-    using TtyMap = std::map<TelecomConfig::TtyMode,pal_tty_t>;
+    using TtyMap = std::map<TelecomConfig::TtyMode, pal_tty_t>;
     const TtyMap mTtyMap{
-        {TelecomConfig::TtyMode::OFF, PAL_TTY_OFF},
-        {TelecomConfig::TtyMode::FULL, PAL_TTY_FULL},
-        {TelecomConfig::TtyMode::HCO, PAL_TTY_HCO},
-        {TelecomConfig::TtyMode::VCO, PAL_TTY_VCO},
+            {TelecomConfig::TtyMode::OFF, PAL_TTY_OFF},
+            {TelecomConfig::TtyMode::FULL, PAL_TTY_FULL},
+            {TelecomConfig::TtyMode::HCO, PAL_TTY_HCO},
+            {TelecomConfig::TtyMode::VCO, PAL_TTY_VCO},
     };
 
     std::vector<::aidl::android::media::audio::common::AudioDevice>
-        mRxDevices{};  // speaker, earpiece
+            mRxDevices{}; // speaker, earpiece
     std::vector<::aidl::android::media::audio::common::AudioDevice>
-        mTxDevices{};  // mic, speaker mic
+            mTxDevices{}; // mic, speaker mic
     pal_stream_handle_t* mPalHandle{nullptr};
     Platform& mPlatform{Platform::getInstance()};
 };
 
-}  // namespace qti::audio::core
+} // namespace qti::audio::core

@@ -32,13 +32,13 @@
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 #define LOG_TAG "audio_hw::BatteryListener"
-#include <log/log.h>
-#include <android/binder_manager.h>
+#include "extensions/battery_listener.h"
+#include <aidl/android/hardware/health/BnHealthInfoCallback.h>
 #include <aidl/android/hardware/health/IHealth.h>
 #include <aidl/android/hardware/health/IHealthInfoCallback.h>
-#include <aidl/android/hardware/health/BnHealthInfoCallback.h>
+#include <android/binder_manager.h>
+#include <log/log.h>
 #include <thread>
-#include "extensions/battery_listener.h"
 
 using aidl::android::hardware::health::BatteryStatus;
 using aidl::android::hardware::health::HealthInfo;
@@ -55,8 +55,8 @@ namespace android {
 struct BatteryListenerImpl : public BnHealthInfoCallback {
     typedef std::function<void(bool)> cb_fn_t;
     BatteryListenerImpl(cb_fn_t cb);
-    ~BatteryListenerImpl ();
-    ndk::ScopedAStatus healthInfoChanged(const HealthInfo& info) override;
+    ~BatteryListenerImpl();
+    ndk::ScopedAStatus healthInfoChanged(const HealthInfo &info) override;
     static void serviceDied(void *cookie);
     bool isCharging() {
         std::lock_guard<std::mutex> _l(mLock);
@@ -64,6 +64,7 @@ struct BatteryListenerImpl : public BnHealthInfoCallback {
     }
     void reset();
     status_t init();
+
   private:
     std::shared_ptr<IHealth> mHealth;
     BatteryStatus mStatus;
@@ -74,29 +75,25 @@ struct BatteryListenerImpl : public BnHealthInfoCallback {
     ndk::ScopedAIBinder_DeathRecipient mDeathRecipient;
     bool mDone;
     bool statusToBool(const BatteryStatus &s) const {
-        return (s == BatteryStatus::CHARGING) ||
-               (s ==  BatteryStatus::FULL);
+        return (s == BatteryStatus::CHARGING) || (s == BatteryStatus::FULL);
     }
 };
 
 static std::shared_ptr<BatteryListenerImpl> batteryListener;
 
-status_t BatteryListenerImpl::init()
-{
+status_t BatteryListenerImpl::init() {
     int tries = 0;
     auto service_name = std::string() + IHealth::descriptor + "/default";
 
-    if (mHealth != NULL)
-        return INVALID_OPERATION;
+    if (mHealth != NULL) return INVALID_OPERATION;
 
     do {
-        mHealth = IHealth::fromBinder(ndk::SpAIBinder(
-            AServiceManager_getService(service_name.c_str())));
-        if (mHealth != NULL)
-            break;
+        mHealth = IHealth::fromBinder(
+                ndk::SpAIBinder(AServiceManager_getService(service_name.c_str())));
+        if (mHealth != NULL) break;
         usleep(GET_HEALTH_SVC_WAIT_TIME_MS * 1000);
         tries++;
-    } while(tries < GET_HEALTH_SVC_RETRY_CNT);
+    } while (tries < GET_HEALTH_SVC_RETRY_CNT);
 
     if (mHealth == NULL) {
         ALOGE("no health service found, retries %d", tries);
@@ -106,68 +103,61 @@ status_t BatteryListenerImpl::init()
     }
     mStatus = BatteryStatus::UNKNOWN;
     auto ret = mHealth->getChargeStatus(&mStatus);
-    if (!ret.isOk())
-        ALOGE("batterylistener: get charge status transaction error");
+    if (!ret.isOk()) ALOGE("batterylistener: get charge status transaction error");
 
-    if (mStatus == BatteryStatus::UNKNOWN)
-        ALOGW("batterylistener: init: invalid battery status");
+    if (mStatus == BatteryStatus::UNKNOWN) ALOGW("batterylistener: init: invalid battery status");
     mDone = false;
     mThread = std::make_unique<std::thread>([this]() {
-            std::unique_lock<std::mutex> l(mLock);
-            BatteryStatus local_status = mStatus;
-            while (!mDone) {
-                if (local_status == mStatus) {
-                    mCond.wait(l);
-                    continue;
-                }
-                local_status = mStatus;
-                switch (local_status) {
-                    // NOT_CHARGING is a special event that indicates, a battery is connected,
-                    // but not charging. This is seen for approx a second
-                    // after charger is plugged in. A charging event is eventually received.
-                    // We must try to avoid an unnecessary cb to HAL
-                    // only to call it again shortly.
-                    // An option to deal with this transient event would be to ignore this.
-                    // Or process this event with a slight delay (i.e cancel this event
-                    // if a different event comes in within a timeout
-                    case BatteryStatus::NOT_CHARGING : {
-                        auto mStatusnot_ncharging =
-                                [this, local_status]() { return mStatus != local_status; };
-                        mCond.wait_for(l, 3s, mStatusnot_ncharging);
-                        if (mStatusnot_ncharging()) // i.e event changed
-                            break;
-                    }
-                    [[fallthrough]];
-                    default:
-                        bool c = statusToBool(local_status);
-                        ALOGI("healthInfo cb thread: cb %s", c ? "CHARGING" : "NOT CHARGING");
-                        l.unlock();
-                        mCb(c);
-                        l.lock();
+        std::unique_lock<std::mutex> l(mLock);
+        BatteryStatus local_status = mStatus;
+        while (!mDone) {
+            if (local_status == mStatus) {
+                mCond.wait(l);
+                continue;
+            }
+            local_status = mStatus;
+            switch (local_status) {
+                // NOT_CHARGING is a special event that indicates, a battery is connected,
+                // but not charging. This is seen for approx a second
+                // after charger is plugged in. A charging event is eventually received.
+                // We must try to avoid an unnecessary cb to HAL
+                // only to call it again shortly.
+                // An option to deal with this transient event would be to ignore this.
+                // Or process this event with a slight delay (i.e cancel this event
+                // if a different event comes in within a timeout
+                case BatteryStatus::NOT_CHARGING: {
+                    auto mStatusnot_ncharging = [this, local_status]() {
+                        return mStatus != local_status;
+                    };
+                    mCond.wait_for(l, 3s, mStatusnot_ncharging);
+                    if (mStatusnot_ncharging()) // i.e event changed
                         break;
                 }
+                    [[fallthrough]];
+                default:
+                    bool c = statusToBool(local_status);
+                    ALOGI("healthInfo cb thread: cb %s", c ? "CHARGING" : "NOT CHARGING");
+                    l.unlock();
+                    mCb(c);
+                    l.lock();
+                    break;
             }
-        });
+        }
+    });
     mHealth->registerCallback(batteryListener);
-    binder_status_t binder_status = AIBinder_linkToDeath(
-        mHealth->asBinder().get(), mDeathRecipient.get(), this);
+    binder_status_t binder_status =
+            AIBinder_linkToDeath(mHealth->asBinder().get(), mDeathRecipient.get(), this);
     if (binder_status != STATUS_OK) {
-        ALOGE("Failed to link to death, status %d",
-            static_cast<int>(binder_status));
+        ALOGE("Failed to link to death, status %d", static_cast<int>(binder_status));
         return NO_INIT;
     }
     return NO_ERROR;
 }
 
-BatteryListenerImpl::BatteryListenerImpl(cb_fn_t cb) :
-        mCb(cb),
-        mDeathRecipient(AIBinder_DeathRecipient_new(BatteryListenerImpl::serviceDied))
-{
+BatteryListenerImpl::BatteryListenerImpl(cb_fn_t cb)
+    : mCb(cb), mDeathRecipient(AIBinder_DeathRecipient_new(BatteryListenerImpl::serviceDied)) {}
 
-}
-
-BatteryListenerImpl::~BatteryListenerImpl()
-{
+BatteryListenerImpl::~BatteryListenerImpl() {
     {
         std::lock_guard<std::mutex> _l(mLock);
         mDone = true;
@@ -180,17 +170,15 @@ void BatteryListenerImpl::reset() {
     std::lock_guard<std::mutex> _l(mLock);
     if (mHealth != nullptr) {
         mHealth->unregisterCallback(batteryListener);
-        binder_status_t status = AIBinder_unlinkToDeath(
-            mHealth->asBinder().get(), mDeathRecipient.get(), this);
-        if (status != STATUS_OK && status != STATUS_DEAD_OBJECT)
-            ALOGE("Cannot unlink to death");
+        binder_status_t status =
+                AIBinder_unlinkToDeath(mHealth->asBinder().get(), mDeathRecipient.get(), this);
+        if (status != STATUS_OK && status != STATUS_DEAD_OBJECT) ALOGE("Cannot unlink to death");
     }
     mStatus = BatteryStatus::UNKNOWN;
     mDone = true;
     mCond.notify_one();
 }
-void BatteryListenerImpl::serviceDied(void *cookie)
-{
+void BatteryListenerImpl::serviceDied(void *cookie) {
     BatteryListenerImpl *listener = reinterpret_cast<BatteryListenerImpl *>(cookie);
     {
         std::lock_guard<std::mutex> _l(listener->mLock);
@@ -213,8 +201,7 @@ void BatteryListenerImpl::serviceDied(void *cookie)
 // therefore we need not have a queue to process
 // NOT_CHARGING and CHARGING concurrencies.
 // Replace single var by a list if this assumption is broken
-ndk::ScopedAStatus BatteryListenerImpl::healthInfoChanged(const HealthInfo& info)
-{
+ndk::ScopedAStatus BatteryListenerImpl::healthInfoChanged(const HealthInfo &info) {
     ALOGV("healthInfoChanged: %d", info.batteryStatus);
     std::unique_lock<std::mutex> l(mLock);
     if (info.batteryStatus != mStatus) {
@@ -224,42 +211,33 @@ ndk::ScopedAStatus BatteryListenerImpl::healthInfoChanged(const HealthInfo& info
     return ndk::ScopedAStatus::ok();
 }
 
-status_t batteryPropertiesListenerInit(BatteryListenerImpl::cb_fn_t cb)
-{
+status_t batteryPropertiesListenerInit(BatteryListenerImpl::cb_fn_t cb) {
     batteryListener = ndk::SharedRefBase::make<BatteryListenerImpl>(cb);
     return batteryListener->init();
 }
 
-status_t batteryPropertiesListenerDeinit()
-{
+status_t batteryPropertiesListenerDeinit() {
     batteryListener->reset();
     return OK;
 }
 
-bool batteryPropertiesListenerIsCharging()
-{
+bool batteryPropertiesListenerIsCharging() {
     return batteryListener->isCharging();
 }
 
 } // namespace android
 
 extern "C" {
-void battery_properties_listener_init(battery_status_change_fn_t fn)
-{
-    android::batteryPropertiesListenerInit([=](bool charging) {
-                                               fn(charging);
-                                          });
+void battery_properties_listener_init(battery_status_change_fn_t fn) {
+    android::batteryPropertiesListenerInit([=](bool charging) { fn(charging); });
 }
 
-void battery_properties_listener_deinit()
-{
+void battery_properties_listener_deinit() {
     android::batteryPropertiesListenerDeinit();
 }
 
-bool battery_properties_is_charging()
-{
+bool battery_properties_is_charging() {
     return android::batteryPropertiesListenerIsCharging();
 }
 
 } // extern C
-

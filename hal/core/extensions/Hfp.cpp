@@ -35,24 +35,24 @@
 #define LOG_TAG "AHAL: hfp"
 #define LOG_NDDEBUG 0
 
-#include <errno.h>
-#include <math.h>
-#include <fcntl.h>
-#include <dirent.h>
-#include <sys/stat.h>
-#include <stdlib.h>
-#include <dlfcn.h>
-#include <math.h>
+#include <android-base/logging.h>
 #include <cutils/properties.h>
 #include <cutils/str_parms.h>
-#include <android-base/logging.h>
+#include <dirent.h>
+#include <dlfcn.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <math.h>
+#include <math.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 #include "PalApi.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define AUDIO_PARAMETER_HFP_ENABLE      "hfp_enable"
+#define AUDIO_PARAMETER_HFP_ENABLE "hfp_enable"
 #define AUDIO_PARAMETER_HFP_SET_SAMPLING_RATE "hfp_set_sampling_rate"
 #define AUDIO_PARAMETER_KEY_HFP_VOLUME "hfp_volume"
 #define AUDIO_PARAMETER_HFP_PCM_DEV_ID "hfp_pcm_dev_id"
@@ -62,7 +62,7 @@ extern "C" {
 struct hfp_module {
     bool is_hfp_running;
     float hfp_volume;
-//    int ucid;
+    //    int ucid;
     float mic_volume;
     bool mic_mute;
     uint32_t sample_rate;
@@ -71,18 +71,17 @@ struct hfp_module {
 };
 
 #define PLAYBACK_VOLUME_MAX 0x2000
-#define CAPTURE_VOLUME_DEFAULT                (15.0)
+#define CAPTURE_VOLUME_DEFAULT (15.0)
 static struct hfp_module hfpmod = {
-    .is_hfp_running = 0,
-    .hfp_volume = 0,
-//  .ucid = USECASE_AUDIO_HFP_SCO,
-    .mic_volume = CAPTURE_VOLUME_DEFAULT,
-    .mic_mute = 0,
-    .sample_rate = 16000,
+        .is_hfp_running = 0,
+        .hfp_volume = 0,
+        //  .ucid = USECASE_AUDIO_HFP_SCO,
+        .mic_volume = CAPTURE_VOLUME_DEFAULT,
+        .mic_mute = 0,
+        .sample_rate = 16000,
 };
 
-static int32_t hfp_set_volume(float value)
-{
+static int32_t hfp_set_volume(float value) {
     int32_t vol, ret = 0;
     struct pal_volume_data *pal_volume = NULL;
 
@@ -98,7 +97,7 @@ static int32_t hfp_set_volume(float value)
         value = ((value > 15.000000) ? 1.0 : (value / 15));
         LOG(DEBUG) << __func__ << " Volume brought with in range  " << value;
     }
-    vol  = lrint((value * 0x2000) + 0.5);
+    vol = lrint((value * 0x2000) + 0.5);
 
     if (!hfpmod.is_hfp_running) {
         LOG(VERBOSE) << __func__ << " HFP not active, ignoring set_hfp_volume call";
@@ -107,18 +106,16 @@ static int32_t hfp_set_volume(float value)
 
     LOG(DEBUG) << __func__ << " Setting HFP volume to  " << vol;
 
-    pal_volume = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data)
-            +sizeof(struct pal_channel_vol_kv));
+    pal_volume = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data) +
+                                                  sizeof(struct pal_channel_vol_kv));
 
-    if (!pal_volume)
-       return -ENOMEM;
+    if (!pal_volume) return -ENOMEM;
 
     pal_volume->no_of_volpair = 1;
     pal_volume->volume_pair[0].channel_mask = 0x03;
     pal_volume->volume_pair[0].vol = value;
     ret = pal_stream_set_volume(hfpmod.rx_stream_handle, pal_volume);
-    if (ret)
-        LOG(ERROR) << __func__ << " set volume failed:  " << ret;
+    if (ret) LOG(ERROR) << __func__ << " set volume failed:  " << ret;
 
     free(pal_volume);
     LOG(VERBOSE) << __func__ << " exit";
@@ -128,10 +125,9 @@ static int32_t hfp_set_volume(float value)
 /*Set mic volume to value.
  *
  * This interface is used for mic volume control, set mic volume as value(range 0 ~ 15).
- * 
+ *
 */
-static int hfp_set_mic_volume(float value)
-{
+static int hfp_set_mic_volume(float value) {
     int volume, ret = 0;
     struct pal_volume_data *pal_volume = NULL;
 
@@ -154,8 +150,8 @@ static int hfp_set_mic_volume(float value)
 
     volume = (int)(value * PLAYBACK_VOLUME_MAX);
 
-    pal_volume = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data)
-            +sizeof(struct pal_channel_vol_kv));
+    pal_volume = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data) +
+                                                  sizeof(struct pal_channel_vol_kv));
     if (!pal_volume) {
         LOG(ERROR) << __func__ << " Failed to allocate memory for pal_volume";
         return -ENOMEM;
@@ -176,13 +172,11 @@ static int hfp_set_mic_volume(float value)
     return ret;
 }
 
-static float hfp_get_mic_volume(void)
-{
+static float hfp_get_mic_volume(void) {
     return hfpmod.mic_volume;
 }
 
-static int32_t start_hfp(struct str_parms *parms __unused)
-{
+static int32_t start_hfp(struct str_parms *parms __unused) {
     int32_t ret = 0;
     uint32_t no_of_devices = 2;
     struct pal_stream_attributes stream_attr = {};
@@ -191,28 +185,27 @@ static int32_t start_hfp(struct str_parms *parms __unused)
     struct pal_channel_info ch_info;
 
     LOG(DEBUG) << __func__ << " HFP start enter";
-    if (hfpmod.rx_stream_handle || hfpmod.tx_stream_handle)
-        return 0; //hfp already running;
+    if (hfpmod.rx_stream_handle || hfpmod.tx_stream_handle) return 0; // hfp already running;
 
     pal_param_device_connection_t param_device_connection;
 
     param_device_connection.id = PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET;
     param_device_connection.connection_state = true;
-    ret =  pal_set_param(PAL_PARAM_ID_DEVICE_CONNECTION,
-                        (void*)&param_device_connection,
+    ret = pal_set_param(PAL_PARAM_ID_DEVICE_CONNECTION, (void *)&param_device_connection,
                         sizeof(pal_param_device_connection_t));
     if (ret != 0) {
-        LOG(ERROR) << __func__ << " Set PAL_PARAM_ID_DEVICE_CONNECTION for  " << param_device_connection.id << " failed";
+        LOG(ERROR) << __func__ << " Set PAL_PARAM_ID_DEVICE_CONNECTION for  "
+                   << param_device_connection.id << " failed";
         return ret;
     }
 
     param_device_connection.id = PAL_DEVICE_OUT_BLUETOOTH_SCO;
     param_device_connection.connection_state = true;
-    ret =  pal_set_param(PAL_PARAM_ID_DEVICE_CONNECTION,
-                        (void*)&param_device_connection,
+    ret = pal_set_param(PAL_PARAM_ID_DEVICE_CONNECTION, (void *)&param_device_connection,
                         sizeof(pal_param_device_connection_t));
     if (ret != 0) {
-        LOG(ERROR) << __func__ << " Set PAL_PARAM_ID_DEVICE_CONNECTION for  " << param_device_connection.id << " failed";
+        LOG(ERROR) << __func__ << " Set PAL_PARAM_ID_DEVICE_CONNECTION for  "
+                   << param_device_connection.id << " failed";
         return ret;
     }
 
@@ -220,9 +213,7 @@ static int32_t start_hfp(struct str_parms *parms __unused)
 
     param_btsco.is_bt_hfp = true;
     param_btsco.bt_sco_on = true;
-    ret =  pal_set_param(PAL_PARAM_ID_BT_SCO,
-                        (void*)&param_btsco,
-                        sizeof(pal_param_btsco_t));
+    ret = pal_set_param(PAL_PARAM_ID_BT_SCO, (void *)&param_btsco, sizeof(pal_param_btsco_t));
     if (ret != 0) {
         LOG(ERROR) << __func__ << " Set PAL_PARAM_ID_BT_SCO failed";
         return ret;
@@ -230,15 +221,11 @@ static int32_t start_hfp(struct str_parms *parms __unused)
 
     if (hfpmod.sample_rate == 16000) {
         param_btsco.bt_wb_speech_enabled = true;
-    }
-    else
-    {
+    } else {
         param_btsco.bt_wb_speech_enabled = false;
     }
 
-    ret =  pal_set_param(PAL_PARAM_ID_BT_SCO_WB,
-                        (void*)&param_btsco,
-                        sizeof(pal_param_btsco_t));
+    ret = pal_set_param(PAL_PARAM_ID_BT_SCO_WB, (void *)&param_btsco, sizeof(pal_param_btsco_t));
     if (ret != 0) {
         LOG(ERROR) << __func__ << " Set PAL_PARAM_ID_BT_SCO_WB failed";
         return ret;
@@ -269,13 +256,8 @@ static int32_t start_hfp(struct str_parms *parms __unused)
 
     devices[1].id = PAL_DEVICE_OUT_SPEAKER;
 
-    ret = pal_stream_open(&stream_attr,
-            no_of_devices, devices,
-            0,
-            NULL,
-            NULL,
-            0,
-            &hfpmod.rx_stream_handle);
+    ret = pal_stream_open(&stream_attr, no_of_devices, devices, 0, NULL, NULL, 0,
+                          &hfpmod.rx_stream_handle);
     if (ret != 0) {
         LOG(ERROR) << __func__ << " HFP rx stream (BT SCO->Spkr) open failed, rc " << ret;
         return ret;
@@ -309,13 +291,8 @@ static int32_t start_hfp(struct str_parms *parms __unused)
 
     devices[1].id = PAL_DEVICE_IN_SPEAKER_MIC;
 
-    ret = pal_stream_open(&stream_tx_attr,
-            no_of_devices, devices,
-            0,
-            NULL,
-            NULL,
-            0,
-            &hfpmod.tx_stream_handle);
+    ret = pal_stream_open(&stream_tx_attr, no_of_devices, devices, 0, NULL, NULL, 0,
+                          &hfpmod.tx_stream_handle);
     if (ret != 0) {
         LOG(ERROR) << __func__ << " HFP tx stream (Mic->BT SCO) open failed, rc " << ret;
         pal_stream_stop(hfpmod.rx_stream_handle);
@@ -341,8 +318,7 @@ static int32_t start_hfp(struct str_parms *parms __unused)
     return ret;
 }
 
-static int32_t stop_hfp()
-{
+static int32_t stop_hfp() {
     int32_t ret = 0;
 
     LOG(DEBUG) << __func__ << " HFP stop enter";
@@ -362,9 +338,7 @@ static int32_t stop_hfp()
 
     param_btsco.is_bt_hfp = true;
     param_btsco.bt_sco_on = true;
-    ret =  pal_set_param(PAL_PARAM_ID_BT_SCO,
-                        (void*)&param_btsco,
-                        sizeof(pal_param_btsco_t));
+    ret = pal_set_param(PAL_PARAM_ID_BT_SCO, (void *)&param_btsco, sizeof(pal_param_btsco_t));
     if (ret != 0) {
         LOG(DEBUG) << __func__ << " Set PAL_PARAM_ID_BT_SCO failed";
     }
@@ -373,43 +347,39 @@ static int32_t stop_hfp()
 
     param_device_connection.id = PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET;
     param_device_connection.connection_state = false;
-    ret =  pal_set_param(PAL_PARAM_ID_DEVICE_CONNECTION,
-                        (void*)&param_device_connection,
+    ret = pal_set_param(PAL_PARAM_ID_DEVICE_CONNECTION, (void *)&param_device_connection,
                         sizeof(pal_param_device_connection_t));
     if (ret != 0) {
-        LOG(ERROR) << __func__ << " Set PAL_PARAM_ID_DEVICE_DISCONNECTION for  " << param_device_connection.id << " failed";
+        LOG(ERROR) << __func__ << " Set PAL_PARAM_ID_DEVICE_DISCONNECTION for  "
+                   << param_device_connection.id << " failed";
     }
 
     param_device_connection.id = PAL_DEVICE_OUT_BLUETOOTH_SCO;
     param_device_connection.connection_state = false;
-    ret =  pal_set_param(PAL_PARAM_ID_DEVICE_CONNECTION,
-                        (void*)&param_device_connection,
+    ret = pal_set_param(PAL_PARAM_ID_DEVICE_CONNECTION, (void *)&param_device_connection,
                         sizeof(pal_param_device_connection_t));
     if (ret != 0) {
-        LOG(ERROR) << __func__ << " Set PAL_PARAM_ID_DEVICE_DISCONNECTION for  " << param_device_connection.id << " failed";
+        LOG(ERROR) << __func__ << " Set PAL_PARAM_ID_DEVICE_DISCONNECTION for  "
+                   << param_device_connection.id << " failed";
     }
 
     LOG(DEBUG) << __func__ << "HFP stop end";
     return ret;
 }
 
-void hfp_init()
-{
+void hfp_init() {
     return;
 }
 
-bool hfp_is_active()
-{
+bool hfp_is_active() {
     return hfpmod.is_hfp_running;
 }
-
 
 /*Set mic mute state.
  * *
  * * This interface is used for mic mute state control
  * */
-int hfp_set_mic_mute(bool state)
-{
+int hfp_set_mic_mute(bool state) {
     int rc = 0;
 
     if (state == hfpmod.mic_mute) {
@@ -417,30 +387,26 @@ int hfp_set_mic_mute(bool state)
         return rc;
     }
     rc = hfp_set_mic_volume((state == true) ? 0.0 : hfpmod.mic_volume);
-    if (rc == 0)
-        hfpmod.mic_mute = state;
+    if (rc == 0) hfpmod.mic_mute = state;
     LOG(DEBUG) << __func__ << " Setting mute state  " << state << " rc " << rc;
     return rc;
 }
 
-int hfp_set_mic_mute2(bool state __unused)
-{
+int hfp_set_mic_mute2(bool state __unused) {
     LOG(DEBUG) << __func__ << " Unsupported";
     return 0;
 }
 
-void hfp_set_parameters(bool adev_mute, struct str_parms *parms)
-{
+void hfp_set_parameters(bool adev_mute, struct str_parms *parms) {
     int status = 0;
-    char value[32]={0};
+    char value[32] = {0};
     float vol;
     int val;
     int rate;
 
     LOG(DEBUG) << __func__ << " enter";
 
-    status = str_parms_get_str(parms, AUDIO_PARAMETER_HFP_ENABLE, value,
-                                    sizeof(value));
+    status = str_parms_get_str(parms, AUDIO_PARAMETER_HFP_ENABLE, value, sizeof(value));
     if (status >= 0) {
         if (!strncmp(value, "true", sizeof(value)) && !hfpmod.is_hfp_running) {
             status = start_hfp(parms);
@@ -460,23 +426,21 @@ void hfp_set_parameters(bool adev_mute, struct str_parms *parms)
     }
 
     memset(value, 0, sizeof(value));
-    status = str_parms_get_str(parms,AUDIO_PARAMETER_HFP_SET_SAMPLING_RATE, value,
-                                    sizeof(value));
+    status = str_parms_get_str(parms, AUDIO_PARAMETER_HFP_SET_SAMPLING_RATE, value, sizeof(value));
     if (status >= 0) {
         rate = atoi(value);
-        if (rate == 8000){
-            hfpmod.sample_rate = (uint32_t) rate;
-        } else if (rate == 16000){
-            hfpmod.sample_rate = (uint32_t) rate;
+        if (rate == 8000) {
+            hfpmod.sample_rate = (uint32_t)rate;
+        } else if (rate == 16000) {
+            hfpmod.sample_rate = (uint32_t)rate;
         } else
             LOG(ERROR) << __func__ << " Unsupported rate.. " << rate;
     }
 
     memset(value, 0, sizeof(value));
-    status = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_HFP_VOLUME,
-                                    value, sizeof(value));
+    status = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_HFP_VOLUME, value, sizeof(value));
     if (status >= 0) {
-        if (sscanf(value, "%f", &vol) != 1){
+        if (sscanf(value, "%f", &vol) != 1) {
             LOG(ERROR) << __func__ << " error in retrieving hfp volume";
             status = -EIO;
             goto exit;
@@ -486,17 +450,15 @@ void hfp_set_parameters(bool adev_mute, struct str_parms *parms)
     }
 
     memset(value, 0, sizeof(value));
-    status = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_HFP_MIC_VOLUME,
-                                    value, sizeof(value));
+    status = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_HFP_MIC_VOLUME, value, sizeof(value));
     if (status >= 0) {
-        if (sscanf(value, "%f", &vol) != 1){
+        if (sscanf(value, "%f", &vol) != 1) {
             LOG(ERROR) << __func__ << " error in retrieving hfp mic volume";
             status = -EIO;
             goto exit;
         }
         LOG(DEBUG) << __func__ << " set_hfp_mic_volume usecase, Vol: " << vol;
-        if (hfp_set_mic_volume(vol) == 0)
-            hfpmod.mic_volume = vol;
+        if (hfp_set_mic_volume(vol) == 0) hfpmod.mic_volume = vol;
     }
 
 exit:

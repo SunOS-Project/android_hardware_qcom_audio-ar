@@ -51,7 +51,8 @@ StreamStub::StreamStub(StreamContext* context, const Metadata& metadata)
     return ::android::OK;
 }
 
-::android::status_t StreamStub::drain(::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode) {
+::android::status_t StreamStub::drain(
+        ::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode) {
     if (!mIsInitialized) {
         LOG(FATAL) << __func__ << ": must not happen for an uninitialized driver";
     }
@@ -93,7 +94,6 @@ StreamStub::StreamStub(StreamContext* context, const Metadata& metadata)
     return ::android::OK;
 }
 
-
 ::android::status_t StreamStub::transfer(void* buffer, size_t frameCount, size_t* actualFrameCount,
                                          int32_t* latencyMs) {
     if (!mIsInitialized) {
@@ -130,8 +130,8 @@ StreamInStub::StreamInStub(StreamContext&& context, const SinkMetadata& sinkMeta
                            const std::vector<MicrophoneInfo>& microphones)
     : StreamIn(std::move(context), microphones), StreamStub(&(StreamIn::mContext), sinkMetadata) {}
 
-StreamInStub::~StreamInStub(){
-    LOG(DEBUG)<<__func__<<": destroy";
+StreamInStub::~StreamInStub() {
+    LOG(DEBUG) << __func__ << ": destroy";
 }
 
 StreamOutStub::StreamOutStub(StreamContext&& context, const SourceMetadata& sourceMetadata,
@@ -139,15 +139,13 @@ StreamOutStub::StreamOutStub(StreamContext&& context, const SourceMetadata& sour
     : StreamOut(std::move(context), offloadInfo),
       StreamStub(&(StreamOut::mContext), sourceMetadata) {}
 
-StreamOutStub::~StreamOutStub(){
-    LOG(DEBUG)<<__func__<<": destroy";
+StreamOutStub::~StreamOutStub() {
+    LOG(DEBUG) << __func__ << ": destroy";
 }
-int32_t StreamOutStub::setAggregateSourceMetadata(bool value)
-{
+int32_t StreamOutStub::setAggregateSourceMetadata(bool value) {
     return 0;
 }
-int32_t StreamInStub::setAggregateSinkMetadata(bool value)
-{
+int32_t StreamInStub::setAggregateSinkMetadata(bool value) {
     return 0;
 }
-}  // namespace qti::audio::core
+} // namespace qti::audio::core

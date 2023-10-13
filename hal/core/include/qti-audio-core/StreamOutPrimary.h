@@ -5,19 +5,19 @@
 
 #pragma once
 
-#include <qti-audio-core/Stream.h>
 #include <qti-audio-core/AudioUsecase.h>
 #include <qti-audio-core/HalOffloadEffects.h>
+#include <qti-audio-core/Stream.h>
 
 namespace qti::audio::core {
 
-class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
-    public:
+class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
+  public:
     friend class ndk::SharedRefBase;
     StreamOutPrimary(StreamContext&& context,
-                  const ::aidl::android::hardware::audio::common::SourceMetadata& sourceMetadata,
-                  const std::optional<::aidl::android::media::audio::common::AudioOffloadInfo>&
-                          offloadInfo);
+                     const ::aidl::android::hardware::audio::common::SourceMetadata& sourceMetadata,
+                     const std::optional<::aidl::android::media::audio::common::AudioOffloadInfo>&
+                             offloadInfo);
 
     virtual ~StreamOutPrimary() override;
     int32_t setAggregateSourceMetadata(bool voiceActive) override;
@@ -26,7 +26,8 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
 
     // Methods of 'DriverInterface'.
     ::android::status_t init() override;
-    ::android::status_t drain(::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode) override;
+    ::android::status_t drain(
+            ::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode) override;
     ::android::status_t flush() override;
     ::android::status_t pause() override;
     ::android::status_t standby() override;
@@ -34,40 +35,36 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
     ::android::status_t transfer(void* buffer, size_t frameCount, size_t* actualFrameCount,
                                  int32_t* latencyMs) override;
     ::android::status_t refinePosition(
-        ::aidl::android::hardware::audio::core::StreamDescriptor::Reply*
+            ::aidl::android::hardware::audio::core::StreamDescriptor::Reply*
             /*reply*/) override;
     void shutdown() override;
 
     // methods of StreamCommonInterface
 
     ndk::ScopedAStatus getVendorParameters(
-        const std::vector<std::string>& in_ids,
-        std::vector<::aidl::android::hardware::audio::core::VendorParameter>*
-            _aidl_return) override;
+            const std::vector<std::string>& in_ids,
+            std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return)
+            override;
     ndk::ScopedAStatus setVendorParameters(
-        const std::vector<
-            ::aidl::android::hardware::audio::core::VendorParameter>&
-            in_parameters,
-        bool in_async) override;
+            const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
+                    in_parameters,
+            bool in_async) override;
     ndk::ScopedAStatus addEffect(
-        const std::shared_ptr<
-            ::aidl::android::hardware::audio::effect::IEffect>& in_effect)
-        override;
+            const std::shared_ptr<::aidl::android::hardware::audio::effect::IEffect>& in_effect)
+            override;
     ndk::ScopedAStatus removeEffect(
-        const std::shared_ptr<
-            ::aidl::android::hardware::audio::effect::IEffect>& in_effect)
-        override;
+            const std::shared_ptr<::aidl::android::hardware::audio::effect::IEffect>& in_effect)
+            override;
 
     ndk::ScopedAStatus updateMetadataCommon(const Metadata& metadata) override;
 
     // Methods of IStreamOut
     ndk::ScopedAStatus updateOffloadMetadata(
-        const ::aidl::android::hardware::audio::common::AudioOffloadMetadata&
-            in_offloadMetadata) override;
+            const ::aidl::android::hardware::audio::common::AudioOffloadMetadata&
+                    in_offloadMetadata) override;
 
     ndk::ScopedAStatus getHwVolume(std::vector<float>* _aidl_return) override;
-    ndk::ScopedAStatus setHwVolume(
-        const std::vector<float>& in_channelVolumes) override;
+    ndk::ScopedAStatus setHwVolume(const std::vector<float>& in_channelVolumes) override;
 
     // Methods called IModule
     ndk::ScopedAStatus setConnectedDevices(
@@ -78,9 +75,10 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
 
     void onClose() override { defaultOnClose(); }
 
-    bool isStreamOutPrimary() { return (mTag == Usecase::PRIMARY_PLAYBACK) ? true: false; }
+    bool isStreamOutPrimary() { return (mTag == Usecase::PRIMARY_PLAYBACK) ? true : false; }
     static std::mutex sourceMetadata_mutex_;
-    protected:
+
+  protected:
     /*
      * This API opens, configures and starts pal stream.
      * also responsible for validity of pal handle.
@@ -95,7 +93,7 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
     // outputs.
     void enableOffloadEffects(const bool enable);
 
-   protected:
+  protected:
     const Usecase mTag;
     const std::string mTagName;
     const size_t mFrameSizeBytes;
@@ -105,17 +103,15 @@ class StreamOutPrimary: public StreamOut, public StreamCommonImpl {
     // All the public must check the validity of this resource, if using
     pal_stream_handle_t* mPalHandle{nullptr};
 
-    std::variant<std::monostate, PrimaryPlayback, DeepBufferPlayback,
-                 CompressPlayback, PcmOffloadPlayback, VoipPlayback,
-                 SpatialPlayback, MMapPlayback, UllPlayback, InCallMusic>
-        mExt;
+    std::variant<std::monostate, PrimaryPlayback, DeepBufferPlayback, CompressPlayback,
+                 PcmOffloadPlayback, VoipPlayback, SpatialPlayback, MMapPlayback, UllPlayback,
+                 InCallMusic>
+            mExt;
     // references
-    Platform& mPlatform {Platform::getInstance()};
-    const ::aidl::android::media::audio::common::AudioPortConfig&
-        mMixPortConfig;
-    HalOffloadEffects& mHalEffects {HalOffloadEffects::getInstance()};
+    Platform& mPlatform{Platform::getInstance()};
+    const ::aidl::android::media::audio::common::AudioPortConfig& mMixPortConfig;
+    HalOffloadEffects& mHalEffects{HalOffloadEffects::getInstance()};
     AudioExtension& mAudExt{AudioExtension::getInstance()};
 };
 
-
-}  // namespace qti::audio::core
+} // namespace qti::audio::core

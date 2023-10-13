@@ -32,18 +32,17 @@ using aidl::android::media::audio::common::AudioDevice;
 namespace qti::audio::core {
 
 class SoundDose : public ::aidl::android::hardware::audio::core::sounddose::BnSoundDose {
-   public:
+  public:
     SoundDose() : mRs2Value(DEFAULT_MAX_RS2){};
 
     ndk::ScopedAStatus setOutputRs2UpperBound(float in_rs2ValueDbA) override;
     ndk::ScopedAStatus getOutputRs2UpperBound(float* _aidl_return) override;
     ndk::ScopedAStatus registerSoundDoseCallback(
-        const std::shared_ptr<ISoundDose::IHalSoundDoseCallback>& in_callback)
-        override;
+            const std::shared_ptr<ISoundDose::IHalSoundDoseCallback>& in_callback) override;
 
-   private:
+  private:
     std::shared_ptr<ISoundDose::IHalSoundDoseCallback> mCallback;
     float mRs2Value;
 };
 
-}  // namespace qti::audio::core
+} // namespace qti::audio::core

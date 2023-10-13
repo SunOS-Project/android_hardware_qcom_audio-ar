@@ -21,22 +21,20 @@
  */
 
 #pragma once
-#include <qti-audio-core/Platform.h>
 #include <aidl/android/hardware/audio/core/BnBluetooth.h>
 #include <aidl/android/hardware/audio/core/BnBluetoothA2dp.h>
 #include <aidl/android/hardware/audio/core/BnBluetoothLe.h>
+#include <qti-audio-core/Platform.h>
 
 namespace qti::audio::core {
 
 class Bluetooth : public ::aidl::android::hardware::audio::core::BnBluetooth {
-   public:
+  public:
     Bluetooth();
 
-   private:
-    ndk::ScopedAStatus setScoConfig(const ScoConfig& in_config,
-                                    ScoConfig* _aidl_return) override;
-    ndk::ScopedAStatus setHfpConfig(const HfpConfig& in_config,
-                                    HfpConfig* _aidl_return) override;
+  private:
+    ndk::ScopedAStatus setScoConfig(const ScoConfig& in_config, ScoConfig* _aidl_return) override;
+    ndk::ScopedAStatus setHfpConfig(const HfpConfig& in_config, HfpConfig* _aidl_return) override;
 
     ScoConfig mScoConfig;
     HfpConfig mHfpConfig;
@@ -44,39 +42,35 @@ class Bluetooth : public ::aidl::android::hardware::audio::core::BnBluetooth {
 };
 
 class BluetoothA2dp : public ::aidl::android::hardware::audio::core::BnBluetoothA2dp {
-   public:
+  public:
     BluetoothA2dp() = default;
 
-   private:
+  private:
     ndk::ScopedAStatus isEnabled(bool* _aidl_return) override;
     ndk::ScopedAStatus setEnabled(bool in_enabled) override;
-    ndk::ScopedAStatus supportsOffloadReconfiguration(
-        bool* _aidl_return) override;
+    ndk::ScopedAStatus supportsOffloadReconfiguration(bool* _aidl_return) override;
     ndk::ScopedAStatus reconfigureOffload(
-        const std::vector<
-            ::aidl::android::hardware::audio::core::VendorParameter>&
-            in_parameters) override;
+            const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
+                    in_parameters) override;
 
     bool mEnabled = false;
     Platform& mPlatform{Platform::getInstance()};
 };
 
 class BluetoothLe : public ::aidl::android::hardware::audio::core::BnBluetoothLe {
-   public:
+  public:
     BluetoothLe() = default;
 
-   private:
+  private:
     ndk::ScopedAStatus isEnabled(bool* _aidl_return) override;
     ndk::ScopedAStatus setEnabled(bool in_enabled) override;
-    ndk::ScopedAStatus supportsOffloadReconfiguration(
-        bool* _aidl_return) override;
+    ndk::ScopedAStatus supportsOffloadReconfiguration(bool* _aidl_return) override;
     ndk::ScopedAStatus reconfigureOffload(
-        const std::vector<
-            ::aidl::android::hardware::audio::core::VendorParameter>&
-            in_parameters) override;
+            const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
+                    in_parameters) override;
 
     bool mEnabled = false;
     Platform& mPlatform{Platform::getInstance()};
 };
 
-}  // namespace qti::audio::core
+} // namespace qti::audio::core

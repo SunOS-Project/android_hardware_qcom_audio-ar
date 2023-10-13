@@ -35,13 +35,13 @@
 #define LOG_TAG "AHAL: FM"
 #define LOG_NDDEBUG 0
 
-#include <errno.h>
-#include <math.h>
-#include <log/log.h>
-#include <unistd.h>
+#include <android-base/logging.h>
 #include <cutils/properties.h>
 #include <cutils/str_parms.h>
-#include <android-base/logging.h>
+#include <errno.h>
+#include <log/log.h>
+#include <math.h>
+#include <unistd.h>
 #include "PalApi.h"
 
 #ifdef DYNAMIC_LOG_ENABLED
@@ -72,21 +72,18 @@ struct fm_module {
     bool muted;
     bool restart;
     float volume;
-    //audio_devices_t device;
-    pal_stream_handle_t* stream_handle;
+    // audio_devices_t device;
+    pal_stream_handle_t *stream_handle;
 };
 
-static struct fm_module fm = {
-    .running = 0,
-    .muted = 0,
-    .restart = 0,
-    .volume = 0,
-    //.device = (audio_devices_t)0,
-    .stream_handle = 0
-};
+static struct fm_module fm = {.running = 0,
+                              .muted = 0,
+                              .restart = 0,
+                              .volume = 0,
+                              //.device = (audio_devices_t)0,
+                              .stream_handle = 0};
 
-int32_t fm_set_volume(float value, bool persist=false)
-{
+int32_t fm_set_volume(float value, bool persist = false) {
     int32_t ret = 0;
     struct pal_volume_data *pal_volume = NULL;
 
@@ -100,8 +97,7 @@ int32_t fm_set_volume(float value, bool persist=false)
         value = 1.0;
     }
 
-    if(persist)
-        fm.volume = value;
+    if (persist) fm.volume = value;
 
     if (fm.muted && value > 0) {
         LOG(DEBUG) << __func__ << " fm is muted, applying '0' volume instead of " << value;
@@ -115,27 +111,24 @@ int32_t fm_set_volume(float value, bool persist=false)
 
     LOG(DEBUG) << __func__ << " Setting FM volume to " << value;
 
-    pal_volume = (struct pal_volume_data *)
-                  malloc(sizeof(struct pal_volume_data) + sizeof(struct pal_channel_vol_kv));
+    pal_volume = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data) +
+                                                  sizeof(struct pal_channel_vol_kv));
 
-    if (!pal_volume)
-       return -ENOMEM;
+    if (!pal_volume) return -ENOMEM;
 
     pal_volume->no_of_volpair = 1;
     pal_volume->volume_pair[0].channel_mask = 0x03;
     pal_volume->volume_pair[0].vol = value;
 
     ret = pal_stream_set_volume(fm.stream_handle, pal_volume);
-    if (ret)
-        LOG(ERROR) << __func__ << " set volume failed: " << ret;
+    if (ret) LOG(ERROR) << __func__ << " set volume failed: " << ret;
 
     free(pal_volume);
     LOG(DEBUG) << __func__ << " exit";
     return ret;
 }
 
-int32_t fm_start(int device_id)
-{
+int32_t fm_start(int device_id) {
     int32_t ret = 0;
     const int num_pal_devs = 2;
     struct pal_stream_attributes stream_attr;
@@ -145,14 +138,13 @@ int32_t fm_start(int device_id)
 
     LOG(DEBUG) << __func__ << " Enter";
 
-    if(device_id == 2) //AUDIO_DEVICE_OUT_SPEAKER)
+    if (device_id == 2) // AUDIO_DEVICE_OUT_SPEAKER)
         pal_device_id = PAL_DEVICE_OUT_SPEAKER;
-    else if(device_id == 4) //AUDIO_DEVICE_OUT_WIRED_HEADSET)
+    else if (device_id == 4) // AUDIO_DEVICE_OUT_WIRED_HEADSET)
         pal_device_id = PAL_DEVICE_OUT_WIRED_HEADSET;
-    else if(device_id == 8)//AUDIO_DEVICE_OUT_WIRED_HEADPHONE)
+    else if (device_id == 8) // AUDIO_DEVICE_OUT_WIRED_HEADPHONE)
         pal_device_id = PAL_DEVICE_OUT_WIRED_HEADPHONE;
-    else
-    {
+    else {
         LOG(DEBUG) << __func__ << " Unsupported device_id " << device_id;
         return -EINVAL;
     }
@@ -174,8 +166,7 @@ int32_t fm_start(int device_id)
     stream_attr.out_media_config.ch_info = ch_info;
     stream_attr.out_media_config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
 
-
-    for(int i = 0; i < 2; ++i){
+    for (int i = 0; i < 2; ++i) {
         // TODO: remove hardcoded device id & pass adev to getPalDeviceIds instead
         pal_devs[i].id = i ? PAL_DEVICE_IN_FM_TUNER : pal_device_id;
         pal_devs[i].config.sample_rate = SAMPLE_RATE;
@@ -184,13 +175,8 @@ int32_t fm_start(int device_id)
         pal_devs[i].config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
     }
 
-    ret = pal_stream_open(&stream_attr,
-            num_pal_devs, pal_devs,
-            0,
-            NULL,
-            NULL,
-            0,
-            &fm.stream_handle);
+    ret = pal_stream_open(&stream_attr, num_pal_devs, pal_devs, 0, NULL, NULL, 0,
+                          &fm.stream_handle);
 
     if (ret) {
         LOG(ERROR) << __func__ << " stream open failed with: " << ret;
@@ -210,11 +196,10 @@ int32_t fm_start(int device_id)
     return ret;
 }
 
-int32_t fm_stop()
-{
+int32_t fm_stop() {
     LOG(DEBUG) << __func__ << " enter";
 
-    if(!fm.running){
+    if (!fm.running) {
         LOG(ERROR) << __func__ << " FM not in running state...";
         return -EINVAL;
     }
@@ -229,15 +214,13 @@ int32_t fm_stop()
     return 0;
 }
 
-bool fm_get_running_status()
-{
+bool fm_get_running_status() {
     LOG(DEBUG) << __func__ << " enter";
     return fm.running;
     LOG(DEBUG) << __func__ << " Exit";
 }
 
-void fm_set_parameters(struct str_parms *parms)
-{
+void fm_set_parameters(struct str_parms *parms) {
     int ret, val, num_pal_devs;
     pal_device_id_t *pal_devs;
     char value[32] = {0};
@@ -245,18 +228,16 @@ void fm_set_parameters(struct str_parms *parms)
 
     LOG(DEBUG) << __func__ << " enter";
 
-    ret = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_HANDLE_FM,
-                            value, sizeof(value));
+    ret = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_HANDLE_FM, value, sizeof(value));
     if (ret >= 0) {
         val = atoi(value);
         LOG(DEBUG) << __func__ << " FM usecase";
-        if (val)
-        {
-            if(val & 0x00100000 /*AUDIO_DEVICE_OUT_FM*/ && !fm.running)
-                fm_start(val & ~(0x00100000)/*AUDIO_DEVICE_OUT_FM*/);
-            else if (!(val & 0x00100000/*AUDIO_DEVICE_OUT_FM*/) && fm.running) {
+        if (val) {
+            if (val & 0x00100000 /*AUDIO_DEVICE_OUT_FM*/ && !fm.running)
+                fm_start(val & ~(0x00100000) /*AUDIO_DEVICE_OUT_FM*/);
+            else if (!(val & 0x00100000 /*AUDIO_DEVICE_OUT_FM*/) && fm.running) {
                 fm_set_volume(0, false);
-                usleep(FM_LOOPBACK_DRAIN_TIME_MS*1000);
+                usleep(FM_LOOPBACK_DRAIN_TIME_MS * 1000);
                 fm_stop();
             }
         }
@@ -266,10 +247,10 @@ void fm_set_parameters(struct str_parms *parms)
     if (ret >= 0 && fm.running) {
         val = atoi(value);
         LOG(DEBUG) << __func__ << " FM usecase";
-        if (val && (val & 0x00100000/*AUDIO_DEVICE_OUT_FM*/)){
+        if (val && (val & 0x00100000 /*AUDIO_DEVICE_OUT_FM*/)) {
             fm_set_volume(0, false);
             fm_stop();
-            fm_start(val & ~(0x00100000)/*AUDIO_DEVICE_OUT_FM*/);
+            fm_start(val & ~(0x00100000) /*AUDIO_DEVICE_OUT_FM*/);
         }
     }
     memset(value, 0, sizeof(value));
@@ -277,7 +258,7 @@ void fm_set_parameters(struct str_parms *parms)
     ret = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_FM_VOLUME, value, sizeof(value));
     if (ret >= 0) {
         LOG(DEBUG) << __func__ << " Param: set volume";
-        if (sscanf(value, "%f", &vol) != 1){
+        if (sscanf(value, "%f", &vol) != 1) {
             LOG(ERROR) << __func__ << " error in retrieving fm volume";
             return;
         }
@@ -288,17 +269,16 @@ void fm_set_parameters(struct str_parms *parms)
     if (ret >= 0) {
         LOG(DEBUG) << __func__ << " Param: mute";
         fm.muted = (value[0] == '1');
-        if(fm.muted)
-           fm_set_volume(0);
+        if (fm.muted)
+            fm_set_volume(0);
         else
-           fm_set_volume(fm.volume);
+            fm_set_volume(fm.volume);
     }
 
     ret = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_FM_RESTORE_VOLUME, value, sizeof(value));
     if (ret >= 0) {
         LOG(DEBUG) << __func__ << " Param: restore volume";
-        if (value[0] == '1')
-            fm_set_volume(fm.volume);
+        if (value[0] == '1') fm_set_volume(fm.volume);
     }
 
     LOG(DEBUG) << __func__ << " exit";

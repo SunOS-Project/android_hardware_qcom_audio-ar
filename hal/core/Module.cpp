@@ -32,7 +32,6 @@
 #include <android/binder_ibinder_platform.h>
 #include <error/expected_utils.h>
 
-
 #include <qti-audio-core/Module.h>
 #include <qti-audio-core/SoundDose.h>
 #include <qti-audio-core/Utils.h>
@@ -122,7 +121,7 @@ bool findAudioProfile(const AudioPort& port, const AudioFormatDescription& forma
     return false;
 }
 
-}  // namespace
+} // namespace
 
 // static
 // std::shared_ptr<Module> Module::createInstance(Type type) {
@@ -133,7 +132,7 @@ bool findAudioProfile(const AudioPort& port, const AudioFormatDescription& forma
 //             return ndk::SharedRefBase::make<ModulePrimary>();
 //         case Type::STUB:
 //             return ndk::SharedRefBase::make<ModuleStub>();
-        
+
 //     }
 // }
 
@@ -162,7 +161,9 @@ void Module::cleanUpPatch(int32_t patchId) {
 ndk::ScopedAStatus Module::createStreamContext(
         int32_t in_portConfigId, int64_t in_bufferSizeFrames,
         std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> asyncCallback,
-        std::shared_ptr<::aidl::android::hardware::audio::core::IStreamOutEventCallback> outEventCallback, StreamContext* out_context) {
+        std::shared_ptr<::aidl::android::hardware::audio::core::IStreamOutEventCallback>
+                outEventCallback,
+        StreamContext* out_context) {
     if (in_bufferSizeFrames <= 0) {
         LOG(ERROR) << __func__ << ": non-positive buffer size " << in_bufferSizeFrames;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
@@ -199,15 +200,15 @@ ndk::ScopedAStatus Module::createStreamContext(
         }
     }
     StreamContext::DebugParameters params{mDebug.streamTransientStateDelayMs,
-                                            mVendorDebug.forceTransientBurst,
-                                            mVendorDebug.forceSynchronousDrain};
+                                          mVendorDebug.forceTransientBurst,
+                                          mVendorDebug.forceSynchronousDrain};
     StreamContext temp(
             std::make_unique<StreamContext::CommandMQ>(1, true /*configureEventFlagWord*/),
             std::make_unique<StreamContext::ReplyMQ>(1, true /*configureEventFlagWord*/),
             portConfigIt->format.value(), portConfigIt->channelMask.value(),
             portConfigIt->sampleRate.value().value,
-            std::make_unique<StreamContext::DataMQ>(frameSize * in_bufferSizeFrames),
-            asyncCallback, outEventCallback,*portConfigIt,params);
+            std::make_unique<StreamContext::DataMQ>(frameSize * in_bufferSizeFrames), asyncCallback,
+            outEventCallback, *portConfigIt, params);
     if (temp.isValid()) {
         *out_context = std::move(temp);
     } else {
@@ -318,7 +319,6 @@ std::unique_ptr<ModuleConfig> Module::initializeConfig() {
     return config;
 }
 
-
 ModuleConfig& Module::getConfig() {
     if (!mConfig) {
         mConfig = std::move(initializeConfig());
@@ -343,108 +343,88 @@ void Module::registerPatch(const AudioPatch& patch) {
     do_insert(patch.sinkPortConfigIds);
 }
 
-ndk::ScopedAStatus Module::updateStreamsConnectedState(const AudioPatch& oldPatch, const AudioPatch& newPatch) {
+ndk::ScopedAStatus Module::updateStreamsConnectedState(const AudioPatch& oldPatch,
+                                                       const AudioPatch& newPatch) {
     // Notify streams about the new set of devices they are connected to.
     auto maybeFailure = ndk::ScopedAStatus::ok();
-    using Connections = std::map<int32_t /*mixPortConfigId*/,
-                                 std::set<int32_t /*devicePortConfigId*/>>;
+    using Connections =
+            std::map<int32_t /*mixPortConfigId*/, std::set<int32_t /*devicePortConfigId*/>>;
     Connections oldConnections, newConnections;
-    auto fillConnectionsHelper =
-        [&](Connections& connections, const std::vector<int32_t>& mixPortCfgIds,
-            const std::vector<int32_t>& devicePortCfgIds) {
-            for (int32_t mixPortCfgId : mixPortCfgIds) {
-                connections[mixPortCfgId].insert(devicePortCfgIds.begin(),
-                                                 devicePortCfgIds.end());
-            }
-        };
-    auto fillConnections = [&](Connections& connections,
-                               const AudioPatch& patch) {
-        if (std::find_if(patch.sourcePortConfigIds.begin(),
-                         patch.sourcePortConfigIds.end(),
-                         [&](int32_t portConfigId) {
-                             return mStreams.count(portConfigId) > 0;
-                         }) != patch.sourcePortConfigIds.end()) {
+    auto fillConnectionsHelper = [&](Connections& connections,
+                                     const std::vector<int32_t>& mixPortCfgIds,
+                                     const std::vector<int32_t>& devicePortCfgIds) {
+        for (int32_t mixPortCfgId : mixPortCfgIds) {
+            connections[mixPortCfgId].insert(devicePortCfgIds.begin(), devicePortCfgIds.end());
+        }
+    };
+    auto fillConnections = [&](Connections& connections, const AudioPatch& patch) {
+        if (std::find_if(patch.sourcePortConfigIds.begin(), patch.sourcePortConfigIds.end(),
+                         [&](int32_t portConfigId) { return mStreams.count(portConfigId) > 0; }) !=
+            patch.sourcePortConfigIds.end()) {
             // Sources are mix ports.
-            fillConnectionsHelper(connections, patch.sourcePortConfigIds,
-                                  patch.sinkPortConfigIds);
-        } else if (std::find_if(patch.sinkPortConfigIds.begin(),
-                                patch.sinkPortConfigIds.end(),
+            fillConnectionsHelper(connections, patch.sourcePortConfigIds, patch.sinkPortConfigIds);
+        } else if (std::find_if(patch.sinkPortConfigIds.begin(), patch.sinkPortConfigIds.end(),
                                 [&](int32_t portConfigId) {
                                     return mStreams.count(portConfigId) > 0;
                                 }) != patch.sinkPortConfigIds.end()) {
             // Sources are device ports.
-            fillConnectionsHelper(connections, patch.sinkPortConfigIds,
-                                  patch.sourcePortConfigIds);
-        }  // Otherwise, there are no streams to notify.
+            fillConnectionsHelper(connections, patch.sinkPortConfigIds, patch.sourcePortConfigIds);
+        } // Otherwise, there are no streams to notify.
     };
     fillConnections(oldConnections, oldPatch);
     fillConnections(newConnections, newPatch);
 
-    std::for_each(oldConnections.begin(), oldConnections.end(),
-                  [&](const auto& connectionPair) {
-                      const int32_t mixPortConfigId = connectionPair.first;
-                      if (auto it = newConnections.find(mixPortConfigId);
-                          it == newConnections.end() ||
-                          it->second != connectionPair.second) {
-                          if (auto status = mStreams.setStreamConnectedDevices(
-                                  mixPortConfigId, {});
-                              status.isOk()) {
-                              LOG(DEBUG) << "updateStreamsConnectedState: The "
-                                            "stream on port config id "
-                                         << mixPortConfigId
-                                         << " has been disconnected";
-                          } else {
-                              // Disconnection is tricky to roll back, just
-                              // register a failure.
-                              maybeFailure = std::move(status);
-                          }
-                      }
-                  });
+    std::for_each(oldConnections.begin(), oldConnections.end(), [&](const auto& connectionPair) {
+        const int32_t mixPortConfigId = connectionPair.first;
+        if (auto it = newConnections.find(mixPortConfigId);
+            it == newConnections.end() || it->second != connectionPair.second) {
+            if (auto status = mStreams.setStreamConnectedDevices(mixPortConfigId, {});
+                status.isOk()) {
+                LOG(DEBUG) << "updateStreamsConnectedState: The "
+                              "stream on port config id "
+                           << mixPortConfigId << " has been disconnected";
+            } else {
+                // Disconnection is tricky to roll back, just
+                // register a failure.
+                maybeFailure = std::move(status);
+            }
+        }
+    });
     if (!maybeFailure.isOk()) return maybeFailure;
     std::set<int32_t> idsToDisconnectOnFailure;
-    std::for_each(
-        newConnections.begin(), newConnections.end(),
-        [&](const auto& connectionPair) {
-            const int32_t mixPortConfigId = connectionPair.first;
-            if (auto it = oldConnections.find(mixPortConfigId);
-                it == oldConnections.end() ||
-                it->second != connectionPair.second) {
-                const auto connectedDevices =
-                    findConnectedDevices(mixPortConfigId);
-                if (connectedDevices.empty()) {
-                    // This is important as workers use the vector size to
-                    // derive the connection status.
-                    LOG(FATAL) << "updateStreamsConnectedState: No connected "
-                                  "devices found for port "
-                                  "config id "
-                               << mixPortConfigId;
-                }
-                if (auto status = mStreams.setStreamConnectedDevices(
-                        mixPortConfigId, connectedDevices);
-                    status.isOk()) {
-                    LOG(DEBUG)
-                        << "updateStreamsConnectedState: The stream on port "
-                           "config id "
-                        << mixPortConfigId << " has been connected to: "
-                        << ::android::internal::ToString(connectedDevices);
-                } else {
-                    maybeFailure = std::move(status);
-                    idsToDisconnectOnFailure.insert(mixPortConfigId);
-                }
+    std::for_each(newConnections.begin(), newConnections.end(), [&](const auto& connectionPair) {
+        const int32_t mixPortConfigId = connectionPair.first;
+        if (auto it = oldConnections.find(mixPortConfigId);
+            it == oldConnections.end() || it->second != connectionPair.second) {
+            const auto connectedDevices = findConnectedDevices(mixPortConfigId);
+            if (connectedDevices.empty()) {
+                // This is important as workers use the vector size to
+                // derive the connection status.
+                LOG(FATAL) << "updateStreamsConnectedState: No connected "
+                              "devices found for port "
+                              "config id "
+                           << mixPortConfigId;
             }
-        });
+            if (auto status = mStreams.setStreamConnectedDevices(mixPortConfigId, connectedDevices);
+                status.isOk()) {
+                LOG(DEBUG) << "updateStreamsConnectedState: The stream on port "
+                              "config id "
+                           << mixPortConfigId << " has been connected to: "
+                           << ::android::internal::ToString(connectedDevices);
+            } else {
+                maybeFailure = std::move(status);
+                idsToDisconnectOnFailure.insert(mixPortConfigId);
+            }
+        }
+    });
     if (!maybeFailure.isOk()) {
-        LOG(WARNING)
-            << __func__
-            << ": Due to a failure, disconnecting streams on port config ids "
-            << ::android::internal::ToString(idsToDisconnectOnFailure);
-        std::for_each(
-            idsToDisconnectOnFailure.begin(), idsToDisconnectOnFailure.end(),
-            [&](const auto& portConfigId) {
-                auto status =
-                    mStreams.setStreamConnectedDevices(portConfigId, {});
-                (void)status.isOk();  // Can't do much about a failure here.
-            });
+        LOG(WARNING) << __func__ << ": Due to a failure, disconnecting streams on port config ids "
+                     << ::android::internal::ToString(idsToDisconnectOnFailure);
+        std::for_each(idsToDisconnectOnFailure.begin(), idsToDisconnectOnFailure.end(),
+                      [&](const auto& portConfigId) {
+                          auto status = mStreams.setStreamConnectedDevices(portConfigId, {});
+                          (void)status.isOk(); // Can't do much about a failure here.
+                      });
         return maybeFailure;
     }
     return ndk::ScopedAStatus::ok();
@@ -470,46 +450,48 @@ ndk::ScopedAStatus Module::setModuleDebug(
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus Module::getTelephony(std::shared_ptr<::aidl::android::hardware::audio::core::ITelephony>* _aidl_return) {
+ndk::ScopedAStatus Module::getTelephony(
+        std::shared_ptr<::aidl::android::hardware::audio::core::ITelephony>* _aidl_return) {
     *_aidl_return = nullptr;
     LOG(DEBUG) << __func__ << ": returning null";
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus Module::getBluetooth(std::shared_ptr<::aidl::android::hardware::audio::core::IBluetooth>* _aidl_return) {
+ndk::ScopedAStatus Module::getBluetooth(
+        std::shared_ptr<::aidl::android::hardware::audio::core::IBluetooth>* _aidl_return) {
     *_aidl_return = nullptr;
     LOG(DEBUG) << __func__ << ": returning null";
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus Module::getBluetoothA2dp(std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothA2dp>* _aidl_return) {
+ndk::ScopedAStatus Module::getBluetoothA2dp(
+        std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothA2dp>* _aidl_return) {
     *_aidl_return = nullptr;
     LOG(DEBUG) << __func__ << ": returning null";
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus Module::getBluetoothLe(std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothLe>* _aidl_return) {
+ndk::ScopedAStatus Module::getBluetoothLe(
+        std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothLe>* _aidl_return) {
     *_aidl_return = nullptr;
     LOG(DEBUG) << __func__ << ": returning null";
     return ndk::ScopedAStatus::ok();
 }
 
-std::vector<::aidl::android::media::audio::common::AudioProfile>
-Module::getDynamicProfiles(
-    const ::aidl::android::media::audio::common::AudioPort& audioPort) {
-    LOG(INFO) << __func__ << " no-op implementation for "
-              << audioPort.toString();
+std::vector<::aidl::android::media::audio::common::AudioProfile> Module::getDynamicProfiles(
+        const ::aidl::android::media::audio::common::AudioPort& audioPort) {
+    LOG(INFO) << __func__ << " no-op implementation for " << audioPort.toString();
     return {};
 }
 
 ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdAndAdditionalData,
                                                  AudioPort* _aidl_return) {
-    LOG(DEBUG) << __func__ << ": requested template port: "
-               << in_templateIdAndAdditionalData.toString();
+    LOG(DEBUG) << __func__
+               << ": requested template port: " << in_templateIdAndAdditionalData.toString();
     const int32_t templateId = in_templateIdAndAdditionalData.id;
     auto& ports = getConfig().ports;
     AudioPort connectedPort;
-    {  // Scope the template port so that we don't accidentally modify it.
+    { // Scope the template port so that we don't accidentally modify it.
         auto templateIt = findById<AudioPort>(ports, templateId);
         if (templateIt == ports.end()) {
             LOG(ERROR) << __func__ << ": port id " << templateId << " not found";
@@ -550,10 +532,8 @@ ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdA
     }
 
     if (!mDebug.simulateDeviceConnections) {
-        RETURN_STATUS_IF_ERROR(
-            populateConnectedDevicePort(&connectedPort, templateId));
-        const auto& dynamicProfiles =
-            getDynamicProfiles(in_templateIdAndAdditionalData);
+        RETURN_STATUS_IF_ERROR(populateConnectedDevicePort(&connectedPort, templateId));
+        const auto& dynamicProfiles = getDynamicProfiles(in_templateIdAndAdditionalData);
         if (dynamicProfiles.size() != 0) {
             connectedPort.profiles = dynamicProfiles;
             LOG(VERBOSE) << __func__ << ": over writing with dynamic profiles "
@@ -583,7 +563,7 @@ ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdA
     }
 
     connectedPort.id = getConfig().nextPortId++;
-    auto [connectedPortsIt, _] =
+    auto[connectedPortsIt, _] =
             mConnectedDevicePorts.insert(std::pair(connectedPort.id, std::set<int32_t>()));
     ports.push_back(connectedPort);
     // Upon this, we must let platform know about external device connection
@@ -635,8 +615,7 @@ ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdA
     }
     *_aidl_return = std::move(connectedPort);
     LOG(DEBUG) << __func__ << ": for template port ID: " << templateId
-               << " created new external device port: "
-               << _aidl_return->toString();
+               << " created new external device port: " << _aidl_return->toString();
     return ndk::ScopedAStatus::ok();
 }
 
@@ -724,11 +703,9 @@ ndk::ScopedAStatus Module::getAudioPort(int32_t in_portId, AudioPort* _aidl_retu
     return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
 }
 
-ndk::ScopedAStatus Module::getAudioPortConfigs(
-    std::vector<AudioPortConfig>* _aidl_return) {
+ndk::ScopedAStatus Module::getAudioPortConfigs(std::vector<AudioPortConfig>* _aidl_return) {
     *_aidl_return = getConfig().portConfigs;
-    LOG(DEBUG) << __func__ << ": returning " << _aidl_return->size()
-               << " port configs";
+    LOG(DEBUG) << __func__ << ": returning " << _aidl_return->size() << " port configs";
     return ndk::ScopedAStatus::ok();
 }
 
@@ -778,7 +755,7 @@ ndk::ScopedAStatus Module::openInputStream(const OpenInputStreamArguments& in_ar
     context.fillDescriptor(&_aidl_return->desc);
     std::shared_ptr<StreamIn> stream;
     RETURN_STATUS_IF_ERROR(createInputStream(std::move(context), in_args.sinkMetadata,
-                                                     mConfig->microphones, &stream));
+                                             mConfig->microphones, &stream));
     StreamWrapper streamWrapper(stream);
     if (auto patchIt = mPatches.find(in_args.portConfigId); patchIt != mPatches.end()) {
         RETURN_STATUS_IF_ERROR(
@@ -787,15 +764,13 @@ ndk::ScopedAStatus Module::openInputStream(const OpenInputStreamArguments& in_ar
     const bool isMMap = isBitPositionFlagSet(port->flags.get<AudioIoFlags::Tag::input>(),
                                              AudioInputFlags::MMAP_NOIRQ);
     if (isMMap) {
-        //int32_t fd; int64_t burstSizeFrames;
-        //int32_t flags; int32_t bufferSizeFrames;
+        // int32_t fd; int64_t burstSizeFrames;
+        // int32_t flags; int32_t bufferSizeFrames;
         MMapBuffer mBuffer;
-        RETURN_STATUS_IF_ERROR(
-                streamWrapper.configureMMapStream(&mBuffer.fd, &mBuffer.burstSizeFrames,
-                                                  &mBuffer.flags, &mBuffer.bufferSizeFrames));
-        context.fillMMapDescriptor(mBuffer.fd, mBuffer.burstSizeFrames,
-                                   mBuffer.flags, mBuffer.bufferSizeFrames,
-                                   &_aidl_return->desc);
+        RETURN_STATUS_IF_ERROR(streamWrapper.configureMMapStream(
+                &mBuffer.fd, &mBuffer.burstSizeFrames, &mBuffer.flags, &mBuffer.bufferSizeFrames));
+        context.fillMMapDescriptor(mBuffer.fd, mBuffer.burstSizeFrames, mBuffer.flags,
+                                   mBuffer.bufferSizeFrames, &_aidl_return->desc);
     }
     AIBinder_setMinSchedulerPolicy(streamWrapper.getBinder().get(), SCHED_NORMAL,
                                    ANDROID_PRIORITY_AUDIO);
@@ -837,7 +812,7 @@ ndk::ScopedAStatus Module::openOutputStream(const OpenOutputStreamArguments& in_
     context.fillDescriptor(&_aidl_return->desc);
     std::shared_ptr<StreamOut> stream;
     RETURN_STATUS_IF_ERROR(createOutputStream(std::move(context), in_args.sourceMetadata,
-                                                      in_args.offloadInfo, &stream));
+                                              in_args.offloadInfo, &stream));
     StreamWrapper streamWrapper(stream);
     if (auto patchIt = mPatches.find(in_args.portConfigId); patchIt != mPatches.end()) {
         RETURN_STATUS_IF_ERROR(
@@ -846,20 +821,18 @@ ndk::ScopedAStatus Module::openOutputStream(const OpenOutputStreamArguments& in_
     const bool isMMap = isBitPositionFlagSet(port->flags.get<AudioIoFlags::Tag::output>(),
                                              AudioOutputFlags::MMAP_NOIRQ);
     if (isMMap) {
-        //int32_t fd; int64_t burstSizeFrames;
-        //int32_t flags; int32_t bufferSizeFrames;
+        // int32_t fd; int64_t burstSizeFrames;
+        // int32_t flags; int32_t bufferSizeFrames;
         MMapBuffer mBuffer;
-        RETURN_STATUS_IF_ERROR(
-                streamWrapper.configureMMapStream(&mBuffer.fd, &mBuffer.burstSizeFrames,
-                                                  &mBuffer.flags, &mBuffer.bufferSizeFrames));
-        context.fillMMapDescriptor(mBuffer.fd, mBuffer.burstSizeFrames,
-                                   mBuffer.flags, mBuffer.bufferSizeFrames,
-                                   &_aidl_return->desc);
+        RETURN_STATUS_IF_ERROR(streamWrapper.configureMMapStream(
+                &mBuffer.fd, &mBuffer.burstSizeFrames, &mBuffer.flags, &mBuffer.bufferSizeFrames));
+        context.fillMMapDescriptor(mBuffer.fd, mBuffer.burstSizeFrames, mBuffer.flags,
+                                   mBuffer.bufferSizeFrames, &_aidl_return->desc);
     }
     AIBinder_setMinSchedulerPolicy(streamWrapper.getBinder().get(), SCHED_NORMAL,
                                    ANDROID_PRIORITY_AUDIO);
     mStreams.insert(port->id, in_args.portConfigId, std::move(streamWrapper));
-//    Module::updateStreamOutList(stream);
+    //    Module::updateStreamOutList(stream);
     _aidl_return->stream = std::move(stream);
     return ndk::ScopedAStatus::ok();
 }
@@ -914,7 +887,7 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
         for (const auto& r : routes) {
             const auto& srcs = r.sourcePortIds;
             if (std::find(srcs.begin(), srcs.end(), src->portId) != srcs.end()) {
-                if (!allowedSinkPorts[r.sinkPortId]) {  // prefer non-exclusive
+                if (!allowedSinkPorts[r.sinkPortId]) { // prefer non-exclusive
                     allowedSinkPorts[r.sinkPortId] = !r.isExclusive;
                 }
             }
@@ -943,7 +916,7 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
         }
     }
     // Validate the requested patch.
-    for (const auto& [sinkPortId, nonExclusive] : allowedSinkPorts) {
+    for (const auto & [ sinkPortId, nonExclusive ] : allowedSinkPorts) {
         if (!nonExclusive && mPatches.count(sinkPortId) != 0) {
             LOG(ERROR) << __func__ << ": sink port id " << sinkPortId
                        << "is exclusive and is already used by some other patch";
@@ -959,12 +932,10 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
     if (existing == patches.end()) {
         // this suggests to create a new patch.
         _aidl_return->id = getConfig().nextPatchId++;
-        _aidl_return->minimumStreamBufferSizeFrames =
-            kMinimumStreamBufferSizeFrames;
+        _aidl_return->minimumStreamBufferSizeFrames = kMinimumStreamBufferSizeFrames;
         _aidl_return->latenciesMs.clear();
         _aidl_return->latenciesMs.insert(_aidl_return->latenciesMs.end(),
-                                         _aidl_return->sinkPortConfigIds.size(),
-                                         kLatencyMs);
+                                         _aidl_return->sinkPortConfigIds.size(), kLatencyMs);
         onNewPatchCreation(sources, sinks, *_aidl_return);
         patches.push_back(*_aidl_return);
     } else {
@@ -995,25 +966,21 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
                   << "created" << _aidl_return->toString();
     } else {
         LOG(INFO) << __func__ << ": "
-                  << "updated from " << oldPatch.toString() << " to "
-                  << _aidl_return->toString();
+                  << "updated from " << oldPatch.toString() << " to " << _aidl_return->toString();
     }
     return ndk::ScopedAStatus::ok();
 }
 
 void Module::onNewPatchCreation(const std::vector<AudioPortConfig*>& sources,
-                                const std::vector<AudioPortConfig*>& sinks,
-                                AudioPatch& newPatch) {
+                                const std::vector<AudioPortConfig*>& sinks, AudioPatch& newPatch) {
     LOG(INFO) << __func__ << " no-op implementation " << newPatch.toString();
     return;
 }
 
 void Module::updateTelephonyPatch(
-    const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>&
-        sources,
-    const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>&
-        sinks,
-    const ::aidl::android::hardware::audio::core::AudioPatch& patch) {
+        const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
+        const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
+        const ::aidl::android::hardware::audio::core::AudioPatch& patch) {
     LOG(INFO) << __func__ << " no-op implementation ";
     return;
 }
@@ -1296,7 +1263,9 @@ ndk::ScopedAStatus Module::updateScreenState(bool in_isTurnedOn) {
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus Module::getSoundDose(std::shared_ptr<::aidl::android::hardware::audio::core::sounddose::ISoundDose>* _aidl_return) {
+ndk::ScopedAStatus Module::getSoundDose(
+        std::shared_ptr<::aidl::android::hardware::audio::core::sounddose::ISoundDose>*
+                _aidl_return) {
     if (!mSoundDose) {
         mSoundDose = ndk::SharedRefBase::make<SoundDose>();
     }
@@ -1488,25 +1457,20 @@ bool Module::isMmapSupported() {
     return mIsMmapSupported.value();
 }
 
-
-
-ndk::ScopedAStatus Module::populateConnectedDevicePort(
-    AudioPort* connectedDevicePort, const int32_t templateDevicePortId) {
+ndk::ScopedAStatus Module::populateConnectedDevicePort(AudioPort* connectedDevicePort,
+                                                       const int32_t templateDevicePortId) {
     auto& externalDeviceProfiles = getConfig().mExternalDevicePortProfiles;
-    auto connectedProfilesIt =
-        externalDeviceProfiles.find(templateDevicePortId);
+    auto connectedProfilesIt = externalDeviceProfiles.find(templateDevicePortId);
 
     if (connectedProfilesIt != externalDeviceProfiles.end()) {
         connectedDevicePort->profiles = connectedProfilesIt->second;
     } else {
-        LOG(ERROR) << __func__
-                   << ": failed to find profiles for template device port ID: "
+        LOG(ERROR) << __func__ << ": failed to find profiles for template device port ID: "
                    << templateDevicePortId;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
 
-    LOG(VERBOSE) << __func__
-                 << ": template device port ID: " << templateDevicePortId
+    LOG(VERBOSE) << __func__ << ": template device port ID: " << templateDevicePortId
                  << " attached profiles: " << connectedDevicePort->profiles;
     return ndk::ScopedAStatus::ok();
 }
@@ -1519,11 +1483,9 @@ ndk::ScopedAStatus Module::checkAudioPatchEndpointsMatch(
 }
 
 void Module::onExternalDeviceConnectionChanged(
-    const ::aidl::android::media::audio::common::AudioPort& audioPort,
-    bool connected) {
-    LOG(INFO) << __func__ << " no-op implementation"
-              << (connected ? " connect" : "disconnect") << " for "
-              << audioPort.toString();
+        const ::aidl::android::media::audio::common::AudioPort& audioPort, bool connected) {
+    LOG(INFO) << __func__ << " no-op implementation" << (connected ? " connect" : "disconnect")
+              << " for " << audioPort.toString();
     return;
 }
 
@@ -1537,4 +1499,4 @@ ndk::ScopedAStatus Module::onMasterVolumeChanged(float volume __unused) {
     return ndk::ScopedAStatus::ok();
 }
 
-}  // namespace qti::audio::core
+} // namespace qti::audio::core

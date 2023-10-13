@@ -35,20 +35,20 @@
 #define LOG_TAG "AHAL: audio_hw_generic_effect"
 #define LOG_NDDEBUG 0
 
+#include "AudioCommon.h"
 #include "AudioDevice.h"
 #include "audio_extn.h"
-#include "AudioCommon.h"
 
-#include <errno.h>
-#include <math.h>
-#include <log/log.h>
-#include <fcntl.h>
-#include <dirent.h>
-#include <sys/stat.h>
-#include <stdlib.h>
-#include <dlfcn.h>
-#include <math.h>
 #include <cutils/properties.h>
+#include <dirent.h>
+#include <dlfcn.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <log/log.h>
+#include <math.h>
+#include <math.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 
 #ifdef DYNAMIC_LOG_ENABLED
 #include <log_xml_parser.h>
@@ -67,18 +67,16 @@
 #if LINUX_ENABLED
 #define GEF_LIBRARY "libqtigefar.so"
 #else
-#define GEF_LIBRARY LIBS"libqtigefar.so"
+#define GEF_LIBRARY LIBS "libqtigefar.so"
 #endif
 
-typedef int (*gef_get_pal_info)(void* adev,
-                                    const audio_devices_t hal_device_id,
-                                    pal_device_id_t *pal_device_id,
-                                    audio_output_flags_t hal_stream_flag,
-                                    pal_stream_type_t *pal_stream_type);
+typedef int (*gef_get_pal_info)(void* adev, const audio_devices_t hal_device_id,
+                                pal_device_id_t* pal_device_id,
+                                audio_output_flags_t hal_stream_flag,
+                                pal_stream_type_t* pal_stream_type);
 typedef void* (*gef_init_t)(void*, gef_get_pal_info);
 typedef void (*gef_deinit_t)(void*);
-typedef void (*gef_device_config_cb_t)(void*, audio_devices_t,
-    audio_channel_mask_t, int, int);
+typedef void (*gef_device_config_cb_t)(void*, audio_devices_t, audio_channel_mask_t, int, int);
 
 typedef struct {
     void* handle;
@@ -90,19 +88,14 @@ typedef struct {
 
 static gef_data gef_hal_handle;
 
-typedef enum {
-    ASM = 0,
-    ADM
-} gef_calibration_type;
+typedef enum { ASM = 0, ADM } gef_calibration_type;
 
 typedef enum {
     AUDIO_DEVICE_CAL_TYPE = 0,
     AUDIO_STREAM_CAL_TYPE,
 } acdb_device_type;
 
-
-void audio_extn_gef_init(std::shared_ptr<AudioDevice> adev)
-{
+void audio_extn_gef_init(std::shared_ptr<AudioDevice> adev) {
     const char* error = NULL;
     gef_get_pal_info fp = audio_extn_get_pal_info;
 
@@ -111,54 +104,46 @@ void audio_extn_gef_init(std::shared_ptr<AudioDevice> adev)
     //: check error for dlopen
     gef_hal_handle.handle = dlopen(GEF_LIBRARY, RTLD_LAZY);
     if (gef_hal_handle.handle == NULL) {
-        AHAL_ERR("DLOPEN failed for %s with error %s",
-                 GEF_LIBRARY, dlerror());
+        AHAL_ERR("DLOPEN failed for %s with error %s", GEF_LIBRARY, dlerror());
         goto ERROR_RETURN;
     } else {
         AHAL_VERBOSE("DLOPEN successful for %s", GEF_LIBRARY);
 
-        //call dlerror to clear the error
+        // call dlerror to clear the error
         dlerror();
-        gef_hal_handle.init =
-            (gef_init_t)dlsym(gef_hal_handle.handle, "gef_init");
+        gef_hal_handle.init = (gef_init_t)dlsym(gef_hal_handle.handle, "gef_init");
 
-        if (!gef_hal_handle.init)
-            goto ERROR_RETURN;
+        if (!gef_hal_handle.init) goto ERROR_RETURN;
 
         error = dlerror();
 
-        if(error != NULL) {
-            AHAL_ERR("dlsym of %s failed with error %s",
-                     "gef_init", error);
+        if (error != NULL) {
+            AHAL_ERR("dlsym of %s failed with error %s", "gef_init", error);
             goto ERROR_RETURN;
         }
 
-        //call dlerror to clear the error
+        // call dlerror to clear the error
         dlerror();
-        gef_hal_handle.deinit =
-            (gef_deinit_t)dlsym(gef_hal_handle.handle, "gef_deinit");
+        gef_hal_handle.deinit = (gef_deinit_t)dlsym(gef_hal_handle.handle, "gef_deinit");
         error = dlerror();
 
-        if(error != NULL) {
-            AHAL_ERR("dlsym of %s failed with error %s",
-                     "gef_deinit", error);
+        if (error != NULL) {
+            AHAL_ERR("dlsym of %s failed with error %s", "gef_deinit", error);
             goto ERROR_RETURN;
         }
 
-        //call dlerror to clear the error
+        // call dlerror to clear the error
         error = dlerror();
         gef_hal_handle.device_config_cb =
-            (gef_device_config_cb_t)dlsym(gef_hal_handle.handle,
-             "gef_device_config_cb");
+                (gef_device_config_cb_t)dlsym(gef_hal_handle.handle, "gef_device_config_cb");
         error = dlerror();
 
-        if(error != NULL) {
-            AHAL_ERR("dlsym of %s failed with error %s",
-                     "gef_device_config_cb", error);
+        if (error != NULL) {
+            AHAL_ERR("dlsym of %s failed with error %s", "gef_device_config_cb", error);
             goto ERROR_RETURN;
         }
 
-        gef_hal_handle.gef_ptr = gef_hal_handle.init((void *)(adev.get()), fp);
+        gef_hal_handle.gef_ptr = gef_hal_handle.init((void*)(adev.get()), fp);
     }
 
 ERROR_RETURN:
@@ -166,10 +151,8 @@ ERROR_RETURN:
     return;
 }
 
-
-//this will be called from GEF to exchange calibration using acdb
-int audio_extn_gef_send_audio_cal(void* data, int length)
-{
+// this will be called from GEF to exchange calibration using acdb
+int audio_extn_gef_send_audio_cal(void* data, int length) {
     int ret = 0;
     if (!data) {
         AHAL_ERR("GEF data is null");
@@ -189,9 +172,8 @@ int audio_extn_gef_send_audio_cal(void* data, int length)
     return ret;
 }
 
-//this will be called from GEF to exchange calibration using acdb
-int audio_extn_gef_get_audio_cal(void* data, int *length)
-{
+// this will be called from GEF to exchange calibration using acdb
+int audio_extn_gef_get_audio_cal(void* data, int* length) {
     int ret = 0;
     if (!data) {
         AHAL_ERR("GEF data is null");
@@ -209,36 +191,32 @@ int audio_extn_gef_get_audio_cal(void* data, int *length)
     AHAL_VERBOSE("Exit with error %d", ret);
 
     return ret;
-
 }
 
-//this will be called from GEF to store into acdb
-int audio_extn_gef_store_audio_cal(void* data __unused, int length __unused)
-{
+// this will be called from GEF to store into acdb
+int audio_extn_gef_store_audio_cal(void* data __unused, int length __unused) {
     AHAL_ERR("not supported by pal now.\n");
 
     return -ENOSYS;
 }
 
-//this will be called from GEF to retrieve calibration using acdb
-int audio_extn_gef_retrieve_audio_cal(void* data __unused,
-    int* length __unused)
-{
+// this will be called from GEF to retrieve calibration using acdb
+int audio_extn_gef_retrieve_audio_cal(void* data __unused, int* length __unused) {
     AHAL_ERR("not supported by pal now.\n");
 
     return -ENOSYS;
 }
 
-//this will be called from HAL to notify GEF of new device configuration
+// this will be called from HAL to notify GEF of new device configuration
 void audio_extn_gef_notify_device_config(audio_devices_t audio_device,
-    audio_channel_mask_t channel_mask, int sample_rate, int stream_type)
-{
+                                         audio_channel_mask_t channel_mask, int sample_rate,
+                                         int stream_type) {
     AHAL_VERBOSE("Enter");
 
-    //call into GEF to share channel mask and device info
+    // call into GEF to share channel mask and device info
     if (gef_hal_handle.handle && gef_hal_handle.device_config_cb) {
-        gef_hal_handle.device_config_cb(gef_hal_handle.gef_ptr, audio_device,
-            channel_mask, sample_rate, stream_type);
+        gef_hal_handle.device_config_cb(gef_hal_handle.gef_ptr, audio_device, channel_mask,
+                                        sample_rate, stream_type);
     }
 
     AHAL_VERBOSE("Exit");
@@ -246,8 +224,7 @@ void audio_extn_gef_notify_device_config(audio_devices_t audio_device,
     return;
 }
 
-void audio_extn_gef_deinit(std::shared_ptr<AudioDevice> adev __unused)
-{
+void audio_extn_gef_deinit(std::shared_ptr<AudioDevice> adev __unused) {
     AHAL_VERBOSE("Enter");
 
     if (gef_hal_handle.handle) {
@@ -261,17 +238,14 @@ void audio_extn_gef_deinit(std::shared_ptr<AudioDevice> adev __unused)
     AHAL_VERBOSE("Exit");
 }
 
-int audio_extn_get_pal_info(void *hal_data,
-                                const audio_devices_t hal_device_id,
-                                 pal_device_id_t *pal_device_id,
-                                 audio_output_flags_t hal_stream_flag,
-                                 pal_stream_type_t *pal_stream_type)
-{
+int audio_extn_get_pal_info(void* hal_data, const audio_devices_t hal_device_id,
+                            pal_device_id_t* pal_device_id, audio_output_flags_t hal_stream_flag,
+                            pal_stream_type_t* pal_stream_type) {
     int device_count = 0;
-    AudioDevice *adev = nullptr;
+    AudioDevice* adev = nullptr;
 
     if (hal_data) {
-        adev = (AudioDevice *)hal_data;
+        adev = (AudioDevice*)hal_data;
         device_count = adev->GetPalDeviceIds({hal_device_id}, pal_device_id);
         *pal_stream_type = StreamOutPrimary::GetPalStreamType(hal_stream_flag);
         return device_count;

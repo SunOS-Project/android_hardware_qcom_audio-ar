@@ -5,13 +5,13 @@
 
 #pragma once
 
-#include <qti-audio-core/Stream.h>
 #include <qti-audio-core/AudioUsecase.h>
+#include <qti-audio-core/Stream.h>
 #include <system/audio_effects/effect_uuid.h>
 namespace qti::audio::core {
 
-class StreamInPrimary: public StreamIn, public StreamCommonImpl {
-    public:
+class StreamInPrimary : public StreamIn, public StreamCommonImpl {
+  public:
     friend class ndk::SharedRefBase;
     StreamInPrimary(
             StreamContext&& context,
@@ -24,37 +24,35 @@ class StreamInPrimary: public StreamIn, public StreamCommonImpl {
     int32_t setAggregateSinkMetadata(bool voiceActive) override;
     // Methods of 'DriverInterface'.
     ::android::status_t init() override;
-    ::android::status_t drain(::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode) override;
+    ::android::status_t drain(
+            ::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode) override;
     ::android::status_t flush() override;
     ::android::status_t pause() override;
     ::android::status_t standby() override;
     ::android::status_t start() override;
     ::android::status_t transfer(void* buffer, size_t frameCount, size_t* actualFrameCount,
                                  int32_t* latencyMs) override;
-     ::android::status_t refinePosition(
-        ::aidl::android::hardware::audio::core::StreamDescriptor::Reply*
-        /*reply*/) override;
+    ::android::status_t refinePosition(
+            ::aidl::android::hardware::audio::core::StreamDescriptor::Reply*
+            /*reply*/) override;
     void shutdown() override;
 
     // methods of StreamCommonInterface
 
     ndk::ScopedAStatus getVendorParameters(
-        const std::vector<std::string>& in_ids,
-        std::vector<::aidl::android::hardware::audio::core::VendorParameter>*
-            _aidl_return) override;
+            const std::vector<std::string>& in_ids,
+            std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return)
+            override;
     ndk::ScopedAStatus setVendorParameters(
-        const std::vector<
-            ::aidl::android::hardware::audio::core::VendorParameter>&
-            in_parameters,
-        bool in_async) override;
+            const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
+                    in_parameters,
+            bool in_async) override;
     ndk::ScopedAStatus addEffect(
-        const std::shared_ptr<
-            ::aidl::android::hardware::audio::effect::IEffect>& in_effect)
-        override;
+            const std::shared_ptr<::aidl::android::hardware::audio::effect::IEffect>& in_effect)
+            override;
     ndk::ScopedAStatus removeEffect(
-        const std::shared_ptr<
-            ::aidl::android::hardware::audio::effect::IEffect>& in_effect)
-        override;
+            const std::shared_ptr<::aidl::android::hardware::audio::effect::IEffect>& in_effect)
+            override;
 
     ndk::ScopedAStatus updateMetadataCommon(const Metadata& metadata) override;
 
@@ -67,7 +65,8 @@ class StreamInPrimary: public StreamIn, public StreamCommonImpl {
 
     void onClose() override { defaultOnClose(); }
     static std::mutex sinkMetadata_mutex_;
-    protected:
+
+  protected:
     /*
      * This API opens, configures and starts pal stream.
      * also responsible for validity of pal handle.
@@ -78,7 +77,7 @@ class StreamInPrimary: public StreamIn, public StreamCommonImpl {
     size_t getPeriodCount() const noexcept;
     size_t getPlatformDelay() const noexcept;
 
-    protected:
+  protected:
     const Usecase mTag;
     const std::string mTagName;
     const size_t mFrameSizeBytes;
@@ -89,13 +88,12 @@ class StreamInPrimary: public StreamIn, public StreamCommonImpl {
     // All the public must check the validity of this resource, if using
     pal_stream_handle_t* mPalHandle{nullptr};
 
-    std::variant<std::monostate, PcmRecord, CompressCapture, VoipRecord,
-                 MMapRecord, VoiceCallRecord>
-        mExt;
+    std::variant<std::monostate, PcmRecord, CompressCapture, VoipRecord, MMapRecord,
+                 VoiceCallRecord>
+            mExt;
     // references
     Platform& mPlatform{Platform::getInstance()};
-    const ::aidl::android::media::audio::common::AudioPortConfig&
-        mMixPortConfig;
+    const ::aidl::android::media::audio::common::AudioPortConfig& mMixPortConfig;
 };
 
-}  // namespace qti::audio::core
+} // namespace qti::audio::core

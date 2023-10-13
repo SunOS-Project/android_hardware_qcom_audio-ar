@@ -22,38 +22,32 @@
 
 #pragma once
 
+#include <aidl/android/hardware/audio/core/VendorParameter.h>
+#include <aidl/android/media/audio/common/AudioDevice.h>
+#include <aidl/android/media/audio/common/AudioPortConfig.h>
+#include <aidl/qti/audio/core/VString.h>
 #include <algorithm>
 #include <map>
+#include <numeric>
 #include <set>
 #include <vector>
-#include <numeric>
-#include <aidl/android/media/audio/common/AudioPortConfig.h>
-#include <aidl/android/media/audio/common/AudioDevice.h>
-#include <aidl/android/hardware/audio/core/VendorParameter.h>
-#include <aidl/qti/audio/core/VString.h>
 
 namespace qti::audio::core {
 
-bool isMixPortConfig(
-    const ::aidl::android::media::audio::common::AudioPortConfig&) noexcept;
+bool isMixPortConfig(const ::aidl::android::media::audio::common::AudioPortConfig&) noexcept;
 
-bool isDevicePortConfig(
-    const ::aidl::android::media::audio::common::AudioPortConfig&) noexcept;
+bool isDevicePortConfig(const ::aidl::android::media::audio::common::AudioPortConfig&) noexcept;
 
-bool isTelephonyRXDevice(
-    const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
+bool isTelephonyRXDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
 
-bool isTelephonyTXDevice(
-    const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
+bool isTelephonyTXDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
 
 template <class T>
-std::ostream& operator<<(std::ostream& os,
-                         const std::vector<T>& list) noexcept {
-    os << std::accumulate(
-        list.cbegin(), list.cend(), std::string(""),
-        [](auto&& prev, const auto& l) {
-            return std::move(prev.append(",").append(l.toString()));
-        });
+std::ostream& operator<<(std::ostream& os, const std::vector<T>& list) noexcept {
+    os << std::accumulate(list.cbegin(), list.cend(), std::string(""),
+                          [](auto&& prev, const auto& l) {
+                              return std::move(prev.append(",").append(l.toString()));
+                          });
     return os;
 }
 
@@ -70,13 +64,11 @@ int64_t getInt64FromString(const std::string& s) noexcept;
 bool getBoolFromString(const std::string& s) noexcept;
 
 bool setParameter(const ::aidl::qti::audio::core::VString& parcel,
-                  ::aidl::android::hardware::audio::core::VendorParameter&
-                      parameter) noexcept;
+                  ::aidl::android::hardware::audio::core::VendorParameter& parameter) noexcept;
 
 template <typename W>
-bool extractParameter(
-    const ::aidl::android::hardware::audio::core::VendorParameter& p,
-    decltype(W::value)* v) {
+bool extractParameter(const ::aidl::android::hardware::audio::core::VendorParameter& p,
+                      decltype(W::value)* v) {
     std::optional<W> value;
     int32_t result = p.ext.getParcelable(&value);
     if (result == 0 && value.has_value()) {
@@ -119,9 +111,7 @@ auto erase_if(C& c, P pred) {
 // Erase all the elements in the map that have specified values.
 template <typename C, typename V>
 auto erase_all_values(C& c, const V& values) {
-    return erase_if(c, [values](const auto& pair) {
-        return values.count(pair.second) != 0;
-    });
+    return erase_if(c, [values](const auto& pair) { return values.count(pair.second) != 0; });
 }
 
 // Return non-zero count of elements for any of the provided keys.
@@ -137,16 +127,14 @@ size_t count_any(const M& m, const V& keys) {
 // find an element with the specified id.
 template <typename M>
 auto findById(M& m, int32_t id) {
-    return std::find_if(m.begin(), m.end(),
-                        [&](const auto& p) { return p.second.id == id; });
+    return std::find_if(m.begin(), m.end(), [&](const auto& p) { return p.second.id == id; });
 }
 
 // Assuming that the vector contains elements with an 'id' field,
 // find an element with the specified id.
 template <typename T>
 auto findById(std::vector<T>& v, int32_t id) {
-    return std::find_if(v.begin(), v.end(),
-                        [&](const auto& e) { return e.id == id; });
+    return std::find_if(v.begin(), v.end(), [&](const auto& e) { return e.id == id; });
 }
 
 // Return elements from the vector that have specified ids, also
@@ -186,4 +174,4 @@ auto findKeyOrDefault(const M& m, const K& key, K defaultValue) {
     return it == m.end() ? defaultValue : key;
 }
 
-}  // namespace qti::audio::core
+} // namespace qti::audio::core

@@ -22,15 +22,15 @@
 
 #pragma once
 
-#include <qti-audio-core/Module.h>
-#include <qti-audio-core/Telephony.h>
-#include <qti-audio-core/Platform.h>
 #include <qti-audio-core/Bluetooth.h>
+#include <qti-audio-core/Module.h>
+#include <qti-audio-core/Platform.h>
+#include <qti-audio-core/Telephony.h>
 
 namespace qti::audio::core {
 
 class ModulePrimary final : public Module {
-   public:
+  public:
     ModulePrimary() : Module(Type::DEFAULT) {}
 
     std::string toStringInternal() override;
@@ -63,149 +63,126 @@ class ModulePrimary final : public Module {
         AUDIOEXTENSION,
     };
 
-    //Mutex for stream lists protection
+    // Mutex for stream lists protection
     static std::mutex outListMutex;
     static std::mutex inListMutex;
 
     // For set parameters
     using SetHandler = std::function<void(
-        ModulePrimary*,
-        const std::vector<
-            ::aidl::android::hardware::audio::core::VendorParameter>&)>;
+            ModulePrimary*,
+            const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&)>;
     using SetParameterToFeatureMap = std::map<std::string, Feature>;
-    using FeatureToSetHandlerMap = std::map<Feature,SetHandler>;
+    using FeatureToSetHandlerMap = std::map<Feature, SetHandler>;
     static SetParameterToFeatureMap fillSetParameterToFeatureMap();
     static FeatureToSetHandlerMap fillFeatureToSetHandlerMap();
-    using FeatureToVendorParametersMap = std::map<
-        Feature,
-        std::vector<::aidl::android::hardware::audio::core::VendorParameter>>;
+    using FeatureToVendorParametersMap =
+            std::map<Feature, std::vector<::aidl::android::hardware::audio::core::VendorParameter>>;
 
     // For get parameters
-    using GetHandler = std::function<
-        std::vector<::aidl::android::hardware::audio::core::VendorParameter>(
-            ModulePrimary*, const std::vector<std::string>&)>;
+    using GetHandler =
+            std::function<std::vector<::aidl::android::hardware::audio::core::VendorParameter>(
+                    ModulePrimary*, const std::vector<std::string>&)>;
     using GetParameterToFeatureMap = std::map<std::string, Feature>;
-    using FeatureToGetHandlerMap = std::map<Feature,GetHandler>;
+    using FeatureToGetHandlerMap = std::map<Feature, GetHandler>;
     static GetParameterToFeatureMap fillGetParameterToFeatureMap();
     static FeatureToGetHandlerMap fillFeatureToGetHandlerMap();
-    using FeatureToStringMap =
-        std::map<Feature, std::vector<std::string>>;
+    using FeatureToStringMap = std::map<Feature, std::vector<std::string>>;
 
     // end of Module Parameters
     static std::vector<std::weak_ptr<::qti::audio::core::StreamOut>> mStreamsOut;
     static std::vector<std::weak_ptr<::qti::audio::core::StreamIn>> mStreamsIn;
 
     static void updateStreamOutList(const std::shared_ptr<StreamOut> streamOut) {
-      mStreamsOut.push_back(streamOut);
+        mStreamsOut.push_back(streamOut);
     }
     static void updateStreamInList(const std::shared_ptr<StreamIn> streamIn) {
-      mStreamsIn.push_back(streamIn);
+        mStreamsIn.push_back(streamIn);
     }
-    static std::vector<std::weak_ptr<StreamOut>>& getOutStreams() { return mStreamsOut;}
-    static std::vector<std::weak_ptr<StreamIn>>& getInStreams() { return mStreamsIn;}
+    static std::vector<std::weak_ptr<StreamOut>>& getOutStreams() { return mStreamsOut; }
+    static std::vector<std::weak_ptr<StreamIn>>& getInStreams() { return mStreamsIn; }
 
-   protected:
+  protected:
     binder_status_t dump(int fd, const char** args, uint32_t numArgs) override;
     ndk::ScopedAStatus getBluetooth(
-        std::shared_ptr<::aidl::android::hardware::audio::core::IBluetooth>*
-            _aidl_return) override;
+            std::shared_ptr<::aidl::android::hardware::audio::core::IBluetooth>* _aidl_return)
+            override;
     ndk::ScopedAStatus getBluetoothA2dp(
-        std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothA2dp>*
-            _aidl_return) override;
+            std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothA2dp>* _aidl_return)
+            override;
     ndk::ScopedAStatus getBluetoothLe(
-        std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothLe>*
-            _aidl_return) override;
+            std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothLe>* _aidl_return)
+            override;
     ndk::ScopedAStatus getTelephony(
-        std::shared_ptr<::aidl::android::hardware::audio::core::ITelephony>*
-            _aidl_return) override;
+            std::shared_ptr<::aidl::android::hardware::audio::core::ITelephony>* _aidl_return)
+            override;
 
     ndk::ScopedAStatus createInputStream(
-        StreamContext&& context,
-        const ::aidl::android::hardware::audio::common::SinkMetadata&
-            sinkMetadata,
-        const std::vector<
-            ::aidl::android::media::audio::common::MicrophoneInfo>& microphones,
-        std::shared_ptr<StreamIn>* result) override;
+            StreamContext&& context,
+            const ::aidl::android::hardware::audio::common::SinkMetadata& sinkMetadata,
+            const std::vector<::aidl::android::media::audio::common::MicrophoneInfo>& microphones,
+            std::shared_ptr<StreamIn>* result) override;
     ndk::ScopedAStatus createOutputStream(
-        StreamContext&& context,
-        const ::aidl::android::hardware::audio::common::SourceMetadata&
-            sourceMetadata,
-        const std::optional<
-            ::aidl::android::media::audio::common::AudioOffloadInfo>&
-            offloadInfo,
-        std::shared_ptr<StreamOut>* result) override;
+            StreamContext&& context,
+            const ::aidl::android::hardware::audio::common::SourceMetadata& sourceMetadata,
+            const std::optional<::aidl::android::media::audio::common::AudioOffloadInfo>&
+                    offloadInfo,
+            std::shared_ptr<StreamOut>* result) override;
     ndk::ScopedAStatus setVendorParameters(
-        const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& in_parameters,
-        bool in_async) override;
+            const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
+                    in_parameters,
+            bool in_async) override;
     ndk::ScopedAStatus getVendorParameters(
-        const std::vector<std::string>& in_ids,
-        std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return) override;
-    std::vector<::aidl::android::media::audio::common::AudioProfile>
-    getDynamicProfiles(
-        const ::aidl::android::media::audio::common::AudioPort& audioPort) override;
+            const std::vector<std::string>& in_ids,
+            std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return)
+            override;
+    std::vector<::aidl::android::media::audio::common::AudioProfile> getDynamicProfiles(
+            const ::aidl::android::media::audio::common::AudioPort& audioPort) override;
     void onNewPatchCreation(
-        const std::vector<
-            ::aidl::android::media::audio::common::AudioPortConfig*>& sources,
-        const std::vector<
-            ::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
-        ::aidl::android::hardware::audio::core::AudioPatch& newPatch) override;
+            const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
+            const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
+            ::aidl::android::hardware::audio::core::AudioPatch& newPatch) override;
     void updateTelephonyPatch(
-        const std::vector<
-            ::aidl::android::media::audio::common::AudioPortConfig*>& sources,
-        const std::vector<
-            ::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
-        const ::aidl::android::hardware::audio::core::AudioPatch& newPatch)
-        override;
+            const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
+            const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
+            const ::aidl::android::hardware::audio::core::AudioPatch& newPatch) override;
     void onExternalDeviceConnectionChanged(
-        const ::aidl::android::media::audio::common::AudioPort& audioPort,
-        bool connected) override;
+            const ::aidl::android::media::audio::common::AudioPort& audioPort,
+            bool connected) override;
 
     // start of module parameters handling
     bool processSetVendorParameters(
-        const std::vector<
-            ::aidl::android::hardware::audio::core::VendorParameter>&);
+            const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&);
     // setHandler for Generic
     void onSetGenericParameters(
-        const std::vector<
-            ::aidl::android::hardware::audio::core::VendorParameter>&);
+            const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&);
     // SetHandler For HDR
     void onSetHDRParameters(
-        const std::vector<
-            ::aidl::android::hardware::audio::core::VendorParameter>&);
+            const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&);
     // SetHandler For Telephony
     void onSetTelephonyParameters(
-        const std::vector<
-            ::aidl::android::hardware::audio::core::VendorParameter>&);
+            const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&);
 
-    std::vector<::aidl::android::hardware::audio::core::VendorParameter>
-    processGetVendorParameters(const std::vector<std::string>&);
+    std::vector<::aidl::android::hardware::audio::core::VendorParameter> processGetVendorParameters(
+            const std::vector<std::string>&);
     // GetHandler for Telephony
-    std::vector<::aidl::android::hardware::audio::core::VendorParameter>
-    onGetTelephonyParameters(const std::vector<std::string>&);
-    std::vector<::aidl::android::hardware::audio::core::VendorParameter>
-    onGetAudioExtnParams(const std::vector<std::string>&);
-    std::vector<::aidl::android::hardware::audio::core::VendorParameter>
-    onGetBluetoothParams(const std::vector<std::string>&);
+    std::vector<::aidl::android::hardware::audio::core::VendorParameter> onGetTelephonyParameters(
+            const std::vector<std::string>&);
+    std::vector<::aidl::android::hardware::audio::core::VendorParameter> onGetAudioExtnParams(
+            const std::vector<std::string>&);
+    std::vector<::aidl::android::hardware::audio::core::VendorParameter> onGetBluetoothParams(
+            const std::vector<std::string>&);
     // end of module parameters handling
 
-
-   protected:
-    ChildInterface<Telephony>
-        mTelephony;
-    const SetParameterToFeatureMap mSetParameterToFeatureMap{
-        fillSetParameterToFeatureMap()};
+  protected:
+    ChildInterface<Telephony> mTelephony;
+    const SetParameterToFeatureMap mSetParameterToFeatureMap{fillSetParameterToFeatureMap()};
     const FeatureToSetHandlerMap mFeatureToSetHandlerMap{fillFeatureToSetHandlerMap()};
-    const GetParameterToFeatureMap mGetParameterToFeatureMap{
-        fillGetParameterToFeatureMap()};
+    const GetParameterToFeatureMap mGetParameterToFeatureMap{fillGetParameterToFeatureMap()};
     const FeatureToGetHandlerMap mFeatureToGetHandlerMap{fillFeatureToGetHandlerMap()};
-    ChildInterface<::aidl::android::hardware::audio::core::IBluetooth>
-        mBluetooth;
-    ChildInterface<::aidl::android::hardware::audio::core::IBluetoothA2dp>
-        mBluetoothA2dp;
-    ChildInterface<::aidl::android::hardware::audio::core::IBluetoothLe>
-        mBluetoothLe;
+    ChildInterface<::aidl::android::hardware::audio::core::IBluetooth> mBluetooth;
+    ChildInterface<::aidl::android::hardware::audio::core::IBluetoothA2dp> mBluetoothA2dp;
+    ChildInterface<::aidl::android::hardware::audio::core::IBluetoothLe> mBluetoothLe;
     Platform& mPlatform{Platform::getInstance()};
-
 };
 
-}  // namespace qti::audio::core
+} // namespace qti::audio::core

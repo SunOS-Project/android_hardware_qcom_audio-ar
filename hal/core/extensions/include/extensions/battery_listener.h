@@ -34,7 +34,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-typedef void (* battery_status_change_fn_t)(bool);
+typedef void (*battery_status_change_fn_t)(bool);
 void battery_properties_listener_init(battery_status_change_fn_t fn);
 void battery_properties_listener_deinit(void);
 bool battery_properties_is_charging(void);

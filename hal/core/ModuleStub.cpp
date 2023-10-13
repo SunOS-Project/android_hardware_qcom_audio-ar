@@ -54,8 +54,7 @@ using ::aidl::android::hardware::audio::core::VendorParameter;
 
 namespace qti::audio::core {
 
-ndk::ScopedAStatus ModuleStub::getBluetooth(
-    std::shared_ptr<IBluetooth>* _aidl_return) {
+ndk::ScopedAStatus ModuleStub::getBluetooth(std::shared_ptr<IBluetooth>* _aidl_return) {
     if (!mBluetooth) {
         mBluetooth = ndk::SharedRefBase::make<Bluetooth>();
     }
@@ -65,8 +64,7 @@ ndk::ScopedAStatus ModuleStub::getBluetooth(
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus ModuleStub::getBluetoothA2dp(
-    std::shared_ptr<IBluetoothA2dp>* _aidl_return) {
+ndk::ScopedAStatus ModuleStub::getBluetoothA2dp(std::shared_ptr<IBluetoothA2dp>* _aidl_return) {
     if (!mBluetoothA2dp) {
         mBluetoothA2dp = ndk::SharedRefBase::make<BluetoothA2dp>();
     }
@@ -76,8 +74,7 @@ ndk::ScopedAStatus ModuleStub::getBluetoothA2dp(
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus ModuleStub::getBluetoothLe(
-    std::shared_ptr<IBluetoothLe>* _aidl_return) {
+ndk::ScopedAStatus ModuleStub::getBluetoothLe(std::shared_ptr<IBluetoothLe>* _aidl_return) {
     if (!mBluetoothLe) {
         mBluetoothLe = ndk::SharedRefBase::make<BluetoothLe>();
     }
@@ -102,4 +99,4 @@ ndk::ScopedAStatus ModuleStub::createOutputStream(
                                                offloadInfo);
 }
 
-}  // namespace qti::audio::core
+} // namespace qti::audio::core

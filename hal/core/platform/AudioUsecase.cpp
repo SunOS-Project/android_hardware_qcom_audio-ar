@@ -4,14 +4,14 @@
  */
 #define LOG_TAG "AHAL_Usecase"
 
-#include <qti-audio-core/AudioUsecase.h>
-#include <qti-audio-core/Platform.h>
-#include <qti-audio-core/PlatformUtils.h>
 #include <Utils.h>
+#include <aidl/qti/audio/core/VString.h>
 #include <android-base/logging.h>
 #include <android-base/properties.h>
 #include <media/stagefright/foundation/MediaDefs.h>
-#include <aidl/qti/audio/core/VString.h>
+#include <qti-audio-core/AudioUsecase.h>
+#include <qti-audio-core/Platform.h>
+#include <qti-audio-core/PlatformUtils.h>
 
 using ::aidl::android::hardware::audio::common::getChannelCount;
 using ::aidl::android::media::audio::common::AudioIoFlags;
@@ -29,67 +29,58 @@ using ::aidl::android::media::audio::common::AudioPortMixExtUseCase;
 
 namespace qti::audio::core {
 
-Usecase getUsecaseTag(
-    const ::aidl::android::media::audio::common::AudioPortConfig&
-        mixPortConfig) {
+Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
     Usecase tag = Usecase::INVALID;
-    if (!mixPortConfig.flags ||
-        mixPortConfig.ext.getTag() != AudioPortExt::Tag::mix) {
-        LOG(ERROR) << __func__
-                   << " cannot determine usecase, no flags set for mix port "
-                      "config or it isn't mix port, "
+    if (!mixPortConfig.flags || mixPortConfig.ext.getTag() != AudioPortExt::Tag::mix) {
+        LOG(ERROR) << __func__ << " cannot determine usecase, no flags set for mix port "
+                                  "config or it isn't mix port, "
                    << mixPortConfig.toString();
         return tag;
     }
-    const auto& mixUsecase =
-        mixPortConfig.ext.get<AudioPortExt::Tag::mix>().usecase;
+    const auto& mixUsecase = mixPortConfig.ext.get<AudioPortExt::Tag::mix>().usecase;
     const auto mixUsecaseTag = mixUsecase.getTag();
 
     const auto& flagsTag = mixPortConfig.flags.value().getTag();
-    constexpr auto flagCastToint = [](auto flag) {
-        return static_cast<int32_t>(flag);
-    };
+    constexpr auto flagCastToint = [](auto flag) { return static_cast<int32_t>(flag); };
 
     constexpr int32_t noneFlags = 0;
     constexpr auto primaryPlaybackFlags =
-        static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::PRIMARY));
+            static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::PRIMARY));
     constexpr auto deepBufferPlaybackFlags =
-        static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::DEEP_BUFFER));
-    constexpr auto compressOffloadPlaybackFlags = static_cast<int32_t>(
-        1 << flagCastToint(AudioOutputFlags::DIRECT) |
-        1 << flagCastToint(AudioOutputFlags::COMPRESS_OFFLOAD) |
-        1 << flagCastToint(AudioOutputFlags::NON_BLOCKING) |
-        1 << flagCastToint(AudioOutputFlags::GAPLESS_OFFLOAD));
+            static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::DEEP_BUFFER));
+    constexpr auto compressOffloadPlaybackFlags =
+            static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::DIRECT) |
+                                 1 << flagCastToint(AudioOutputFlags::COMPRESS_OFFLOAD) |
+                                 1 << flagCastToint(AudioOutputFlags::NON_BLOCKING) |
+                                 1 << flagCastToint(AudioOutputFlags::GAPLESS_OFFLOAD));
     constexpr auto compressCaptureFlags =
-        static_cast<int32_t>(1 << flagCastToint(AudioInputFlags::DIRECT));
+            static_cast<int32_t>(1 << flagCastToint(AudioInputFlags::DIRECT));
     constexpr auto lowLatencyPlaybackFlags =
-        static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::PRIMARY) |
-                             1 << flagCastToint(AudioOutputFlags::FAST));
+            static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::PRIMARY) |
+                                 1 << flagCastToint(AudioOutputFlags::FAST));
     constexpr auto pcmOffloadPlaybackFlags =
-        static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::DIRECT));
+            static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::DIRECT));
     constexpr auto voipPlaybackFlags =
-        static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::VOIP_RX));
+            static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::VOIP_RX));
     constexpr auto spatialPlaybackFlags =
-        static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::SPATIALIZER));
+            static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::SPATIALIZER));
     constexpr auto recordVoipFlags =
-        static_cast<int32_t>(1 << flagCastToint(AudioInputFlags::VOIP_TX));
-    constexpr auto ullPlaybackFlags =
-        static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::FAST) |
-                             1 << flagCastToint(AudioOutputFlags::RAW));
+            static_cast<int32_t>(1 << flagCastToint(AudioInputFlags::VOIP_TX));
+    constexpr auto ullPlaybackFlags = static_cast<int32_t>(
+            1 << flagCastToint(AudioOutputFlags::FAST) | 1 << flagCastToint(AudioOutputFlags::RAW));
     constexpr auto mmapPlaybackFlags =
-        static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::DIRECT) |
-                             1 << flagCastToint(AudioOutputFlags::MMAP_NOIRQ));
+            static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::DIRECT) |
+                                 1 << flagCastToint(AudioOutputFlags::MMAP_NOIRQ));
     constexpr auto mmapRecordFlags =
-        static_cast<int32_t>(1 << flagCastToint(AudioInputFlags::MMAP_NOIRQ));
-    constexpr auto inCallMusicFlags = static_cast<int32_t>(
-        1 << flagCastToint(AudioOutputFlags::INCALL_MUSIC));
+            static_cast<int32_t>(1 << flagCastToint(AudioInputFlags::MMAP_NOIRQ));
+    constexpr auto inCallMusicFlags =
+            static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::INCALL_MUSIC));
 
     if (flagsTag == AudioIoFlags::Tag::output) {
-        auto& outFlags =
-            mixPortConfig.flags.value().get<AudioIoFlags::Tag::output>();
-        if(outFlags == primaryPlaybackFlags) {
+        auto& outFlags = mixPortConfig.flags.value().get<AudioIoFlags::Tag::output>();
+        if (outFlags == primaryPlaybackFlags) {
             tag = Usecase::PRIMARY_PLAYBACK;
-        } else if (outFlags == deepBufferPlaybackFlags ) {
+        } else if (outFlags == deepBufferPlaybackFlags) {
             tag = Usecase::DEEP_BUFFER_PLAYBACK;
         } else if (outFlags == lowLatencyPlaybackFlags) {
             tag = Usecase::LOW_LATENCY_PLAYBACK;
@@ -109,31 +100,28 @@ Usecase getUsecaseTag(
             tag = Usecase::IN_CALL_MUSIC;
         }
     } else if (flagsTag == AudioIoFlags::Tag::input) {
-        auto& inFlags =
-            mixPortConfig.flags.value().get<AudioIoFlags::Tag::input>();
+        auto& inFlags = mixPortConfig.flags.value().get<AudioIoFlags::Tag::input>();
         if (inFlags == noneFlags) {
             tag = Usecase::PCM_RECORD;
-            if( mixUsecaseTag == AudioPortMixExtUseCase::source){
+            if (mixUsecaseTag == AudioPortMixExtUseCase::source) {
                 auto& source = mixUsecase.get<AudioPortMixExtUseCase::source>();
-                if (source == AudioSource::VOICE_UPLINK ||
-                    source == AudioSource::VOICE_DOWNLINK ||
+                if (source == AudioSource::VOICE_UPLINK || source == AudioSource::VOICE_DOWNLINK ||
                     source == AudioSource::VOICE_CALL) {
                     tag = Usecase::VOICE_CALL_RECORD;
                 }
             }
         } else if (inFlags == compressCaptureFlags) {
             tag = Usecase::COMPRESS_CAPTURE;
-        } else if (inFlags == recordVoipFlags &&
-                   mixUsecaseTag == AudioPortMixExtUseCase::source &&
+        } else if (inFlags == recordVoipFlags && mixUsecaseTag == AudioPortMixExtUseCase::source &&
                    mixUsecase.get<AudioPortMixExtUseCase::source>() ==
-                       AudioSource::VOICE_COMMUNICATION) {
+                           AudioSource::VOICE_COMMUNICATION) {
             tag = Usecase::VOIP_RECORD;
         } else if (inFlags == mmapRecordFlags) {
             tag = Usecase::MMAP_RECORD;
         }
     }
-    LOG(VERBOSE) << __func__ << " choosen tag:" << getName(tag)
-              << " for mix port config " << mixPortConfig.toString();
+    LOG(VERBOSE) << __func__ << " choosen tag:" << getName(tag) << " for mix port config "
+                 << mixPortConfig.toString();
     return tag;
 }
 
@@ -179,29 +167,25 @@ std::string getName(const Usecase tag) {
 
 // static
 size_t PcmRecord::getMinFrames(const AudioPortConfig& mixPortConfig) {
-    size_t minFrames = kCaptureDurationMs *
-                       (mixPortConfig.sampleRate.value().value / 1000);
-    minFrames = getNearestMultiple(
-        minFrames, getPcmSampleSizeInBytes(mixPortConfig.format.value().pcm));
+    size_t minFrames = kCaptureDurationMs * (mixPortConfig.sampleRate.value().value / 1000);
+    minFrames = getNearestMultiple(minFrames,
+                                   getPcmSampleSizeInBytes(mixPortConfig.format.value().pcm));
     // Adjusting to minFrames as atleast kFMQMinFrameSize (256).
     // Todo check the sanity of this requirement in the VTS test.
-    minFrames = std::max(minFrames,kFMQMinFrameSize);
+    minFrames = std::max(minFrames, kFMQMinFrameSize);
     return minFrames;
 }
 
 PcmRecord::HdrMode PcmRecord::getHdrMode() {
     const auto& platform = Platform::getInstance();
     const std::string kHdrSpfProperty{"vendor.audio.hdr.spf.record.enable"};
-    const bool isSPFEnabled =
-        ::android::base::GetBoolProperty(kHdrSpfProperty, false);
+    const bool isSPFEnabled = ::android::base::GetBoolProperty(kHdrSpfProperty, false);
     if (isSPFEnabled) {
         return HdrMode::SPF;
     }
     const std::string kHdrArmProperty{"vendor.audio.hdr.record.enable"};
-    const bool isArmEnabled =
-        ::android::base::GetBoolProperty(kHdrArmProperty, false);
-    const bool isHdrSetOnPlatform =
-        platform.getParameter("hdr_record_on") == "true" ? true : false;
+    const bool isArmEnabled = ::android::base::GetBoolProperty(kHdrArmProperty, false);
+    const bool isHdrSetOnPlatform = platform.getParameter("hdr_record_on") == "true" ? true : false;
     if (isArmEnabled && isHdrSetOnPlatform) {
         return HdrMode::ARM;
     }
@@ -211,66 +195,52 @@ PcmRecord::HdrMode PcmRecord::getHdrMode() {
 void PcmRecord::setHdrOnPalDevice(pal_device* palDeviceIn) {
     const auto& platform = Platform::getInstance();
     const bool isOrientationLandscape =
-        platform.getParameter("orientation") == "landscape" ? true : false;
-    const bool isInverted =
-        platform.getParameter("inverted") == "true" ? true : false;
+            platform.getParameter("orientation") == "landscape" ? true : false;
+    const bool isInverted = platform.getParameter("inverted") == "true" ? true : false;
     if (isOrientationLandscape && !isInverted) {
-        strlcpy(palDeviceIn->custom_config.custom_key,
-                "unprocessed-hdr-mic-landscape",
+        strlcpy(palDeviceIn->custom_config.custom_key, "unprocessed-hdr-mic-landscape",
                 sizeof(palDeviceIn->custom_config.custom_key));
     } else if (!isOrientationLandscape && !isInverted) {
-        strlcpy(palDeviceIn->custom_config.custom_key,
-                "unprocessed-hdr-mic-portrait",
+        strlcpy(palDeviceIn->custom_config.custom_key, "unprocessed-hdr-mic-portrait",
                 sizeof(palDeviceIn->custom_config.custom_key));
     } else if (isOrientationLandscape && isInverted) {
-        strlcpy(palDeviceIn->custom_config.custom_key,
-                "unprocessed-hdr-mic-inverted-landscape",
+        strlcpy(palDeviceIn->custom_config.custom_key, "unprocessed-hdr-mic-inverted-landscape",
                 sizeof(palDeviceIn->custom_config.custom_key));
     } else if (!isOrientationLandscape && isInverted) {
-        strlcpy(palDeviceIn->custom_config.custom_key,
-                "unprocessed-hdr-mic-inverted-portrait",
+        strlcpy(palDeviceIn->custom_config.custom_key, "unprocessed-hdr-mic-inverted-portrait",
                 sizeof(palDeviceIn->custom_config.custom_key));
     }
-    LOG(DEBUG) << __func__ << " setting custom config:"
-               << std::string(palDeviceIn->custom_config.custom_key);
+    LOG(DEBUG) << __func__
+               << " setting custom config:" << std::string(palDeviceIn->custom_config.custom_key);
 }
 
 void PcmRecord::configurePalDevices(
-    const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
-    std::vector<pal_device>& palDevices) {
+        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
+        std::vector<pal_device>& palDevices) {
     const auto& mixUsecase =
-        mixPortConfig.ext
-            .get<
-                ::aidl::android::media::audio::common::AudioPortExt::Tag::mix>()
-            .usecase;
-    if (mixUsecase.getTag() != ::aidl::android::media::audio::common::
-                                   AudioPortMixExtUseCase::Tag::source) {
-        LOG(ERROR) << __func__
-                   << " expected mix usecase as source instead found, "
+            mixPortConfig.ext.get<::aidl::android::media::audio::common::AudioPortExt::Tag::mix>()
+                    .usecase;
+    if (mixUsecase.getTag() !=
+        ::aidl::android::media::audio::common::AudioPortMixExtUseCase::Tag::source) {
+        LOG(ERROR) << __func__ << " expected mix usecase as source instead found, "
                    << mixUsecase.toString();
         return;
     }
     const auto& sampleRate = mixPortConfig.sampleRate.value().value;
     const auto& channelLayout = mixPortConfig.channelMask.value();
-    const ::aidl::android::media::audio::common::AudioSource& audioSourceType =
-        mixUsecase.get<::aidl::android::media::audio::common::
-                           AudioPortMixExtUseCase::Tag::source>();
+    const ::aidl::android::media::audio::common::AudioSource& audioSourceType = mixUsecase.get<
+            ::aidl::android::media::audio::common::AudioPortMixExtUseCase::Tag::source>();
     const bool isSourceUnprocessed =
-        audioSourceType ==
-        ::aidl::android::media::audio::common::AudioSource::UNPROCESSED;
+            audioSourceType == ::aidl::android::media::audio::common::AudioSource::UNPROCESSED;
     const bool isSourceCamCorder =
-        audioSourceType ==
-        ::aidl::android::media::audio::common::AudioSource::CAMCORDER;
-    const bool isMic = audioSourceType ==
-                       ::aidl::android::media::audio::common::AudioSource::MIC;
+            audioSourceType == ::aidl::android::media::audio::common::AudioSource::CAMCORDER;
+    const bool isMic = audioSourceType == ::aidl::android::media::audio::common::AudioSource::MIC;
     const HdrMode hdrMode = getHdrMode();
-    if ((isSourceUnprocessed && sampleRate == 48000 &&
-         getChannelCount(channelLayout) == 4 && hdrMode == HdrMode::ARM) ||
-        (hdrMode == HdrMode::ARM) ||
-        (hdrMode == HdrMode::SPF && (isSourceCamCorder || isMic))) {
-        std::for_each(
-            palDevices.begin(), palDevices.end(),
-            [&](auto& palDevice) { this->setHdrOnPalDevice(&palDevice); });
+    if ((isSourceUnprocessed && sampleRate == 48000 && getChannelCount(channelLayout) == 4 &&
+         hdrMode == HdrMode::ARM) ||
+        (hdrMode == HdrMode::ARM) || (hdrMode == HdrMode::SPF && (isSourceCamCorder || isMic))) {
+        std::for_each(palDevices.begin(), palDevices.end(),
+                      [&](auto& palDevice) { this->setHdrOnPalDevice(&palDevice); });
     }
 }
 
@@ -278,15 +248,13 @@ void PcmRecord::configurePalDevices(
 
 // start of compress playback
 CompressPlayback::CompressPlayback(
-    const ::aidl::android::media::audio::common::AudioOffloadInfo& offloadInfo,
-    std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback>
-        asyncCallback)
+        const ::aidl::android::media::audio::common::AudioOffloadInfo& offloadInfo,
+        std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> asyncCallback)
     : mOffloadInfo(offloadInfo), mAsyncCallback(asyncCallback) {
     configureDefault();
 }
 
 void CompressPlayback::configureDefault() {
-
     mSampleRate = mOffloadInfo.base.sampleRate;
     mCompressFormat = mOffloadInfo.base.format;
     mChannelLayout = mOffloadInfo.base.channelMask;
@@ -310,17 +278,14 @@ void CompressPlayback::setPalHandle(pal_stream_handle_t* handle) {
 }
 
 ndk::ScopedAStatus CompressPlayback::getVendorParameters(
-    const std::vector<std::string>& in_ids,
-    std::vector<::aidl::android::hardware::audio::core::VendorParameter>*
-        _aidl_return) {
+        const std::vector<std::string>& in_ids,
+        std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return) {
     return ndk::ScopedAStatus::ok();
 }
 
 // static
-int32_t CompressPlayback::palCallback(pal_stream_handle_t* palHandle,
-                                      uint32_t eventId, uint32_t* eventData,
-                                      uint32_t eventSize, uint64_t cookie) {
-
+int32_t CompressPlayback::palCallback(pal_stream_handle_t* palHandle, uint32_t eventId,
+                                      uint32_t* eventData, uint32_t eventSize, uint64_t cookie) {
     auto compressPlayback = reinterpret_cast<CompressPlayback*>(cookie);
 
     switch (eventId) {
@@ -348,10 +313,9 @@ int32_t CompressPlayback::palCallback(pal_stream_handle_t* palHandle,
     return 0;
 }
 
-auto getIntValueFromVString =
-    [](const std::vector<
-           ::aidl::android::hardware::audio::core::VendorParameter>& parameters,
-       const std::string& searchKey) -> std::optional<int32_t> {
+auto getIntValueFromVString = [](
+        const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& parameters,
+        const std::string& searchKey) -> std::optional<int32_t> {
     std::optional<::aidl::qti::audio::core::VString> parcel;
     for (const auto& p : parameters) {
         if (p.id == searchKey && p.ext.getParcelable(&parcel) == ::android::OK &&
@@ -364,188 +328,179 @@ auto getIntValueFromVString =
 };
 
 ndk::ScopedAStatus CompressPlayback::setVendorParameters(
-    const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
-        in_parameters,
-    bool in_async) {
-    LOG(VERBOSE) << __func__ << ": parameter count" << in_parameters.size()
-                 << " parsing for " << mCompressFormat.encoding;
+        const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& in_parameters,
+        bool in_async) {
+    LOG(VERBOSE) << __func__ << ": parameter count" << in_parameters.size() << " parsing for "
+                 << mCompressFormat.encoding;
     if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_FLAC) {
-        if (auto value = getIntValueFromVString(in_parameters,Flac::kMinBlockSize); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Flac::kMinBlockSize); value) {
             mPalSndDec.flac_dec.min_blk_size = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Flac::kMaxBlockSize); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Flac::kMaxBlockSize); value) {
             mPalSndDec.flac_dec.max_blk_size = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Flac::kMinFrameSize); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Flac::kMinFrameSize); value) {
             mPalSndDec.flac_dec.min_frame_size = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Flac::kMaxFrameSize); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Flac::kMaxFrameSize); value) {
             mPalSndDec.flac_dec.max_frame_size = value.value();
         }
         // exception
         auto bitWidth = mCompressBitWidth == 32 ? 24 : mCompressBitWidth;
-    } else if (mCompressFormat.encoding ==
-               ::android::MEDIA_MIMETYPE_AUDIO_ALAC) {
-        if (auto value = getIntValueFromVString(in_parameters,Alac::kFrameLength); value) {
+    } else if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_ALAC) {
+        if (auto value = getIntValueFromVString(in_parameters, Alac::kFrameLength); value) {
             mPalSndDec.alac_dec.frame_length = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Alac::kCompatVer); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Alac::kCompatVer); value) {
             mPalSndDec.alac_dec.compatible_version = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Alac::kBitDepth); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Alac::kBitDepth); value) {
             mPalSndDec.alac_dec.bit_depth = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Alac::kPb); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Alac::kPb); value) {
             mPalSndDec.alac_dec.pb = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Alac::kMb); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Alac::kMb); value) {
             mPalSndDec.alac_dec.mb = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Alac::kKb); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Alac::kKb); value) {
             mPalSndDec.alac_dec.kb = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Alac::kNumChannels); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Alac::kNumChannels); value) {
             mPalSndDec.alac_dec.num_channels = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Alac::kMaxRun); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Alac::kMaxRun); value) {
             mPalSndDec.alac_dec.max_run = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Alac::kMaxFrameBytes); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Alac::kMaxFrameBytes); value) {
             mPalSndDec.alac_dec.max_frame_bytes = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Alac::kBitRate); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Alac::kBitRate); value) {
             mPalSndDec.alac_dec.avg_bit_rate = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Alac::kSamplingRate); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Alac::kSamplingRate); value) {
             mPalSndDec.alac_dec.sample_rate = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Alac::kChannelLayoutTag); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Alac::kChannelLayoutTag); value) {
             mPalSndDec.alac_dec.channel_layout_tag = value.value();
         }
-    } else if (mCompressFormat.encoding ==
-                   ::android::MEDIA_MIMETYPE_AUDIO_AAC_MP4 ||
-               mCompressFormat.encoding ==
-                   ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADIF ||
-               mCompressFormat.encoding ==
-                   ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS ||
-               mCompressFormat.encoding ==
-                   ::android::MEDIA_MIMETYPE_AUDIO_AAC) {
+    } else if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_MP4 ||
+               mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADIF ||
+               mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS ||
+               mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC) {
         mPalSndDec.aac_dec.audio_obj_type = 29;
         mPalSndDec.aac_dec.pce_bits_size = 0;
-    } else if (mCompressFormat.encoding ==
-               ::android::MEDIA_MIMETYPE_AUDIO_VORBIS) {
-        if (auto value = getIntValueFromVString(in_parameters,Vorbis::kBitStreamFormat); value) {
+    } else if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_VORBIS) {
+        if (auto value = getIntValueFromVString(in_parameters, Vorbis::kBitStreamFormat); value) {
             mPalSndDec.vorbis_dec.bit_stream_fmt = value.value();
         }
     } else if (mCompressFormat.encoding == "audio/x-ape") {
-        if (auto value = getIntValueFromVString(in_parameters,Ape::kCompatibleVersion); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Ape::kCompatibleVersion); value) {
             mPalSndDec.ape_dec.compatible_version = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Ape::kCompressionLevel); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Ape::kCompressionLevel); value) {
             mPalSndDec.ape_dec.compression_level = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Ape::kFormatFlags); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Ape::kFormatFlags); value) {
             mPalSndDec.ape_dec.format_flags = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Ape::kBlocksPerFrame); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Ape::kBlocksPerFrame); value) {
             mPalSndDec.ape_dec.blocks_per_frame = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Ape::kFinalFrameBlocks); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Ape::kFinalFrameBlocks); value) {
             mPalSndDec.ape_dec.final_frame_blocks = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Ape::kTotalFrames); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Ape::kTotalFrames); value) {
             mPalSndDec.ape_dec.total_frames = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Ape::kBitsPerSample); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Ape::kBitsPerSample); value) {
             mPalSndDec.ape_dec.bits_per_sample = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Ape::kNumChannels); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Ape::kNumChannels); value) {
             mPalSndDec.ape_dec.num_channels = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Ape::kSampleRate); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Ape::kSampleRate); value) {
             mPalSndDec.ape_dec.sample_rate = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Ape::kSeekTablePresent); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Ape::kSeekTablePresent); value) {
             mPalSndDec.ape_dec.seek_table_present = value.value();
         }
-    } else if (mCompressFormat.encoding ==
-                   ::android::MEDIA_MIMETYPE_AUDIO_WMA ||
+    } else if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_WMA ||
                mCompressFormat.encoding == "audio/x-ms-wma.pro") {
-        if (auto value = getIntValueFromVString(in_parameters,Wma::kFormatTag); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Wma::kFormatTag); value) {
             mPalSndDec.wma_dec.fmt_tag = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,kAvgBitRate); value) {
+        if (auto value = getIntValueFromVString(in_parameters, kAvgBitRate); value) {
             mPalSndDec.wma_dec.avg_bit_rate = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Wma::kBlockAlign); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Wma::kBlockAlign); value) {
             mPalSndDec.wma_dec.super_block_align = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Wma::kBitPerSample); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Wma::kBitPerSample); value) {
             mPalSndDec.wma_dec.bits_per_sample = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Wma::kChannelMask); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Wma::kChannelMask); value) {
             mPalSndDec.wma_dec.channelmask = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Wma::kEncodeOption); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Wma::kEncodeOption); value) {
             mPalSndDec.wma_dec.encodeopt = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Wma::kEncodeOption1); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Wma::kEncodeOption1); value) {
             mPalSndDec.wma_dec.encodeopt1 = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Wma::kEncodeOption2); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Wma::kEncodeOption2); value) {
             mPalSndDec.wma_dec.encodeopt2 = value.value();
         }
-    } else if (mCompressFormat.encoding ==
-               ::android::MEDIA_MIMETYPE_AUDIO_OPUS) {
-        if (auto value = getIntValueFromVString(in_parameters,Opus::kBitStreamFormat); value) {
+    } else if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_OPUS) {
+        if (auto value = getIntValueFromVString(in_parameters, Opus::kBitStreamFormat); value) {
             mPalSndDec.opus_dec.bitstream_format = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Opus::kPayloadType); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Opus::kPayloadType); value) {
             mPalSndDec.opus_dec.payload_type = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Opus::kVersion); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Opus::kVersion); value) {
             mPalSndDec.opus_dec.version = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Opus::kNumChannels); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Opus::kNumChannels); value) {
             mPalSndDec.opus_dec.num_channels = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Opus::kPreSkip); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Opus::kPreSkip); value) {
             mPalSndDec.opus_dec.pre_skip = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Opus::kOutputGain); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Opus::kOutputGain); value) {
             mPalSndDec.opus_dec.output_gain = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Opus::kMappingFamily); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Opus::kMappingFamily); value) {
             mPalSndDec.opus_dec.mapping_family = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Opus::kStreamCount); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Opus::kStreamCount); value) {
             mPalSndDec.opus_dec.stream_count = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Opus::kCoupledCount); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Opus::kCoupledCount); value) {
             mPalSndDec.opus_dec.coupled_count = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Opus::kChannelMap0); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Opus::kChannelMap0); value) {
             mPalSndDec.opus_dec.channel_map[0] = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Opus::kChannelMap1); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Opus::kChannelMap1); value) {
             mPalSndDec.opus_dec.channel_map[1] = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Opus::kChannelMap2); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Opus::kChannelMap2); value) {
             mPalSndDec.opus_dec.channel_map[2] = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Opus::kChannelMap3); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Opus::kChannelMap3); value) {
             mPalSndDec.opus_dec.channel_map[3] = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Opus::kChannelMap4); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Opus::kChannelMap4); value) {
             mPalSndDec.opus_dec.channel_map[4] = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Opus::kChannelMap5); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Opus::kChannelMap5); value) {
             mPalSndDec.opus_dec.channel_map[5] = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Opus::kChannelMap6); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Opus::kChannelMap6); value) {
             mPalSndDec.opus_dec.channel_map[6] = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters,Opus::kChannelMap7); value) {
+        if (auto value = getIntValueFromVString(in_parameters, Opus::kChannelMap7); value) {
             mPalSndDec.opus_dec.channel_map[7] = value.value();
         }
         mPalSndDec.opus_dec.sample_rate = mSampleRate;
@@ -554,8 +509,7 @@ ndk::ScopedAStatus CompressPlayback::setVendorParameters(
 }
 
 void CompressPlayback::updateOffloadMetadata(
-    const ::aidl::android::hardware::audio::common::AudioOffloadMetadata&
-        offloadMetaData) {
+        const ::aidl::android::hardware::audio::common::AudioOffloadMetadata& offloadMetaData) {
     mOffloadMetadata = &offloadMetaData;
     mSampleRate = mOffloadMetadata->sampleRate;
     mChannelLayout = mOffloadMetadata->channelMask;
@@ -565,8 +519,7 @@ void CompressPlayback::updateOffloadMetadata(
 }
 
 void CompressPlayback::updateSourceMetadata(
-    const ::aidl::android::hardware::audio::common::SourceMetadata&
-        sourceMetaData) {
+        const ::aidl::android::hardware::audio::common::SourceMetadata& sourceMetaData) {
     mSourceMetadata = &sourceMetaData;
     // TODO check for any pal update
     LOG(INFO) << __func__ << ": " << mSourceMetadata->toString();
@@ -574,8 +527,7 @@ void CompressPlayback::updateSourceMetadata(
 }
 
 std::unique_ptr<uint8_t[]> CompressPlayback::getPayloadCodecInfo() {
-    auto dataPtr = std::make_unique<uint8_t[]>(sizeof(pal_param_payload) +
-                                               sizeof(pal_snd_dec_t));
+    auto dataPtr = std::make_unique<uint8_t[]>(sizeof(pal_param_payload) + sizeof(pal_snd_dec_t));
     auto palParamPayload = reinterpret_cast<pal_param_payload*>(dataPtr.get());
     palParamPayload->payload_size = sizeof(pal_snd_dec_t);
     memcpy(palParamPayload->payload, &mPalSndDec, sizeof(pal_snd_dec_t));
@@ -584,17 +536,15 @@ std::unique_ptr<uint8_t[]> CompressPlayback::getPayloadCodecInfo() {
 
 // static
 size_t CompressPlayback::getPeriodBufferSize(
-    const ::aidl::android::media::audio::common::AudioFormatDescription&
-        format) {
+        const ::aidl::android::media::audio::common::AudioFormatDescription& format) {
     size_t periodSize = CompressPlayback::kPeriodSize;
     if (format.encoding == ::android::MEDIA_MIMETYPE_AUDIO_FLAC) {
         periodSize = Flac::kPeriodSize;
     }
 
-    const std::string kCompressPeriodSizeProp{
-        "vendor.audio.offload.buffer.size.kb"};
-    auto propPeriodSize = ::android::base::GetUintProperty<size_t>(
-        kCompressPeriodSizeProp, CompressPlayback::kPeriodSize);
+    const std::string kCompressPeriodSizeProp{"vendor.audio.offload.buffer.size.kb"};
+    auto propPeriodSize = ::android::base::GetUintProperty<size_t>(kCompressPeriodSizeProp,
+                                                                   CompressPlayback::kPeriodSize);
     if (propPeriodSize > periodSize) {
         periodSize = propPeriodSize;
     }
@@ -603,19 +553,16 @@ size_t CompressPlayback::getPeriodBufferSize(
 
 void CompressPlayback::getPositionInFrames(int64_t* dspFrames) {
     pal_session_time tstamp;
-    if (int32_t ret = pal_get_timestamp(mCompressPlaybackHandle, &tstamp);
-        ret) {
+    if (int32_t ret = pal_get_timestamp(mCompressPlaybackHandle, &tstamp); ret) {
         LOG(ERROR) << __func__ << " pal_get_timestamp failure, ret:" << ret;
         return;
     }
 
     uint64_t sessionTimeUs =
-        ((static_cast<decltype(sessionTimeUs)>(tstamp.session_time.value_msw))
-             << 32 |
-         tstamp.session_time.value_lsw);
+            ((static_cast<decltype(sessionTimeUs)>(tstamp.session_time.value_msw)) << 32 |
+             tstamp.session_time.value_lsw);
     // sessionTimeUs to frames
-    *dspFrames =
-        static_cast<int64_t>(sessionTimeUs / 1000 * mSampleRate / 1000);
+    *dspFrames = static_cast<int64_t>(sessionTimeUs / 1000 * mSampleRate / 1000);
     return;
 }
 
@@ -623,36 +570,28 @@ void CompressPlayback::getPositionInFrames(int64_t* dspFrames) {
 
 // start of compress capture
 CompressCapture::CompressCapture(
-    const ::aidl::android::media::audio::common::AudioFormatDescription& format,
-    const int32_t sampleRate,
-    const ::aidl::android::media::audio::common::AudioChannelLayout&
-        channelLayout)
-    : mCompressFormat(format),
-      mSampleRate(sampleRate),
-      mChannelLayout(channelLayout) {
+        const ::aidl::android::media::audio::common::AudioFormatDescription& format,
+        const int32_t sampleRate,
+        const ::aidl::android::media::audio::common::AudioChannelLayout& channelLayout)
+    : mCompressFormat(format), mSampleRate(sampleRate), mChannelLayout(channelLayout) {
     if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_LC ||
-        mCompressFormat.encoding ==
-            ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_LC) {
+        mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_LC) {
         mPalSndEnc.aac_enc.enc_cfg.aac_enc_mode = Aac::EncodingMode::LC;
         mPalSndEnc.aac_enc.enc_cfg.aac_fmt_flag = Aac::EncodingFormat::ADTS;
         mPalSndEnc.aac_enc.aac_bit_rate = Aac::kAacDefaultBitrate;
-    } else if (mCompressFormat.encoding ==
-               ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V1) {
+    } else if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V1) {
         mPalSndEnc.aac_enc.enc_cfg.aac_enc_mode = Aac::EncodingMode::SBR;
         mPalSndEnc.aac_enc.enc_cfg.aac_fmt_flag = Aac::EncodingFormat::ADTS;
         mPalSndEnc.aac_enc.aac_bit_rate = Aac::kAacDefaultBitrate;
-    } else if (mCompressFormat.encoding ==
-               ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V2) {
+    } else if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V2) {
         mPalSndEnc.aac_enc.enc_cfg.aac_enc_mode = Aac::EncodingMode::PS;
         mPalSndEnc.aac_enc.enc_cfg.aac_fmt_flag = Aac::EncodingFormat::ADTS;
         mPalSndEnc.aac_enc.aac_bit_rate = Aac::kAacDefaultBitrate;
     }
-    mPCMSamplesPerFrame =
-        (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_LC ||
-         mCompressFormat.encoding ==
-             ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_LC)
-            ? Aac::kAacLcPCMSamplesPerFrame
-            : Aac::kHeAacPCMSamplesPerFrame;
+    mPCMSamplesPerFrame = (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_LC ||
+                           mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_LC)
+                                  ? Aac::kAacLcPCMSamplesPerFrame
+                                  : Aac::kHeAacPCMSamplesPerFrame;
 }
 
 void CompressCapture::setPalHandle(pal_stream_handle_t* handle) {
@@ -665,8 +604,7 @@ size_t CompressCapture::getLatencyMs() {
 }
 
 std::unique_ptr<uint8_t[]> CompressCapture::getPayloadCodecInfo() const {
-    auto dataPtr = std::make_unique<uint8_t[]>(sizeof(pal_param_payload) +
-                                               sizeof(pal_snd_enc_t));
+    auto dataPtr = std::make_unique<uint8_t[]>(sizeof(pal_param_payload) + sizeof(pal_snd_enc_t));
     auto palParamPayload = reinterpret_cast<pal_param_payload*>(dataPtr.get());
     palParamPayload->payload_size = sizeof(pal_snd_enc_t);
     memcpy(palParamPayload->payload, &mPalSndEnc, sizeof(pal_snd_enc_t));
@@ -674,29 +612,24 @@ std::unique_ptr<uint8_t[]> CompressCapture::getPayloadCodecInfo() const {
 }
 
 ndk::ScopedAStatus CompressCapture::setVendorParameters(
-    const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
-        in_parameters,
-    bool in_async) {
+        const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& in_parameters,
+        bool in_async) {
     LOG(VERBOSE) << __func__ << " parsing for " << mCompressFormat.encoding;
     if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_LC ||
-        mCompressFormat.encoding ==
-            ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V1 ||
-        mCompressFormat.encoding ==
-            ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V2 ||
-        mCompressFormat.encoding ==
-            ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_LC) {
-        if (auto value = getIntValueFromVString(in_parameters,Aac::kDSPAacBitRate); value) {
+        mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V1 ||
+        mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V2 ||
+        mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_LC) {
+        if (auto value = getIntValueFromVString(in_parameters, Aac::kDSPAacBitRate); value) {
             auto requested = value.value();
             const auto min = getAACMinBitrateValue();
             const auto max = getAACMaxBitrateValue();
             mPalSndEnc.aac_enc.aac_bit_rate =
-                requested < min ? min : (requested > max ? max : requested);
+                    requested < min ? min : (requested > max ? max : requested);
             mCompressHandle != nullptr ? (void)setAACDSPBitRate() : (void)0;
         }
-        if (auto value = getIntValueFromVString(in_parameters,Aac::kDSPAacGlobalCutoffFrequency);
+        if (auto value = getIntValueFromVString(in_parameters, Aac::kDSPAacGlobalCutoffFrequency);
             value) {
-            if (mCompressFormat.encoding ==
-                ::android::MEDIA_MIMETYPE_AUDIO_AAC_LC) {
+            if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_LC) {
                 mPalSndEnc.aac_enc.global_cutoff_freq = value.value();
             }
         }
@@ -705,82 +638,68 @@ ndk::ScopedAStatus CompressCapture::setVendorParameters(
 }
 
 ndk::ScopedAStatus CompressCapture::getVendorParameters(
-    const std::vector<std::string>& in_ids,
-    std::vector<::aidl::android::hardware::audio::core::VendorParameter>*
-        _aidl_return) {
+        const std::vector<std::string>& in_ids,
+        std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return) {
     return ndk::ScopedAStatus::ok();
 }
 
 void CompressCapture::setAACDSPBitRate() {
     const auto palSndEncSize = sizeof(pal_snd_enc_t);
-    auto payload =
-        std::make_unique<uint8_t[]>(sizeof(pal_param_payload) + palSndEncSize);
+    auto payload = std::make_unique<uint8_t[]>(sizeof(pal_param_payload) + palSndEncSize);
     auto paramPayload = (pal_param_payload*)payload.get();
     paramPayload->payload_size = palSndEncSize;
     memcpy(paramPayload->payload, &mPalSndEnc, paramPayload->payload_size);
 
-    if (int32_t ret = ::pal_stream_set_param(
-            mCompressHandle, PAL_PARAM_ID_RECONFIG_ENCODER, paramPayload);
+    if (int32_t ret = ::pal_stream_set_param(mCompressHandle, PAL_PARAM_ID_RECONFIG_ENCODER,
+                                             paramPayload);
         ret) {
-        LOG(ERROR) << __func__
-                   << "pal set param PAL_PARAM_ID_RECONFIG_ENCODER failed:"
-                   << ret;
+        LOG(ERROR) << __func__ << "pal set param PAL_PARAM_ID_RECONFIG_ENCODER failed:" << ret;
     }
 }
 
 int32_t CompressCapture::getAACMinBitrateValue() {
     const auto channelCount =
-        ::aidl::android::hardware::audio::common::getChannelCount(
-            mChannelLayout);
+            ::aidl::android::hardware::audio::common::getChannelCount(mChannelLayout);
     if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_LC ||
-        mCompressFormat.encoding ==
-            ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_LC) {
+        mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_LC) {
         if (channelCount == 1) {
             return Aac::kAacLcMonoMinSupportedBitRate;
         } else {
             return Aac::kAacLcStereoMinSupportedBitRate;
         }
-    } else if (mCompressFormat.encoding ==
-               ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V1) {
+    } else if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V1) {
         if (channelCount == 1) {
             return (mSampleRate == 24000 || mSampleRate == 32000)
-                       ? Aac::kHeAacMonoMinSupportedBitRate1
-                       : Aac::kHeAacMonoMinSupportedBitRate2;
+                           ? Aac::kHeAacMonoMinSupportedBitRate1
+                           : Aac::kHeAacMonoMinSupportedBitRate2;
         } else {
             return (mSampleRate == 24000 || mSampleRate == 32000)
-                       ? Aac::kHeAacStereoMinSupportedBitRate1
-                       : Aac::kHeAacStereoMinSupportedBitRate2;
+                           ? Aac::kHeAacStereoMinSupportedBitRate1
+                           : Aac::kHeAacStereoMinSupportedBitRate2;
         }
     } else {
         // AUDIO_FORMAT_AAC_ADTS_HE_V2
         return (mSampleRate == 24000 || mSampleRate == 32000)
-                   ? Aac::kHeAacPsStereoMinSupportedBitRate1
-                   : Aac::kHeAacPsStereoMinSupportedBitRate2;
+                       ? Aac::kHeAacPsStereoMinSupportedBitRate1
+                       : Aac::kHeAacPsStereoMinSupportedBitRate2;
     }
 }
 
 int32_t CompressCapture::getAACMaxBitrateValue() {
     const auto channelCount =
-        ::aidl::android::hardware::audio::common::getChannelCount(
-            mChannelLayout);
+            ::aidl::android::hardware::audio::common::getChannelCount(mChannelLayout);
     if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_LC ||
-        mCompressFormat.encoding ==
-            ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_LC) {
+        mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_LC) {
         if (channelCount == 1) {
-            return std::min(Aac::kAacLcMonoMaxSupportedBitRate,
-                            6 * mSampleRate);
+            return std::min(Aac::kAacLcMonoMaxSupportedBitRate, 6 * mSampleRate);
         } else {
-            return std::min(Aac::kAacLcStereoMaxSupportedBitRate,
-                            12 * mSampleRate);
+            return std::min(Aac::kAacLcStereoMaxSupportedBitRate, 12 * mSampleRate);
         }
-    } else if (mCompressFormat.encoding ==
-               ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V1) {
+    } else if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V1) {
         if (channelCount == 1) {
-            return std::min(Aac::kHeAacMonoMaxSupportedBitRate,
-                            6 * mSampleRate);
+            return std::min(Aac::kHeAacMonoMaxSupportedBitRate, 6 * mSampleRate);
         } else {
-            return std::min(Aac::kHeAacStereoMaxSupportedBitRate,
-                            12 * mSampleRate);
+            return std::min(Aac::kHeAacStereoMaxSupportedBitRate, 12 * mSampleRate);
         }
     } else {
         // AUDIO_FORMAT_AAC_ADTS_HE_V2
@@ -800,16 +719,14 @@ uint32_t CompressCapture::getAACMaxBufferSize() {
      * 48000/1024 = (8/375) seconds ==> ( 8/375 ) * 384000 bits
      *     ==> ( (8/375) * 384000 / 8 ) bytes;
      **/
-    return (uint32_t)((((((double)mPCMSamplesPerFrame) / mSampleRate) *
-                        ((uint32_t)(maxBitRate))) /
-                       8) +
-                      /* Just in case; not to miss precision */ 1);
+    return (uint32_t)(
+            (((((double)mPCMSamplesPerFrame) / mSampleRate) * ((uint32_t)(maxBitRate))) / 8) +
+            /* Just in case; not to miss precision */ 1);
 }
 
 // static
 size_t CompressCapture::getPeriodBufferSize(
-    const ::aidl::android::media::audio::common::AudioFormatDescription&
-        format) {
+        const ::aidl::android::media::audio::common::AudioFormatDescription& format) {
     if (format.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_LC ||
         format.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_LC ||
         format.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V1 ||
@@ -821,62 +738,52 @@ size_t CompressCapture::getPeriodBufferSize(
 
 // end of compress capture
 
+// start of PcmOffloadPlayback
 
-//start of PcmOffloadPlayback
-
-//static
+// static
 size_t PcmOffloadPlayback::getPeriodSize(
-    const ::aidl::android::media::audio::common::AudioFormatDescription&
-        formatDescription,
-    const ::aidl::android::media::audio::common::AudioChannelLayout&
-        channelLayout,
-    const int32_t sampleRate) {
-    const auto frameSize =
-        ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
+        const ::aidl::android::media::audio::common::AudioFormatDescription& formatDescription,
+        const ::aidl::android::media::audio::common::AudioChannelLayout& channelLayout,
+        const int32_t sampleRate) {
+    const auto frameSize = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
             formatDescription, channelLayout);
     size_t periodSize = sampleRate * (kPeriodDurationMs / 1000) * frameSize;
     periodSize = getNearestMultiple(
-        periodSize,
-        std::lcm(
-            32,
-            ::aidl::android::hardware::audio::common::getPcmSampleSizeInBytes(
-                formatDescription.pcm)));
+            periodSize,
+            std::lcm(32, ::aidl::android::hardware::audio::common::getPcmSampleSizeInBytes(
+                                 formatDescription.pcm)));
     return periodSize;
 }
 
 // end of PcmOffloadPlayback
 
-//start of VoipPlayback
+// start of VoipPlayback
 
 size_t VoipPlayback::getPeriodSize(
-    const ::aidl::android::media::audio::common::AudioPortConfig&
-        mixPortConfig) {
-    const auto frameSize = getFrameSizeInBytes(
-        mixPortConfig.format.value(), mixPortConfig.channelMask.value());
-    size_t periodSize = (VoipPlayback::kBufferDurationMs *
-                         mixPortConfig.sampleRate.value().value * frameSize) /
-                        1000;
+        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
+    const auto frameSize =
+            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
+    size_t periodSize =
+            (VoipPlayback::kBufferDurationMs * mixPortConfig.sampleRate.value().value * frameSize) /
+            1000;
     return periodSize;
 }
 
 // end of VoipPlayback
 
-//Start of UllPlayback
+// Start of UllPlayback
 
 size_t UllPlayback::getPeriodSize(
-    const ::aidl::android::media::audio::common::AudioFormatDescription&
-        formatDescription,
-    const ::aidl::android::media::audio::common::AudioChannelLayout&
-        channelLayout) {
-    const auto frameSize =
-        ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
+        const ::aidl::android::media::audio::common::AudioFormatDescription& formatDescription,
+        const ::aidl::android::media::audio::common::AudioChannelLayout& channelLayout) {
+    const auto frameSize = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
             formatDescription, channelLayout);
     return kPeriodSize * frameSize;
 }
 
-//End of UllPlayback
+// End of UllPlayback
 
-//Start of MMapPlayback
+// Start of MMapPlayback
 
 void MMapPlayback::setPalHandle(pal_stream_handle_t* handle) {
     mPalHandle = handle;
@@ -889,10 +796,9 @@ int32_t MMapPlayback::createMMapBuffer(int64_t frameSize, int32_t* fd, int64_t* 
         return -EINVAL;
     }
     struct pal_mmap_buffer palMMapBuf;
-    if (int32_t ret = pal_stream_create_mmap_buffer(mPalHandle,
-            frameSize, &palMMapBuf); ret) {
+    if (int32_t ret = pal_stream_create_mmap_buffer(mPalHandle, frameSize, &palMMapBuf); ret) {
         LOG(ERROR) << __func__ << ": pal stream create mmap buffer failed "
-                << "returned " << ret;
+                   << "returned " << ret;
         return ret;
     }
     *fd = palMMapBuf.fd;
@@ -908,10 +814,9 @@ int32_t MMapPlayback::getMMapPosition(int64_t* frames, int64_t* timeNs) {
         return -EINVAL;
     }
     struct pal_mmap_position pal_mmap_pos;
-    if (int32_t ret = pal_stream_get_mmap_position(mPalHandle, &pal_mmap_pos);
-            ret) {
+    if (int32_t ret = pal_stream_get_mmap_position(mPalHandle, &pal_mmap_pos); ret) {
         LOG(ERROR) << __func__ << ": failed to get mmap positon "
-                << "returned " << ret;
+                   << "returned " << ret;
         return ret;
     }
     *timeNs = pal_mmap_pos.time_nanoseconds;
@@ -920,35 +825,31 @@ int32_t MMapPlayback::getMMapPosition(int64_t* frames, int64_t* timeNs) {
 }
 
 size_t MMapPlayback::getPeriodSize(
-    const ::aidl::android::media::audio::common::AudioFormatDescription&
-        formatDescription,
-    const ::aidl::android::media::audio::common::AudioChannelLayout&
-        channelLayout) {
-    const auto frameSize =
-        ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
+        const ::aidl::android::media::audio::common::AudioFormatDescription& formatDescription,
+        const ::aidl::android::media::audio::common::AudioChannelLayout& channelLayout) {
+    const auto frameSize = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
             formatDescription, channelLayout);
     return kPeriodSize * frameSize;
 }
 
-//end of MMapPlayback
+// end of MMapPlayback
 
-//start of MMapRecord
+// start of MMapRecord
 
 void MMapRecord::setPalHandle(pal_stream_handle_t* handle) {
     mPalHandle = handle;
 }
 
 int32_t MMapRecord::createMMapBuffer(int64_t frameSize, int32_t* fd, int64_t* burstSizeFrames,
-                                       int32_t* flags, int32_t* bufferSizeFrames) {
+                                     int32_t* flags, int32_t* bufferSizeFrames) {
     if (!mPalHandle) {
         LOG(ERROR) << __func__ << ": pal stream handle is null";
         return -EINVAL;
     }
     struct pal_mmap_buffer palMMapBuf;
-    if (int32_t ret = pal_stream_create_mmap_buffer(mPalHandle,
-            frameSize, &palMMapBuf); ret) {
+    if (int32_t ret = pal_stream_create_mmap_buffer(mPalHandle, frameSize, &palMMapBuf); ret) {
         LOG(ERROR) << __func__ << ": pal stream create mmap buffer failed "
-                << "returned " << ret;
+                   << "returned " << ret;
         return ret;
     }
     *fd = palMMapBuf.fd;
@@ -964,10 +865,9 @@ int32_t MMapRecord::getMMapPosition(int64_t* frames, int64_t* timeNs) {
         return -EINVAL;
     }
     struct pal_mmap_position pal_mmap_pos;
-    if (int32_t ret = pal_stream_get_mmap_position(mPalHandle, &pal_mmap_pos);
-            ret) {
+    if (int32_t ret = pal_stream_get_mmap_position(mPalHandle, &pal_mmap_pos); ret) {
         LOG(ERROR) << __func__ << ": failed to get mmap positon "
-                << "returned " << ret;
+                   << "returned " << ret;
         return ret;
     }
     *timeNs = pal_mmap_pos.time_nanoseconds;
@@ -976,28 +876,24 @@ int32_t MMapRecord::getMMapPosition(int64_t* frames, int64_t* timeNs) {
 }
 
 size_t MMapRecord::getPeriodSize(
-    const ::aidl::android::media::audio::common::AudioFormatDescription&
-        formatDescription,
-    const ::aidl::android::media::audio::common::AudioChannelLayout&
-        channelLayout) {
-    const auto frameSize =
-        ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
+        const ::aidl::android::media::audio::common::AudioFormatDescription& formatDescription,
+        const ::aidl::android::media::audio::common::AudioChannelLayout& channelLayout) {
+    const auto frameSize = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
             formatDescription, channelLayout);
     return kPeriodSize * frameSize;
 }
 
-//end of MMapRecord
+// end of MMapRecord
 // start of VoipRecord
 
 // static
 size_t VoipRecord::getPeriodSize(
-    const ::aidl::android::media::audio::common::AudioPortConfig&
-        mixPortConfig) {
-    const auto frameSize = getFrameSizeInBytes(
-        mixPortConfig.format.value(), mixPortConfig.channelMask.value());
-    size_t size = (VoipRecord::kCaptureDurationMs *
-                   mixPortConfig.sampleRate.value().value * frameSize) /
-                  1000;
+        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
+    const auto frameSize =
+            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
+    size_t size =
+            (VoipRecord::kCaptureDurationMs * mixPortConfig.sampleRate.value().value * frameSize) /
+            1000;
     return size;
 }
 
@@ -1006,10 +902,9 @@ size_t VoipRecord::getPeriodSize(
 // start of VoiceCallRecord
 
 pal_incall_record_direction VoiceCallRecord::getRecordDirection(
-    const ::aidl::android::media::audio::common::AudioPortConfig&
-        mixPortConfig) {
+        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
     auto& source = mixPortConfig.ext.get<AudioPortExt::Tag::mix>()
-                       .usecase.get<AudioPortMixExtUseCase::source>();
+                           .usecase.get<AudioPortMixExtUseCase::source>();
     if (source == AudioSource::VOICE_UPLINK) {
         return INCALL_RECORD_VOICE_UPLINK;
     } else if (source == AudioSource::VOICE_DOWNLINK) {
@@ -1017,23 +912,19 @@ pal_incall_record_direction VoiceCallRecord::getRecordDirection(
     } else if (source == AudioSource::VOICE_CALL) {
         return INCALL_RECORD_VOICE_UPLINK_DOWNLINK;
     }
-    LOG(ERROR) << __func__ << ": Invalid source for VoiceCallRecord"
-               << static_cast<int>(source);
-    return  static_cast<pal_incall_record_direction>(0);
+    LOG(ERROR) << __func__ << ": Invalid source for VoiceCallRecord" << static_cast<int>(source);
+    return static_cast<pal_incall_record_direction>(0);
 }
 
 // static
 size_t VoiceCallRecord::getPeriodSize(
-    const ::aidl::android::media::audio::common::AudioPortConfig&
-        mixPortConfig) {
-    const auto frameSize = getFrameSizeInBytes(
-        mixPortConfig.format.value(), mixPortConfig.channelMask.value());
-    size_t size = (kCaptureDurationMs * mixPortConfig.sampleRate.value().value *
-                   frameSize) /
-                  1000;
+        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
+    const auto frameSize =
+            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
+    size_t size = (kCaptureDurationMs * mixPortConfig.sampleRate.value().value * frameSize) / 1000;
     return size;
 }
 
 // end of VoiceCallRecord
 
-}  // namespace qti::audio::core
+} // namespace qti::audio::core

@@ -6,8 +6,8 @@
 #define LOG_NDEBUG 0
 #define LOG_TAG "AHAL_PlatformConverter"
 
-#include <qti-audio-core/PlatformConverter.h>
 #include <android-base/logging.h>
+#include <qti-audio-core/PlatformConverter.h>
 
 using ::aidl::android::media::audio::common::AudioChannelLayout;
 using ::aidl::android::media::audio::common::AudioDeviceAddress;
@@ -19,8 +19,8 @@ using ::aidl::android::media::audio::common::PcmType;
 
 namespace qti::audio::core {
 
-AudioDeviceDescription makeAudioDeviceDescription(
-    AudioDeviceType type, const std::string& connection = "") {
+AudioDeviceDescription makeAudioDeviceDescription(AudioDeviceType type,
+                                                  const std::string& connection = "") {
     AudioDeviceDescription result;
     result.type = type;
     result.connection = connection;
@@ -34,117 +34,105 @@ using DevicePairs = std::vector<DevicePair>;
 DevicePairs getDevicePairs() {
     // No dupicates on first entry
     DevicePairs pairs = {
-        {AudioDeviceDescription{}, PAL_DEVICE_NONE},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_DEFAULT),
-         PAL_DEVICE_OUT_SPEAKER},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_SPEAKER_EARPIECE),
-         PAL_DEVICE_OUT_HANDSET},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_SPEAKER),
-         PAL_DEVICE_OUT_SPEAKER},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_HEADPHONE,
-                                    AudioDeviceDescription::CONNECTION_ANALOG),
-         PAL_DEVICE_OUT_WIRED_HEADPHONE},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_DEVICE,
-                                    AudioDeviceDescription::CONNECTION_BT_SCO),
-         PAL_DEVICE_OUT_BLUETOOTH_SCO},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_CARKIT,
-                                    AudioDeviceDescription::CONNECTION_BT_SCO),
-         PAL_DEVICE_OUT_BLUETOOTH_SCO},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_TELEPHONY_TX),
-         PAL_DEVICE_NONE},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_LINE_AUX),
-         PAL_DEVICE_OUT_AUX_LINE},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_SPEAKER_SAFE),
-         PAL_DEVICE_OUT_SPEAKER},
-        {makeAudioDeviceDescription(
-             AudioDeviceType::OUT_HEARING_AID,
-             AudioDeviceDescription::CONNECTION_WIRELESS),
-         PAL_DEVICE_OUT_HEARING_AID},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_SPEAKER,
-                                    AudioDeviceDescription::CONNECTION_BT_LE),
-         PAL_DEVICE_OUT_BLUETOOTH_BLE},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_BROADCAST,
-                                    AudioDeviceDescription::CONNECTION_BT_LE),
-         PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST},
-        {makeAudioDeviceDescription(AudioDeviceType::IN_DEFAULT),
-         PAL_DEVICE_IN_HANDSET_MIC},
-        {makeAudioDeviceDescription(AudioDeviceType::IN_MICROPHONE),
-         PAL_DEVICE_IN_HANDSET_MIC},
-        {makeAudioDeviceDescription(AudioDeviceType::IN_MICROPHONE_BACK),
-         PAL_DEVICE_IN_SPEAKER_MIC},
-        {makeAudioDeviceDescription(AudioDeviceType::IN_TELEPHONY_RX),
-         PAL_DEVICE_IN_TELEPHONY_RX},
+            {AudioDeviceDescription{}, PAL_DEVICE_NONE},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_DEFAULT), PAL_DEVICE_OUT_SPEAKER},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_SPEAKER_EARPIECE),
+             PAL_DEVICE_OUT_HANDSET},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_SPEAKER), PAL_DEVICE_OUT_SPEAKER},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_HEADPHONE,
+                                        AudioDeviceDescription::CONNECTION_ANALOG),
+             PAL_DEVICE_OUT_WIRED_HEADPHONE},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_DEVICE,
+                                        AudioDeviceDescription::CONNECTION_BT_SCO),
+             PAL_DEVICE_OUT_BLUETOOTH_SCO},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_CARKIT,
+                                        AudioDeviceDescription::CONNECTION_BT_SCO),
+             PAL_DEVICE_OUT_BLUETOOTH_SCO},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_TELEPHONY_TX), PAL_DEVICE_NONE},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_LINE_AUX), PAL_DEVICE_OUT_AUX_LINE},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_SPEAKER_SAFE), PAL_DEVICE_OUT_SPEAKER},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_HEARING_AID,
+                                        AudioDeviceDescription::CONNECTION_WIRELESS),
+             PAL_DEVICE_OUT_HEARING_AID},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_SPEAKER,
+                                        AudioDeviceDescription::CONNECTION_BT_LE),
+             PAL_DEVICE_OUT_BLUETOOTH_BLE},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_BROADCAST,
+                                        AudioDeviceDescription::CONNECTION_BT_LE),
+             PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST},
+            {makeAudioDeviceDescription(AudioDeviceType::IN_DEFAULT), PAL_DEVICE_IN_HANDSET_MIC},
+            {makeAudioDeviceDescription(AudioDeviceType::IN_MICROPHONE), PAL_DEVICE_IN_HANDSET_MIC},
+            {makeAudioDeviceDescription(AudioDeviceType::IN_MICROPHONE_BACK),
+             PAL_DEVICE_IN_SPEAKER_MIC},
+            {makeAudioDeviceDescription(AudioDeviceType::IN_TELEPHONY_RX),
+             PAL_DEVICE_IN_TELEPHONY_RX},
 
-        {makeAudioDeviceDescription(AudioDeviceType::IN_ECHO_REFERENCE),
-         PAL_DEVICE_IN_ECHO_REF},
-        {makeAudioDeviceDescription(AudioDeviceType::IN_HEADSET,
-                                    AudioDeviceDescription::CONNECTION_ANALOG),
-         PAL_DEVICE_IN_WIRED_HEADSET},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_HEADSET,
-                                    AudioDeviceDescription::CONNECTION_ANALOG),
-         PAL_DEVICE_OUT_WIRED_HEADSET},
-        {makeAudioDeviceDescription(AudioDeviceType::IN_HEADSET,
-                                    AudioDeviceDescription::CONNECTION_BT_SCO),
-         PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_HEADSET,
-                                    AudioDeviceDescription::CONNECTION_BT_SCO),
-         PAL_DEVICE_OUT_BLUETOOTH_SCO},
-        {makeAudioDeviceDescription(AudioDeviceType::IN_DEVICE,
-                                    AudioDeviceDescription::CONNECTION_HDMI),
-         PAL_DEVICE_IN_HDMI},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_DEVICE,
-                                    AudioDeviceDescription::CONNECTION_HDMI),
-         PAL_DEVICE_OUT_HDMI},
-        {makeAudioDeviceDescription(AudioDeviceType::IN_ACCESSORY,
-                                    AudioDeviceDescription::CONNECTION_USB),
-         PAL_DEVICE_IN_USB_ACCESSORY},
-        {makeAudioDeviceDescription(AudioDeviceType::IN_FM_TUNER),
-         PAL_DEVICE_IN_FM_TUNER},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_FM),
-         PAL_DEVICE_OUT_FM},
+            {makeAudioDeviceDescription(AudioDeviceType::IN_ECHO_REFERENCE),
+             PAL_DEVICE_IN_ECHO_REF},
+            {makeAudioDeviceDescription(AudioDeviceType::IN_HEADSET,
+                                        AudioDeviceDescription::CONNECTION_ANALOG),
+             PAL_DEVICE_IN_WIRED_HEADSET},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_HEADSET,
+                                        AudioDeviceDescription::CONNECTION_ANALOG),
+             PAL_DEVICE_OUT_WIRED_HEADSET},
+            {makeAudioDeviceDescription(AudioDeviceType::IN_HEADSET,
+                                        AudioDeviceDescription::CONNECTION_BT_SCO),
+             PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_HEADSET,
+                                        AudioDeviceDescription::CONNECTION_BT_SCO),
+             PAL_DEVICE_OUT_BLUETOOTH_SCO},
+            {makeAudioDeviceDescription(AudioDeviceType::IN_DEVICE,
+                                        AudioDeviceDescription::CONNECTION_HDMI),
+             PAL_DEVICE_IN_HDMI},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_DEVICE,
+                                        AudioDeviceDescription::CONNECTION_HDMI),
+             PAL_DEVICE_OUT_HDMI},
+            {makeAudioDeviceDescription(AudioDeviceType::IN_ACCESSORY,
+                                        AudioDeviceDescription::CONNECTION_USB),
+             PAL_DEVICE_IN_USB_ACCESSORY},
+            {makeAudioDeviceDescription(AudioDeviceType::IN_FM_TUNER), PAL_DEVICE_IN_FM_TUNER},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_FM), PAL_DEVICE_OUT_FM},
 
-        {makeAudioDeviceDescription(AudioDeviceType::IN_DEVICE,
-                                    AudioDeviceDescription::CONNECTION_ANALOG),
-         PAL_DEVICE_IN_LINE},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_DEVICE,
-                                    AudioDeviceDescription::CONNECTION_ANALOG),
-         PAL_DEVICE_OUT_WIRED_HEADPHONE},
+            {makeAudioDeviceDescription(AudioDeviceType::IN_DEVICE,
+                                        AudioDeviceDescription::CONNECTION_ANALOG),
+             PAL_DEVICE_IN_LINE},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_DEVICE,
+                                        AudioDeviceDescription::CONNECTION_ANALOG),
+             PAL_DEVICE_OUT_WIRED_HEADPHONE},
 
-        {makeAudioDeviceDescription(AudioDeviceType::IN_DEVICE,
-                                    AudioDeviceDescription::CONNECTION_SPDIF),
-         PAL_DEVICE_IN_SPDIF},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_DEVICE,
-                                    AudioDeviceDescription::CONNECTION_SPDIF),
-         PAL_DEVICE_OUT_SPDIF},
+            {makeAudioDeviceDescription(AudioDeviceType::IN_DEVICE,
+                                        AudioDeviceDescription::CONNECTION_SPDIF),
+             PAL_DEVICE_IN_SPDIF},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_DEVICE,
+                                        AudioDeviceDescription::CONNECTION_SPDIF),
+             PAL_DEVICE_OUT_SPDIF},
 
-        {makeAudioDeviceDescription(AudioDeviceType::IN_DEVICE,
-                                    AudioDeviceDescription::CONNECTION_BT_A2DP),
-         PAL_DEVICE_IN_BLUETOOTH_A2DP},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_DEVICE,
-                                    AudioDeviceDescription::CONNECTION_BT_A2DP),
-         PAL_DEVICE_OUT_BLUETOOTH_A2DP},
+            {makeAudioDeviceDescription(AudioDeviceType::IN_DEVICE,
+                                        AudioDeviceDescription::CONNECTION_BT_A2DP),
+             PAL_DEVICE_IN_BLUETOOTH_A2DP},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_DEVICE,
+                                        AudioDeviceDescription::CONNECTION_BT_A2DP),
+             PAL_DEVICE_OUT_BLUETOOTH_A2DP},
 
-        {makeAudioDeviceDescription(AudioDeviceType::IN_AFE_PROXY),
-         PAL_DEVICE_IN_PROXY},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_AFE_PROXY),
-         PAL_DEVICE_OUT_PROXY},
+            {makeAudioDeviceDescription(AudioDeviceType::IN_AFE_PROXY), PAL_DEVICE_IN_PROXY},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_AFE_PROXY), PAL_DEVICE_OUT_PROXY},
 
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_DEVICE,
-                                    AudioDeviceDescription::CONNECTION_USB),
-         PAL_DEVICE_OUT_USB_DEVICE},
-        {makeAudioDeviceDescription(AudioDeviceType::IN_HEADSET,
-                                    AudioDeviceDescription::CONNECTION_USB),
-         PAL_DEVICE_IN_USB_HEADSET},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_HEADSET,
-                                    AudioDeviceDescription::CONNECTION_USB),
-         PAL_DEVICE_OUT_USB_HEADSET},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_DEVICE,
+                                        AudioDeviceDescription::CONNECTION_USB),
+             PAL_DEVICE_OUT_USB_DEVICE},
+            {makeAudioDeviceDescription(AudioDeviceType::IN_HEADSET,
+                                        AudioDeviceDescription::CONNECTION_USB),
+             PAL_DEVICE_IN_USB_HEADSET},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_HEADSET,
+                                        AudioDeviceDescription::CONNECTION_USB),
+             PAL_DEVICE_OUT_USB_HEADSET},
 
-        {makeAudioDeviceDescription(AudioDeviceType::IN_HEADSET,
-                                    AudioDeviceDescription::CONNECTION_BT_LE),
-         PAL_DEVICE_IN_BLUETOOTH_BLE},
-        {makeAudioDeviceDescription(AudioDeviceType::OUT_HEADSET,
-                                    AudioDeviceDescription::CONNECTION_BT_LE),
-         PAL_DEVICE_OUT_BLUETOOTH_BLE}};
+            {makeAudioDeviceDescription(AudioDeviceType::IN_HEADSET,
+                                        AudioDeviceDescription::CONNECTION_BT_LE),
+             PAL_DEVICE_IN_BLUETOOTH_BLE},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_HEADSET,
+                                        AudioDeviceDescription::CONNECTION_BT_LE),
+             PAL_DEVICE_OUT_BLUETOOTH_BLE}};
     return pairs;
 }
 
@@ -161,17 +149,14 @@ AudioFormatDescription make_AudioFormatDescription(PcmType pcm) {
     return result;
 }
 
-AudioFormatDescription make_AudioFormatDescription(
-    const std::string& encoding) {
+AudioFormatDescription make_AudioFormatDescription(const std::string& encoding) {
     AudioFormatDescription result;
-    result.type =
-        ::aidl::android::media::audio::common::AudioFormatType::NON_PCM;
+    result.type = ::aidl::android::media::audio::common::AudioFormatType::NON_PCM;
     result.encoding = encoding;
     return result;
 }
 
-AudioFormatDescription make_AudioFormatDescription(
-    PcmType transport, const std::string& encoding) {
+AudioFormatDescription make_AudioFormatDescription(PcmType transport, const std::string& encoding) {
     auto result = make_AudioFormatDescription(encoding);
     result.pcm = transport;
     return result;
@@ -183,51 +168,38 @@ using FormatPairs = std::vector<FormatPair>;
 FormatPairs getFormatPairs() {
     // No duplicates on second entry
     FormatPairs pairs = {{
-        {PAL_AUDIO_FMT_PCM_S16_LE,
-         make_AudioFormatDescription(PcmType::INT_16_BIT)},
-        {PAL_AUDIO_FMT_PCM_S8,
-         make_AudioFormatDescription(PcmType::UINT_8_BIT)},
-        {PAL_AUDIO_FMT_PCM_S32_LE,
-         make_AudioFormatDescription(PcmType::INT_32_BIT)},
-        {PAL_AUDIO_FMT_PCM_S24_LE,
-         make_AudioFormatDescription(PcmType::FIXED_Q_8_24)},
-        {PAL_AUDIO_FMT_PCM_S32_LE,
-         make_AudioFormatDescription(PcmType::FLOAT_32_BIT)},
-        {PAL_AUDIO_FMT_PCM_S24_3LE,
-         make_AudioFormatDescription(PcmType::INT_24_BIT)},
-        {PAL_AUDIO_FMT_AAC,
-         make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_AAC_MP4)},
-        {PAL_AUDIO_FMT_AAC_LATM,
-         make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_AAC)},
-        {PAL_AUDIO_FMT_AAC_ADTS,
-         make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS)},
-        {PAL_AUDIO_FMT_AAC_ADIF,
-         make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_AAC_ADIF)},
-        {PAL_AUDIO_FMT_AAC,
-         make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_AAC_LC)},
-        {PAL_AUDIO_FMT_AAC, make_AudioFormatDescription(
-                                ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_LC)},
-        {PAL_AUDIO_FMT_AAC,
-         make_AudioFormatDescription(
-             ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V1)},
-        {PAL_AUDIO_FMT_AAC,
-         make_AudioFormatDescription(
-             ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V2)},
-        {PAL_AUDIO_FMT_MP3,
-         make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_MPEG)},
-        {PAL_AUDIO_FMT_FLAC,
-         make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_FLAC)},
-        {PAL_AUDIO_FMT_VORBIS,
-         make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_VORBIS)},
-        {PAL_AUDIO_FMT_ALAC,
-         make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_ALAC)},
-        {PAL_AUDIO_FMT_WMA_STD,
-         make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_WMA)},
-        {PAL_AUDIO_FMT_APE, make_AudioFormatDescription("audio/x-ape")},
-        {PAL_AUDIO_FMT_WMA_PRO,
-         make_AudioFormatDescription("audio/x-ms-wma.pro")},
-        {PAL_AUDIO_FMT_OPUS,
-         make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_OPUS)},
+            {PAL_AUDIO_FMT_PCM_S16_LE, make_AudioFormatDescription(PcmType::INT_16_BIT)},
+            {PAL_AUDIO_FMT_PCM_S8, make_AudioFormatDescription(PcmType::UINT_8_BIT)},
+            {PAL_AUDIO_FMT_PCM_S32_LE, make_AudioFormatDescription(PcmType::INT_32_BIT)},
+            {PAL_AUDIO_FMT_PCM_S24_LE, make_AudioFormatDescription(PcmType::FIXED_Q_8_24)},
+            {PAL_AUDIO_FMT_PCM_S32_LE, make_AudioFormatDescription(PcmType::FLOAT_32_BIT)},
+            {PAL_AUDIO_FMT_PCM_S24_3LE, make_AudioFormatDescription(PcmType::INT_24_BIT)},
+            {PAL_AUDIO_FMT_AAC,
+             make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_AAC_MP4)},
+            {PAL_AUDIO_FMT_AAC_LATM,
+             make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_AAC)},
+            {PAL_AUDIO_FMT_AAC_ADTS,
+             make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS)},
+            {PAL_AUDIO_FMT_AAC_ADIF,
+             make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_AAC_ADIF)},
+            {PAL_AUDIO_FMT_AAC,
+             make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_AAC_LC)},
+            {PAL_AUDIO_FMT_AAC,
+             make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_LC)},
+            {PAL_AUDIO_FMT_AAC,
+             make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V1)},
+            {PAL_AUDIO_FMT_AAC,
+             make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V2)},
+            {PAL_AUDIO_FMT_MP3, make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_MPEG)},
+            {PAL_AUDIO_FMT_FLAC, make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_FLAC)},
+            {PAL_AUDIO_FMT_VORBIS,
+             make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_VORBIS)},
+            {PAL_AUDIO_FMT_ALAC, make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_ALAC)},
+            {PAL_AUDIO_FMT_WMA_STD,
+             make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_WMA)},
+            {PAL_AUDIO_FMT_APE, make_AudioFormatDescription("audio/x-ape")},
+            {PAL_AUDIO_FMT_WMA_PRO, make_AudioFormatDescription("audio/x-ms-wma.pro")},
+            {PAL_AUDIO_FMT_OPUS, make_AudioFormatDescription(::android::MEDIA_MIMETYPE_AUDIO_OPUS)},
     }};
     return pairs;
 }
@@ -245,17 +217,15 @@ template <typename S, typename T>
 std::map<T, S> make_ReverseMap(const std::vector<std::pair<S, T>>& v) {
     std::map<T, S> result;
     std::transform(v.begin(), v.end(), std::inserter(result, result.begin()),
-                   [](const std::pair<S, T>& p) {
-                       return std::make_pair(p.second, p.first);
-                   });
+                   [](const std::pair<S, T>& p) { return std::make_pair(p.second, p.first); });
     if (result.size() != v.size()) {
         LOG(FATAL) << __func__ << "Duplicate key elements detected";
     }
     return result;
 }
 
-std::unique_ptr<pal_channel_info>
-PlatformConverter::getPalChannelInfoForChannelCount(int count) const {
+std::unique_ptr<pal_channel_info> PlatformConverter::getPalChannelInfoForChannelCount(
+        int count) const {
     auto ch_info = std::make_unique<pal_channel_info>();
     if (count == 1) {
         ch_info->channels = 1;
@@ -315,8 +285,7 @@ PlatformConverter::getPalChannelInfoForChannelCount(int count) const {
     return std::move(ch_info);
 }
 
-uint16_t PlatformConverter::getBitWidthForAidlPCM(
-    const AudioFormatDescription& aidlFormat) const {
+uint16_t PlatformConverter::getBitWidthForAidlPCM(const AudioFormatDescription& aidlFormat) const {
     if (aidlFormat.type != AudioFormatType::PCM) {
         return 0;
     }
@@ -337,12 +306,11 @@ uint16_t PlatformConverter::getBitWidthForAidlPCM(
 }
 
 pal_audio_fmt_t PlatformConverter::getPalFormatId(
-    const ::aidl::android::media::audio::common::AudioFormatDescription&
-        formatDescription) const {
+        const ::aidl::android::media::audio::common::AudioFormatDescription& formatDescription)
+        const {
     auto element = mAidlToPalAudioFormatMap.find(formatDescription);
     if (element == mAidlToPalAudioFormatMap.cend()) {
-        LOG(ERROR) << __func__
-                   << " failed to find corressponding pal format for "
+        LOG(ERROR) << __func__ << " failed to find corressponding pal format for "
                    << formatDescription.toString();
         // no format found hence return range end;
         // Todo have PAL_AUDIO_FMT_INVALID as 0
@@ -352,12 +320,11 @@ pal_audio_fmt_t PlatformConverter::getPalFormatId(
 }
 
 pal_device_id_t PlatformConverter::getPalDeviceId(
-    const ::aidl::android::media::audio::common::AudioDeviceDescription&
-        deviceDescription) const {
+        const ::aidl::android::media::audio::common::AudioDeviceDescription& deviceDescription)
+        const {
     auto element = mAidlToPalDeviceMap.find(deviceDescription);
     if (element == mAidlToPalDeviceMap.cend()) {
-        LOG(ERROR) << __func__
-                   << " failed to find corressponding pal device for "
+        LOG(ERROR) << __func__ << " failed to find corressponding pal device for "
                    << deviceDescription.toString();
         // no device found hence return 0;
         return PAL_DEVICE_OUT_MIN;
@@ -369,12 +336,11 @@ std::string PlatformConverter::toString() const {
     std::ostringstream os;
     os << "### platform conversion start ###" << std::endl;
     os << "devices: Aidl to PAL" << std::endl;
-    for (const auto& [key, value] : mAidlToPalDeviceMap) {
-        os << key.toString() << " => " << deviceNameLUT.at(value).c_str()
-           << std::endl;
+    for (const auto & [ key, value ] : mAidlToPalDeviceMap) {
+        os << key.toString() << " => " << deviceNameLUT.at(value).c_str() << std::endl;
     }
     os << std::endl << "formats: Aidl to PAL " << std::endl;
-    for (const auto& [key, value] : mAidlToPalAudioFormatMap) {
+    for (const auto & [ key, value ] : mAidlToPalAudioFormatMap) {
         os << key.toString() << " => "
            << "pal format: 0x" << std::hex << value << std::endl;
     }
@@ -385,17 +351,14 @@ std::string PlatformConverter::toString() const {
 // static
 const PlatformConverter& PlatformConverter::getInstance() {
     static const auto kPlatformConverter = []() {
-        std::unique_ptr<PlatformConverter> platformConverter{
-            new PlatformConverter()};
+        std::unique_ptr<PlatformConverter> platformConverter{new PlatformConverter()};
         platformConverter->mAidlToPalDeviceMap =
-            make_DirectMap<AudioDeviceDescription, pal_device_id_t>(
-                getDevicePairs());
+                make_DirectMap<AudioDeviceDescription, pal_device_id_t>(getDevicePairs());
         platformConverter->mAidlToPalAudioFormatMap =
-            make_ReverseMap<pal_audio_fmt_t, AudioFormatDescription>(
-                getFormatPairs());
+                make_ReverseMap<pal_audio_fmt_t, AudioFormatDescription>(getFormatPairs());
         return std::move(platformConverter);
     }();
     return *(kPlatformConverter.get());
 }
 
-}  // namespace qti::audio::core
+} // namespace qti::audio::core

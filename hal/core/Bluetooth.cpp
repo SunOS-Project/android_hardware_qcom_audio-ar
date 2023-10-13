@@ -41,24 +41,23 @@ Bluetooth::Bluetooth() {
     mHfpConfig.volume = Float{HfpConfig::VOLUME_MAX};
 }
 
-ndk::ScopedAStatus Bluetooth::setScoConfig(const ScoConfig& in_config,
-                                           ScoConfig* _aidl_return) {
+ndk::ScopedAStatus Bluetooth::setScoConfig(const ScoConfig& in_config, ScoConfig* _aidl_return) {
     if (in_config.isEnabled.has_value()) {
         mScoConfig.isEnabled = in_config.isEnabled;
-        mScoConfig.isEnabled.value().value == true ? mPlatform.setBluetoothParameters("BT_SCO=on") :
-                                                      mPlatform.setBluetoothParameters("BT_SCO=off");
+        mScoConfig.isEnabled.value().value == true ? mPlatform.setBluetoothParameters("BT_SCO=on")
+                                                   : mPlatform.setBluetoothParameters("BT_SCO=off");
     }
     if (in_config.isNrecEnabled.has_value()) {
         mScoConfig.isNrecEnabled = in_config.isNrecEnabled;
-        mScoConfig.isNrecEnabled.value().value == true ? mPlatform.setBluetoothParameters("bt_headset_nrec=on") :
-                                                         mPlatform.setBluetoothParameters("bt_headset_nrec=off");
+        mScoConfig.isNrecEnabled.value().value == true
+                ? mPlatform.setBluetoothParameters("bt_headset_nrec=on")
+                : mPlatform.setBluetoothParameters("bt_headset_nrec=off");
     }
     if (in_config.mode != ScoConfig::Mode::UNSPECIFIED) {
         mScoConfig.mode = in_config.mode;
         if (mScoConfig.mode == ScoConfig::Mode::SCO_WB) {
             mPlatform.setBluetoothParameters("bt_wbs=on");
-        }
-        else if (mScoConfig.mode == ScoConfig::Mode::SCO_SWB) {
+        } else if (mScoConfig.mode == ScoConfig::Mode::SCO_SWB) {
             mPlatform.setBluetoothParameters("bt_swb=1");
         }
     }
@@ -66,24 +65,19 @@ ndk::ScopedAStatus Bluetooth::setScoConfig(const ScoConfig& in_config,
         mScoConfig.debugName = in_config.debugName;
     }
     *_aidl_return = mScoConfig;
-    LOG(DEBUG) << __func__ << ": received " << in_config.toString()
-               << ", returning " << _aidl_return->toString();
+    LOG(DEBUG) << __func__ << ": received " << in_config.toString() << ", returning "
+               << _aidl_return->toString();
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus Bluetooth::setHfpConfig(const HfpConfig& in_config,
-                                           HfpConfig* _aidl_return) {
-    if (in_config.sampleRate.has_value() &&
-        in_config.sampleRate.value().value <= 0) {
-        LOG(ERROR) << __func__ << ": invalid sample rate: "
-                   << in_config.sampleRate.value().value;
+ndk::ScopedAStatus Bluetooth::setHfpConfig(const HfpConfig& in_config, HfpConfig* _aidl_return) {
+    if (in_config.sampleRate.has_value() && in_config.sampleRate.value().value <= 0) {
+        LOG(ERROR) << __func__ << ": invalid sample rate: " << in_config.sampleRate.value().value;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
-    if (in_config.volume.has_value() &&
-        (in_config.volume.value().value < HfpConfig::VOLUME_MIN ||
-         in_config.volume.value().value > HfpConfig::VOLUME_MAX)) {
-        LOG(ERROR) << __func__
-                   << ": invalid volume: " << in_config.volume.value().value;
+    if (in_config.volume.has_value() && (in_config.volume.value().value < HfpConfig::VOLUME_MIN ||
+                                         in_config.volume.value().value > HfpConfig::VOLUME_MAX)) {
+        LOG(ERROR) << __func__ << ": invalid volume: " << in_config.volume.value().value;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
 
@@ -97,8 +91,8 @@ ndk::ScopedAStatus Bluetooth::setHfpConfig(const HfpConfig& in_config,
         mHfpConfig.volume = in_config.volume;
     }
     *_aidl_return = mHfpConfig;
-    LOG(DEBUG) << __func__ << ": received " << in_config.toString()
-               << ", returning " << _aidl_return->toString();
+    LOG(DEBUG) << __func__ << ": received " << in_config.toString() << ", returning "
+               << _aidl_return->toString();
     return ndk::ScopedAStatus::ok();
 }
 
@@ -110,26 +104,24 @@ ndk::ScopedAStatus BluetoothA2dp::isEnabled(bool* _aidl_return) {
 
 ndk::ScopedAStatus BluetoothA2dp::setEnabled(bool in_enabled) {
     mEnabled = in_enabled;
-    mEnabled == true ? mPlatform.setBluetoothParameters("A2dpSuspended=false") :
-                            mPlatform.setBluetoothParameters("A2dpSuspended=true");
+    mEnabled == true ? mPlatform.setBluetoothParameters("A2dpSuspended=false")
+                     : mPlatform.setBluetoothParameters("A2dpSuspended=true");
     LOG(DEBUG) << __func__ << ": " << mEnabled;
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus BluetoothA2dp::supportsOffloadReconfiguration(
-    bool* _aidl_return) {
+ndk::ScopedAStatus BluetoothA2dp::supportsOffloadReconfiguration(bool* _aidl_return) {
     bool supportReconfig = property_get_bool("ro.bluetooth.a2dp_offload.supported", false) &&
-                                   !property_get_bool("persist.bluetooth.a2dp_offload.disabled", false);
+                           !property_get_bool("persist.bluetooth.a2dp_offload.disabled", false);
     *_aidl_return = supportReconfig;
     LOG(DEBUG) << __func__ << ": returning " << *_aidl_return;
     return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus BluetoothA2dp::reconfigureOffload(
-    const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
-        in_parameters __unused) {
-    LOG(DEBUG) << __func__ << ": "
-               << ::android::internal::ToString(in_parameters);
+        const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& in_parameters
+                __unused) {
+    LOG(DEBUG) << __func__ << ": " << ::android::internal::ToString(in_parameters);
     mPlatform.setBluetoothParameters("reconfigA2dp=true");
     return ndk::ScopedAStatus::ok();
 }
@@ -146,19 +138,17 @@ ndk::ScopedAStatus BluetoothLe::setEnabled(bool in_enabled) {
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus BluetoothLe::supportsOffloadReconfiguration(
-    bool* _aidl_return) {
+ndk::ScopedAStatus BluetoothLe::supportsOffloadReconfiguration(bool* _aidl_return) {
     *_aidl_return = true;
     LOG(DEBUG) << __func__ << ": returning " << *_aidl_return;
     return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus BluetoothLe::reconfigureOffload(
-    const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
-        in_parameters __unused) {
-    LOG(DEBUG) << __func__ << ": "
-               << ::android::internal::ToString(in_parameters);
+        const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& in_parameters
+                __unused) {
+    LOG(DEBUG) << __func__ << ": " << ::android::internal::ToString(in_parameters);
     return ndk::ScopedAStatus::ok();
 }
 
-}  // namespace qti::audio::core
+} // namespace qti::audio::core

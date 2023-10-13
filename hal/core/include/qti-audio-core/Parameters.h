@@ -52,4 +52,4 @@ const static std::string kFMStatus{"fm_status"};
 
 // Bluetooth
 const static std::string kA2dpSuspended{"A2dpSuspended"};
-};  // namespace qti::audio::core::Parameters
+}; // namespace qti::audio::core::Parameters

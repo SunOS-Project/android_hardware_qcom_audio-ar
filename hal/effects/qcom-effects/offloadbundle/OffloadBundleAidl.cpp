@@ -129,7 +129,7 @@ OffloadBundleAidl::OffloadBundleAidl(const AudioUuid& uuid) {
 
 OffloadBundleAidl::~OffloadBundleAidl() {
     cleanUp();
-    LOG(DEBUG) << __func__  << mType;
+    LOG(DEBUG) << __func__ << mType;
 }
 
 ndk::ScopedAStatus OffloadBundleAidl::getDescriptor(

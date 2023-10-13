@@ -28,10 +28,11 @@ namespace qti::audio::core {
 
 class StreamStub : public StreamCommonImpl {
   public:
-      StreamStub(StreamContext* context, const Metadata& metadata);
+    StreamStub(StreamContext* context, const Metadata& metadata);
     // Methods of 'DriverInterface'.
     ::android::status_t init() override;
-    ::android::status_t drain(::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode) override;
+    ::android::status_t drain(
+            ::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode) override;
     ::android::status_t flush() override;
     ::android::status_t pause() override;
     ::android::status_t standby() override;
@@ -45,8 +46,8 @@ class StreamStub : public StreamCommonImpl {
     const int mSampleRate;
     const bool mIsAsynchronous;
     const bool mIsInput;
-    bool mIsInitialized = false;  // Used for validating the state machine logic.
-    bool mIsStandby = true;       // Used for validating the state machine logic.
+    bool mIsInitialized = false; // Used for validating the state machine logic.
+    bool mIsStandby = true;      // Used for validating the state machine logic.
 };
 
 class StreamInStub final : public StreamIn, public StreamStub {
@@ -57,7 +58,8 @@ class StreamInStub final : public StreamIn, public StreamStub {
             const ::aidl::android::hardware::audio::common::SinkMetadata& sinkMetadata,
             const std::vector<::aidl::android::media::audio::common::MicrophoneInfo>& microphones);
     ~StreamInStub() override;
-  int32_t setAggregateSinkMetadata(bool) override;
+    int32_t setAggregateSinkMetadata(bool) override;
+
   private:
     void onClose() override { defaultOnClose(); }
 };
@@ -70,11 +72,10 @@ class StreamOutStub final : public StreamOut, public StreamStub {
                   const std::optional<::aidl::android::media::audio::common::AudioOffloadInfo>&
                           offloadInfo);
     ~StreamOutStub() override;
-  int32_t setAggregateSourceMetadata(bool) override;
+    int32_t setAggregateSourceMetadata(bool) override;
 
   private:
     void onClose() override { defaultOnClose(); }
 };
 
-
-}  // namespace qti::audio::core
+} // namespace qti::audio::core

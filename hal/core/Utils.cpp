@@ -54,4 +54,4 @@ bool setParameter(const VString& parcel, VendorParameter& parameter) noexcept {
     return true;
 }
 
-}  // namespace qti::audio::core
+} // namespace qti::audio::core

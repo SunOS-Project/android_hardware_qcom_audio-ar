@@ -27,16 +27,16 @@
 #include <android-base/logging.h>
 #include <cutils/str_parms.h>
 
+#include <aidl/qti/audio/core/VString.h>
+#include <qti-audio-core/Bluetooth.h>
 #include <qti-audio-core/ModulePrimary.h>
+#include <qti-audio-core/Parameters.h>
+#include <qti-audio-core/PlatformUtils.h>
 #include <qti-audio-core/StreamInPrimary.h>
 #include <qti-audio-core/StreamOutPrimary.h>
 #include <qti-audio-core/StreamStub.h>
 #include <qti-audio-core/Telephony.h>
-#include <qti-audio-core/Parameters.h>
 #include <qti-audio-core/Utils.h>
-#include <qti-audio-core/Bluetooth.h>
-#include <aidl/qti/audio/core/VString.h>
-#include <qti-audio-core/PlatformUtils.h>
 
 using aidl::android::hardware::audio::common::SinkMetadata;
 using aidl::android::hardware::audio::common::SourceMetadata;
@@ -80,8 +80,7 @@ std::string ModulePrimary::toStringInternal() {
 
     os << std::endl << " --- mPatches ---" << std::endl;
     std::for_each(mPatches.cbegin(), mPatches.cend(), [&](const auto& pair) {
-        os << "PortConfigId/PortId:" << pair.first
-           << " Patch Id:" << pair.second << std::endl;
+        os << "PortConfigId/PortId:" << pair.first << " Patch Id:" << pair.second << std::endl;
     });
     os << std::endl << " --- mPatches end ---" << std::endl << std::endl;
 
@@ -93,16 +92,14 @@ std::string ModulePrimary::toStringInternal() {
 }
 
 void ModulePrimary::dumpInternal(const std::string& identifier) {
-    const auto realTimeMs =
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch())
-            .count();
-    const std::string kDumpPath{
-        std::string("/data/vendor/audio/audio_hal_service_")
-            .append(identifier)
-            .append("_")
-            .append(std::to_string(realTimeMs))
-            .append(".dump")};
+    const auto realTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                    std::chrono::system_clock::now().time_since_epoch())
+                                    .count();
+    const std::string kDumpPath{std::string("/data/vendor/audio/audio_hal_service_")
+                                        .append(identifier)
+                                        .append("_")
+                                        .append(std::to_string(realTimeMs))
+                                        .append(".dump")};
 
     const auto fd = ::open(kDumpPath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
                            S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
@@ -114,8 +111,7 @@ void ModulePrimary::dumpInternal(const std::string& identifier) {
     const auto dumpData = toStringInternal();
     auto b = ::write(fd, dumpData.c_str(), dumpData.size());
     if (b != static_cast<decltype(b)>(dumpData.size())) {
-        LOG(ERROR) << __func__ << ": dump internal failed to write in "
-                   << kDumpPath;
+        LOG(ERROR) << __func__ << ": dump internal failed to write in " << kDumpPath;
     }
     LOG(DEBUG) << __func__ << ": at: " << kDumpPath;
     ::close(fd);
@@ -133,12 +129,11 @@ binder_status_t ModulePrimary::dump(int fd, const char** args, uint32_t numArgs)
         LOG(ERROR) << __func__ << " write error in dump";
         return -EIO;
     }
-    LOG(INFO) << __func__ <<" :success";
+    LOG(INFO) << __func__ << " :success";
     return 0;
 }
 
-ndk::ScopedAStatus ModulePrimary::getBluetooth(
-    std::shared_ptr<IBluetooth>* _aidl_return) {
+ndk::ScopedAStatus ModulePrimary::getBluetooth(std::shared_ptr<IBluetooth>* _aidl_return) {
     if (!mBluetooth) {
         mBluetooth = ndk::SharedRefBase::make<::qti::audio::core::Bluetooth>();
     }
@@ -148,8 +143,7 @@ ndk::ScopedAStatus ModulePrimary::getBluetooth(
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus ModulePrimary::getBluetoothA2dp(
-    std::shared_ptr<IBluetoothA2dp>* _aidl_return) {
+ndk::ScopedAStatus ModulePrimary::getBluetoothA2dp(std::shared_ptr<IBluetoothA2dp>* _aidl_return) {
     if (!mBluetoothA2dp) {
         mBluetoothA2dp = ndk::SharedRefBase::make<::qti::audio::core::BluetoothA2dp>();
     }
@@ -159,8 +153,7 @@ ndk::ScopedAStatus ModulePrimary::getBluetoothA2dp(
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus ModulePrimary::getBluetoothLe(
-    std::shared_ptr<IBluetoothLe>* _aidl_return) {
+ndk::ScopedAStatus ModulePrimary::getBluetoothLe(std::shared_ptr<IBluetoothLe>* _aidl_return) {
     if (!mBluetoothLe) {
         mBluetoothLe = ndk::SharedRefBase::make<::qti::audio::core::BluetoothLe>();
     }
@@ -170,8 +163,7 @@ ndk::ScopedAStatus ModulePrimary::getBluetoothLe(
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus ModulePrimary::getTelephony(
-    std::shared_ptr<ITelephony>* _aidl_return) {
+ndk::ScopedAStatus ModulePrimary::getTelephony(std::shared_ptr<ITelephony>* _aidl_return) {
     if (!mTelephony) {
         mTelephony = ndk::SharedRefBase::make<Telephony>();
     }
@@ -185,8 +177,7 @@ ndk::ScopedAStatus ModulePrimary::createInputStream(StreamContext&& context,
                                                     const SinkMetadata& sinkMetadata,
                                                     const std::vector<MicrophoneInfo>& microphones,
                                                     std::shared_ptr<StreamIn>* result) {
-    createStreamInstance<StreamInPrimary>(result, std::move(context), sinkMetadata,
-                                              microphones);
+    createStreamInstance<StreamInPrimary>(result, std::move(context), sinkMetadata, microphones);
     ModulePrimary::inListMutex.lock();
     ModulePrimary::updateStreamInList(*result);
     if (!mTelephony) mTelephony->mStreamInPrimary = *result;
@@ -197,21 +188,18 @@ ndk::ScopedAStatus ModulePrimary::createInputStream(StreamContext&& context,
 ndk::ScopedAStatus ModulePrimary::createOutputStream(
         StreamContext&& context, const SourceMetadata& sourceMetadata,
         const std::optional<AudioOffloadInfo>& offloadInfo, std::shared_ptr<StreamOut>* result) {
-    createStreamInstance<StreamOutPrimary>(result, std::move(context), sourceMetadata,
-                                               offloadInfo);
+    createStreamInstance<StreamOutPrimary>(result, std::move(context), sourceMetadata, offloadInfo);
     ModulePrimary::outListMutex.lock();
     ModulePrimary::updateStreamOutList(*result);
-    //save primary out stream weak ptr, as some other modules need it.
+    // save primary out stream weak ptr, as some other modules need it.
     if (!mTelephony) mTelephony->mStreamOutPrimary = *result;
     ModulePrimary::outListMutex.unlock();
     return ndk::ScopedAStatus::ok();
 }
 
-std::vector<::aidl::android::media::audio::common::AudioProfile>
-ModulePrimary::getDynamicProfiles(
-    const ::aidl::android::media::audio::common::AudioPort& audioPort) {
-    if (mPlatform.isUsbDevice(
-            audioPort.ext.get<AudioPortExt::Tag::device>().device)) {
+std::vector<::aidl::android::media::audio::common::AudioProfile> ModulePrimary::getDynamicProfiles(
+        const ::aidl::android::media::audio::common::AudioPort& audioPort) {
+    if (mPlatform.isUsbDevice(audioPort.ext.get<AudioPortExt::Tag::device>().device)) {
         /* as of now, we do dynamic fetching for usb devices*/
         auto dynamicProfiles = mPlatform.getDynamicProfiles(audioPort);
         return dynamicProfiles;
@@ -220,27 +208,24 @@ ModulePrimary::getDynamicProfiles(
 }
 
 void ModulePrimary::onNewPatchCreation(const std::vector<AudioPortConfig*>& sources,
-                                const std::vector<AudioPortConfig*>& sinks,
-                                AudioPatch& newPatch) {
-    if (!isMixPortConfig(*(sources.at(0))) &&
-        !isMixPortConfig(*(sinks.at(0)))) {
+                                       const std::vector<AudioPortConfig*>& sinks,
+                                       AudioPatch& newPatch) {
+    if (!isMixPortConfig(*(sources.at(0))) && !isMixPortConfig(*(sinks.at(0)))) {
         LOG(VERBOSE) << __func__ << ": no mix ports detected";
         return;
     }
     auto numFrames = mPlatform.getMinimumStreamSizeFrames(sources, sinks);
     if (numFrames < kMinimumStreamBufferSizeFrames) {
-        LOG(DEBUG) << __func__ << ": got invalid stream size frames "
-                     << numFrames << " adjusting to "
-                     << kMinimumStreamBufferSizeFrames;
+        LOG(DEBUG) << __func__ << ": got invalid stream size frames " << numFrames
+                   << " adjusting to " << kMinimumStreamBufferSizeFrames;
         numFrames = kMinimumStreamBufferSizeFrames;
     }
     newPatch.minimumStreamBufferSizeFrames = numFrames;
 }
 
-void ModulePrimary::updateTelephonyPatch(
-    const std::vector<AudioPortConfig*>& sources,
-    const std::vector<AudioPortConfig*>& sinks, const AudioPatch& patch) {
-
+void ModulePrimary::updateTelephonyPatch(const std::vector<AudioPortConfig*>& sources,
+                                         const std::vector<AudioPortConfig*>& sinks,
+                                         const AudioPatch& patch) {
     if (!mTelephony) {
         LOG(ERROR) << __func__ << ": Telephony not created";
         return;
@@ -249,14 +234,11 @@ void ModulePrimary::updateTelephonyPatch(
     // Todo remove this, upon device to device patch works for telephony
     mTelephony->updateDevicesFromPrimaryPlayback();
 
-    if (!isDevicePortConfig(*(sources.at(0))) ||
-        !isDevicePortConfig(*(sinks.at(0)))) {
+    if (!isDevicePortConfig(*(sources.at(0))) || !isDevicePortConfig(*(sinks.at(0)))) {
         return;
     }
-    bool updateRx = isTelephonyRXDevice(
-        sources.at(0)->ext.get<AudioPortExt::Tag::device>().device);
-    bool updateTx = isTelephonyTXDevice(
-        sinks.at(0)->ext.get<AudioPortExt::Tag::device>().device);
+    bool updateRx = isTelephonyRXDevice(sources.at(0)->ext.get<AudioPortExt::Tag::device>().device);
+    bool updateTx = isTelephonyTXDevice(sinks.at(0)->ext.get<AudioPortExt::Tag::device>().device);
 
     if (!updateRx && !updateTx) {
         LOG(ERROR) << __func__ << ": neither RX nor TX update ";
@@ -267,34 +249,28 @@ void ModulePrimary::updateTelephonyPatch(
 
     std::vector<AudioDevice> devices;
     for (const auto configPtr : toBeUpdated) {
-        devices.push_back(
-            configPtr->ext.get<AudioPortExt::Tag::device>().device);
+        devices.push_back(configPtr->ext.get<AudioPortExt::Tag::device>().device);
     }
 
     // Todo uncomment below ,upon device to device patch works for telephony
     mTelephony->setDevicesFromPatch(devices, updateRx);
-    LOG(VERBOSE) << __func__ << ": device to device patch, "
-                 << patch.toString();
+    LOG(VERBOSE) << __func__ << ": device to device patch, " << patch.toString();
     return;
 }
 
 void ModulePrimary::onExternalDeviceConnectionChanged(
-    const ::aidl::android::media::audio::common::AudioPort& audioPort,
-    bool connected) {
+        const ::aidl::android::media::audio::common::AudioPort& audioPort, bool connected) {
     if (!mPlatform.handleDeviceConnectionChange(audioPort, connected)) {
-        LOG(WARNING) << __func__
-                     << " failed to handle device connection change:"
-                     << (connected ? " connect" : "disconnect") << " for "
-                     << audioPort.toString();
+        LOG(WARNING) << __func__ << " failed to handle device connection change:"
+                     << (connected ? " connect" : "disconnect") << " for " << audioPort.toString();
     }
 }
 
 // start of module parameters handling
 
 ndk::ScopedAStatus ModulePrimary::setVendorParameters(
-    const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
-        in_parameters,
-    bool in_async) {
+        const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& in_parameters,
+        bool in_async) {
     LOG(DEBUG) << __func__ << ": parameter count " << in_parameters.size()
                << ", async: " << in_async;
     bool allParametersKnown = true;
@@ -308,14 +284,14 @@ ndk::ScopedAStatus ModulePrimary::setVendorParameters(
                 return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
             }
         } else {
-            struct str_parms *parms = NULL;
+            struct str_parms* parms = NULL;
             std::string kvpairs = getkvPairsForVendorParameter(in_parameters);
             if (!kvpairs.empty()) {
                 parms = str_parms_create_str(kvpairs.c_str());
                 mAudExt.audio_extn_set_parameters(parms);
             }
 
-            mPlatform.setVendorParameters(in_parameters,in_async);
+            mPlatform.setVendorParameters(in_parameters, in_async);
             allParametersKnown = false;
             LOG(ERROR) << __func__ << ": unrecognized parameter \"" << p.id << "\"";
         }
@@ -325,14 +301,12 @@ ndk::ScopedAStatus ModulePrimary::setVendorParameters(
     return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
 }
 
-bool ModulePrimary::processSetVendorParameters(
-    const std::vector<VendorParameter>& parameters) {
-
+bool ModulePrimary::processSetVendorParameters(const std::vector<VendorParameter>& parameters) {
     FeatureToVendorParametersMap pendingActions{};
     for (const auto& p : parameters) {
         const auto searchId = mSetParameterToFeatureMap.find(p.id);
         if (searchId == mSetParameterToFeatureMap.cend()) {
-            LOG(ERROR) << __func__ << ": not configured "<< p.id;
+            LOG(ERROR) << __func__ << ": not configured " << p.id;
             continue;
         }
 
@@ -344,11 +318,11 @@ bool ModulePrimary::processSetVendorParameters(
         itr->second.push_back(p);
     }
 
-    for (const auto& [key, value] : pendingActions) {
+    for (const auto & [ key, value ] : pendingActions) {
         const auto search = mFeatureToSetHandlerMap.find(key);
         if (search == mFeatureToSetHandlerMap.cend()) {
-            LOG(ERROR) << __func__ << ": no handler set on Feature:"
-                       << static_cast<int>(search->first);
+            LOG(ERROR) << __func__
+                       << ": no handler set on Feature:" << static_cast<int>(search->first);
             continue;
         }
         auto handler = std::bind(search->second, this, value);
@@ -358,8 +332,7 @@ bool ModulePrimary::processSetVendorParameters(
 }
 
 void ModulePrimary::onSetGenericParameters(
-        const std::vector<
-            ::aidl::android::hardware::audio::core::VendorParameter>& params) {
+        const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& params) {
     for (const auto& param : params) {
         std::string paramValue{};
         if (!extractParameter<VString>(param, &paramValue)) {
@@ -382,10 +355,9 @@ void ModulePrimary::onSetHDRParameters(const std::vector<VendorParameter>& param
     return;
 };
 
-void ModulePrimary::onSetTelephonyParameters(
-    const std::vector<VendorParameter>& parameters) {
-    if(!mTelephony){
-        LOG(ERROR)<<__func__<<": Telephony not created";
+void ModulePrimary::onSetTelephonyParameters(const std::vector<VendorParameter>& parameters) {
+    if (!mTelephony) {
+        LOG(ERROR) << __func__ << ": Telephony not created";
         return;
     }
 
@@ -398,11 +370,10 @@ void ModulePrimary::onSetTelephonyParameters(
             continue;
         }
         if (Parameters::kVoiceCallState == p.id) {
-            setUpdates.mCallState = static_cast<Telephony::CallState>(
-                getInt64FromString(paramValue));
+            setUpdates.mCallState =
+                    static_cast<Telephony::CallState>(getInt64FromString(paramValue));
         } else if (Parameters::kVoiceVSID == p.id) {
-            setUpdates.mVSID =
-                static_cast<Telephony::VSID>(getInt64FromString(paramValue));
+            setUpdates.mVSID = static_cast<Telephony::VSID>(getInt64FromString(paramValue));
         } else if (Parameters::kVoiceCallType == p.id) {
             setUpdates.mCallType = std::move(paramValue);
         } else if (Parameters::kVoiceCRSCall == p.id) {
@@ -417,37 +388,34 @@ void ModulePrimary::onSetTelephonyParameters(
 
 // static
 ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeatureMap() {
-    SetParameterToFeatureMap map{
-        {Parameters::kHdrRecord, Feature::HDR},
-        {Parameters::kWnr, Feature::HDR},
-        {Parameters::kAns, Feature::HDR},
-        {Parameters::kOrientation, Feature::HDR},
-        {Parameters::kInverted, Feature::HDR},
-        {Parameters::kHdrChannelCount, Feature::HDR},
-        {Parameters::kHdrSamplingRate, Feature::HDR},
-        {Parameters::kVoiceCallState, Feature::TELEPHONY},
-        {Parameters::kVoiceCallType, Feature::TELEPHONY},
-        {Parameters::kVoiceVSID, Feature::TELEPHONY},
-        {Parameters::kVoiceCRSCall, Feature::TELEPHONY},
-        {Parameters::kInCallMusic, Feature::GENERIC}};
+    SetParameterToFeatureMap map{{Parameters::kHdrRecord, Feature::HDR},
+                                 {Parameters::kWnr, Feature::HDR},
+                                 {Parameters::kAns, Feature::HDR},
+                                 {Parameters::kOrientation, Feature::HDR},
+                                 {Parameters::kInverted, Feature::HDR},
+                                 {Parameters::kHdrChannelCount, Feature::HDR},
+                                 {Parameters::kHdrSamplingRate, Feature::HDR},
+                                 {Parameters::kVoiceCallState, Feature::TELEPHONY},
+                                 {Parameters::kVoiceCallType, Feature::TELEPHONY},
+                                 {Parameters::kVoiceVSID, Feature::TELEPHONY},
+                                 {Parameters::kVoiceCRSCall, Feature::TELEPHONY},
+                                 {Parameters::kInCallMusic, Feature::GENERIC}};
     return map;
 }
 
 // static
-ModulePrimary::FeatureToSetHandlerMap
-ModulePrimary::fillFeatureToSetHandlerMap() {
+ModulePrimary::FeatureToSetHandlerMap ModulePrimary::fillFeatureToSetHandlerMap() {
     FeatureToSetHandlerMap map{
-        {Feature::GENERIC, &ModulePrimary::onSetGenericParameters},
-        {Feature::HDR, &ModulePrimary::onSetHDRParameters},
-        {Feature::TELEPHONY, &ModulePrimary::onSetTelephonyParameters},
+            {Feature::GENERIC, &ModulePrimary::onSetGenericParameters},
+            {Feature::HDR, &ModulePrimary::onSetHDRParameters},
+            {Feature::TELEPHONY, &ModulePrimary::onSetTelephonyParameters},
     };
     return map;
 }
 
 ndk::ScopedAStatus ModulePrimary::getVendorParameters(
-    const std::vector<std::string>& in_ids,
-    std::vector<::aidl::android::hardware::audio::core::VendorParameter>*
-        _aidl_return) {
+        const std::vector<std::string>& in_ids,
+        std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return) {
     LOG(DEBUG) << __func__ << ": id count: " << in_ids.size();
     bool allParametersKnown = true;
     for (const auto& id : in_ids) {
@@ -467,14 +435,14 @@ ndk::ScopedAStatus ModulePrimary::getVendorParameters(
     }
 
     auto results = processGetVendorParameters(in_ids);
-    std::move(results.begin(),results.end(),std::back_inserter(*_aidl_return));
+    std::move(results.begin(), results.end(), std::back_inserter(*_aidl_return));
 
     if (allParametersKnown) return ndk::ScopedAStatus::ok();
     return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
 }
 
 std::vector<VendorParameter> ModulePrimary::processGetVendorParameters(
-    const std::vector<std::string>& ids) {
+        const std::vector<std::string>& ids) {
     FeatureToStringMap pendingActions{};
     for (const auto& id : ids) {
         auto search = mGetParameterToFeatureMap.find(id);
@@ -491,23 +459,22 @@ std::vector<VendorParameter> ModulePrimary::processGetVendorParameters(
     }
 
     std::vector<VendorParameter> result{};
-    for (const auto& [key, value] : pendingActions) {
+    for (const auto & [ key, value ] : pendingActions) {
         const auto search = mFeatureToGetHandlerMap.find(key);
         if (search == mFeatureToGetHandlerMap.cend()) {
-            LOG(ERROR) << __func__ << ": no handler set on Feature:"
-                       << static_cast<int>(search->first);
+            LOG(ERROR) << __func__
+                       << ": no handler set on Feature:" << static_cast<int>(search->first);
             continue;
         }
         auto handler = std::bind(search->second, this, value);
-        auto keyResult = handler();  // a dynamic dispatch to GetHandler
+        auto keyResult = handler(); // a dynamic dispatch to GetHandler
         result.insert(result.end(), keyResult.begin(), keyResult.end());
     }
     return result;
 }
 
 std::vector<VendorParameter> ModulePrimary::onGetAudioExtnParams(
-    const std::vector<std::string>& ids) {
-
+        const std::vector<std::string>& ids) {
     std::vector<VendorParameter> results{};
     for (const auto& id : ids) {
         if (id == Parameters::kFMStatus) {
@@ -518,8 +485,7 @@ std::vector<VendorParameter> ModulePrimary::onGetAudioExtnParams(
             parcel.value = fm_status ? "true" : "false";
             setParameter(parcel, param);
             results.push_back(param);
-        }
-        else if (id == Parameters::kCanOpenProxy) {
+        } else if (id == Parameters::kCanOpenProxy) {
             VendorParameter param;
             param.id = id;
             VString parcel;
@@ -532,7 +498,7 @@ std::vector<VendorParameter> ModulePrimary::onGetAudioExtnParams(
 }
 
 std::vector<VendorParameter> ModulePrimary::onGetBluetoothParams(
-    const std::vector<std::string>& ids) {
+        const std::vector<std::string>& ids) {
     if (!mBluetoothA2dp) {
         LOG(ERROR) << __func__ << ": Bluetooth not created";
         return {};
@@ -551,11 +517,10 @@ std::vector<VendorParameter> ModulePrimary::onGetBluetoothParams(
         }
     }
     return results;
-
 }
 
 std::vector<VendorParameter> ModulePrimary::onGetTelephonyParameters(
-    const std::vector<std::string>& ids) {
+        const std::vector<std::string>& ids) {
     if (!mTelephony) {
         LOG(ERROR) << __func__ << ": Telephony not created";
         return {};
@@ -574,26 +539,23 @@ std::vector<VendorParameter> ModulePrimary::onGetTelephonyParameters(
     return results;
 }
 
-// static 
+// static
 ModulePrimary::GetParameterToFeatureMap ModulePrimary::fillGetParameterToFeatureMap() {
-    GetParameterToFeatureMap map{
-        {Parameters::kVoiceIsCRsSupported, Feature::TELEPHONY},
-        {Parameters::kA2dpSuspended, Feature::BLUETOOTH},
-        {Parameters::kFMStatus, Feature::AUDIOEXTENSION},
-        {Parameters::kCanOpenProxy, Feature::AUDIOEXTENSION}};
+    GetParameterToFeatureMap map{{Parameters::kVoiceIsCRsSupported, Feature::TELEPHONY},
+                                 {Parameters::kA2dpSuspended, Feature::BLUETOOTH},
+                                 {Parameters::kFMStatus, Feature::AUDIOEXTENSION},
+                                 {Parameters::kCanOpenProxy, Feature::AUDIOEXTENSION}};
     return map;
 }
 
 // static
-ModulePrimary::FeatureToGetHandlerMap
-ModulePrimary::fillFeatureToGetHandlerMap() {
-    FeatureToGetHandlerMap map{
-        {Feature::TELEPHONY, &ModulePrimary::onGetTelephonyParameters},
-        {Feature::BLUETOOTH, &ModulePrimary::onGetBluetoothParams},
-        {Feature::AUDIOEXTENSION, &ModulePrimary::onGetAudioExtnParams}};
+ModulePrimary::FeatureToGetHandlerMap ModulePrimary::fillFeatureToGetHandlerMap() {
+    FeatureToGetHandlerMap map{{Feature::TELEPHONY, &ModulePrimary::onGetTelephonyParameters},
+                               {Feature::BLUETOOTH, &ModulePrimary::onGetBluetoothParams},
+                               {Feature::AUDIOEXTENSION, &ModulePrimary::onGetAudioExtnParams}};
     return map;
 }
 
 // end of module parameters handling
 
-}  // namespace qti::audio::core
+} // namespace qti::audio::core

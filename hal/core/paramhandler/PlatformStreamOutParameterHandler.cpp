@@ -3,14 +3,14 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
+#include <android-base/logging.h>
 #include <qti-core/PlatformInterface.h>
 #include "PalDefs.h"
-#include <android-base/logging.h>
 
 namespace qti::audio::core {
 
-int32_t AudioStreamOutParameterHandler::setParameters(const std::vector<std::string>& keyValuePairs)
-{
+int32_t AudioStreamOutParameterHandler::setParameters(
+        const std::vector<std::string>& keyValuePairs) {
     int32_t status = 0;
     LOG(VERBOSE) << __func__ << ": Enter";
     LOG(VERBOSE) << __func__ << ": Exit ";
@@ -18,8 +18,7 @@ int32_t AudioStreamOutParameterHandler::setParameters(const std::vector<std::str
 }
 
 int32_t AudioStreamOutParameterHandler::getParameters(const std::string& keys,
-                                  std::string& values)
-{
+                                                      std::string& values) {
     int32_t status = 0;
     LOG(VERBOSE) << __func__ << ": Enter";
     LOG(VERBOSE) << __func__ << ": Exit ";

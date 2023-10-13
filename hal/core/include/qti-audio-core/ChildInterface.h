@@ -58,4 +58,4 @@ struct ChildInterface : private std::pair<std::shared_ptr<C>, ndk::SpAIBinder> {
     }
 };
 
-}  // namespace qti::audio::core
+} // namespace qti::audio::core

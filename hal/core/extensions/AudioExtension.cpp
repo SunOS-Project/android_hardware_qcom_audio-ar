@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#include <dlfcn.h>
-#include <log/log.h>
-#include <extensions/AudioExtension.h>
 #include <Utils.h>
 #include <android-base/logging.h>
+#include <dlfcn.h>
+#include <extensions/AudioExtension.h>
+#include <log/log.h>
 #include "PalApi.h"
 
 #define DEFAULT_OUTPUT_SAMPLING_RATE 48000
@@ -23,32 +23,29 @@ namespace qti::audio::core {
 std::mutex AudioExtension::reconfig_wait_mutex_;
 bool BatteryListenerExtension::isCharging;
 
-AudioExtensionBase::AudioExtensionBase(std::string library, bool enabled) :
-    mLibraryName(library),
-    mEnabled (enabled)
-{
+AudioExtensionBase::AudioExtensionBase(std::string library, bool enabled)
+    : mLibraryName(library), mEnabled(enabled) {
     LOG(INFO) << __func__ << " opening " << mLibraryName.c_str() << " enabled " << enabled;
     if (mEnabled) {
         mHandle = dlopen(mLibraryName.c_str(), RTLD_LAZY);
         if (mHandle == nullptr) {
-            const char* error = dlerror();
-            LOG(INFO) << __func__ << " Failed to dlopen  " << mLibraryName.c_str() << " error  " << error;
+            const char *error = dlerror();
+            LOG(INFO) << __func__ << " Failed to dlopen  " << mLibraryName.c_str() << " error  "
+                      << error;
         }
     }
 }
 
-AudioExtensionBase:: ~AudioExtensionBase() {
+AudioExtensionBase::~AudioExtensionBase() {
     cleanUp();
 }
 
 void AudioExtension::audio_extn_get_parameters(struct str_parms *query, struct str_parms *reply) {
-
     char *kv_pairs = NULL;
     char value[32] = {0};
     int ret, val = 0;
 
-
-    ret = str_parms_get_str(query, AUDIO_PARAMETER_KEY_CAN_OPEN_PROXY, value,sizeof(value));
+    ret = str_parms_get_str(query, AUDIO_PARAMETER_KEY_CAN_OPEN_PROXY, value, sizeof(value));
     if (ret >= 0) {
         val = 1;
         str_parms_add_int(reply, AUDIO_PARAMETER_KEY_CAN_OPEN_PROXY, val);
@@ -58,22 +55,19 @@ void AudioExtension::audio_extn_get_parameters(struct str_parms *query, struct s
         LOG(VERBOSE) << __func__ << " returns " << kv_pairs;
     }
     free(kv_pairs);
-
 }
 void AudioExtension::audio_extn_set_parameters(struct str_parms *params) {
-
     mHfpExtension->audio_extn_hfp_set_parameters(params);
     mFmExtension->audio_extn_fm_set_parameters(params);
     audio_feature_stats_set_parameters(params);
 }
 
 void AudioExtension::audio_feature_stats_set_parameters(struct str_parms *params) {
-    FILE* fp;
+    FILE *fp;
     int status = 0;
     char value[50] = {0};
 
-    status = str_parms_get_str(params, AFS_PARAMETER_QVA_VERSION, value,
-                                     sizeof(value));
+    status = str_parms_get_str(params, AFS_PARAMETER_QVA_VERSION, value, sizeof(value));
     if (status >= 0) {
         fp = fopen(AFS_QVA_FILE_NAME, "w");
         if (!fp) {
@@ -83,9 +77,9 @@ void AudioExtension::audio_feature_stats_set_parameters(struct str_parms *params
             strlcat(qva_version, value, sizeof(qva_version));
             LOG(DEBUG) << __func__ << " QVA Version : " << qva_version;
             fprintf(fp, "%s", qva_version);
-           fclose(fp);
-       }
-   }
+            fclose(fp);
+        }
+    }
 }
 
 void AudioExtensionBase::cleanUp() {
@@ -102,16 +96,14 @@ void BatteryListenerExtension::setChargingMode(bool is_charging) {
     isCharging = is_charging;
     charge_state.charging_state = is_charging;
 
-    result = pal_set_param(PAL_PARAM_ID_CHARGING_STATE, (void*)&charge_state,
-                        sizeof(pal_param_charging_state_t));
-    if (result)
-        LOG(DEBUG) << __func__ << " error while handling charging event result " << result;
+    result = pal_set_param(PAL_PARAM_ID_CHARGING_STATE, (void *)&charge_state,
+                           sizeof(pal_param_charging_state_t));
+    if (result) LOG(DEBUG) << __func__ << " error while handling charging event result " << result;
 
     LOG(DEBUG) << __func__ << " exit";
 }
 
-void on_battery_status_changed(bool charging)
-{
+void on_battery_status_changed(bool charging) {
     LOG(DEBUG) << __func__ << " battery status changed to " << charging;
     BatteryListenerExtension::setChargingMode(charging);
 }
@@ -121,59 +113,54 @@ BatteryListenerExtension::~BatteryListenerExtension() {
 }
 
 void BatteryListenerExtension::battery_properties_listener_deinit() {
-
-    if (batt_listener_deinit)
-        batt_listener_deinit();
+    if (batt_listener_deinit) batt_listener_deinit();
 }
 
 bool BatteryListenerExtension::battery_properties_is_charging() {
-    return (batt_prop_is_charging)? batt_prop_is_charging(): false;
+    return (batt_prop_is_charging) ? batt_prop_is_charging() : false;
 }
 
 void BatteryListenerExtension::battery_properties_listener_init() {
-    if (batt_listener_init)
-        batt_listener_init(on_battery_status_changed);
+    if (batt_listener_init) batt_listener_init(on_battery_status_changed);
 }
 
-BatteryListenerExtension::BatteryListenerExtension() :
-AudioExtensionBase (kBatteryListenerLibrary, isExtensionEnabled(kBatteryListenerProperty)) {
+BatteryListenerExtension::BatteryListenerExtension()
+    : AudioExtensionBase(kBatteryListenerLibrary, isExtensionEnabled(kBatteryListenerProperty)) {
     LOG(INFO) << __func__ << " Enter";
     if (mHandle != nullptr) {
-         if (!(batt_listener_init = (batt_listener_init_t)dlsym(
-                             mHandle, "battery_properties_listener_init")) ||
-                 !(batt_listener_deinit =
-                      (batt_listener_deinit_t)dlsym(
-                         mHandle, "battery_properties_listener_deinit")) ||
-                 !(batt_prop_is_charging =
-                      (batt_prop_is_charging_t)dlsym(
-                         mHandle, "battery_properties_is_charging"))) {
-              LOG(ERROR) << __func__ << "dlsym failed";
-                 goto feature_disabled;
-         }
-         LOG(INFO) << __func__ << "----- Feature BATTERY_LISTENER is enabled ----";
-         battery_properties_listener_init();
-         setChargingMode(battery_properties_is_charging());
-         return;
-     }
+        if (!(batt_listener_init =
+                      (batt_listener_init_t)dlsym(mHandle, "battery_properties_listener_init")) ||
+            !(batt_listener_deinit = (batt_listener_deinit_t)dlsym(
+                      mHandle, "battery_properties_listener_deinit")) ||
+            !(batt_prop_is_charging =
+                      (batt_prop_is_charging_t)dlsym(mHandle, "battery_properties_is_charging"))) {
+            LOG(ERROR) << __func__ << "dlsym failed";
+            goto feature_disabled;
+        }
+        LOG(INFO) << __func__ << "----- Feature BATTERY_LISTENER is enabled ----";
+        battery_properties_listener_init();
+        setChargingMode(battery_properties_is_charging());
+        return;
+    }
 
-     feature_disabled:
-     if (mHandle) {
-         dlclose(mHandle);
-         mHandle = NULL;
-     }
+feature_disabled:
+    if (mHandle) {
+        dlclose(mHandle);
+        mHandle = NULL;
+    }
 
-     batt_listener_init = NULL;
-     batt_listener_deinit = NULL;
-     batt_prop_is_charging = NULL;
-     LOG(INFO) << __func__ << "----- Feature BATTERY_LISTENER is disabled ----";
+    batt_listener_init = NULL;
+    batt_listener_deinit = NULL;
+    batt_prop_is_charging = NULL;
+    LOG(INFO) << __func__ << "----- Feature BATTERY_LISTENER is disabled ----";
 }
 
-static int reconfig_cb (tSESSION_TYPE session_type, int state)
-{
+static int reconfig_cb(tSESSION_TYPE session_type, int state) {
     int ret = 0;
     pal_param_bta2dp_t param_bt_a2dp;
-    LOG(DEBUG) << __func__ << " reconfig_cb enter with state " << reconfigStateName.at(state).c_str() << " for " <<
-        deviceNameLUT.at(SessionTypePalDevMap.at(session_type)).c_str();
+    LOG(DEBUG) << __func__ << " reconfig_cb enter with state "
+               << reconfigStateName.at(state).c_str() << " for "
+               << deviceNameLUT.at(SessionTypePalDevMap.at(session_type)).c_str();
 
     /* If reconfiguration is in progress state (state = 0), perform a2dp suspend.
      * If reconfiguration is in complete state (state = 1), perform a2dp resume.
@@ -200,13 +187,13 @@ static int reconfig_cb (tSESSION_TYPE session_type, int state)
         } else if ((tRECONFIG_STATE)state == CHANNEL_MONO) {
             param_bt_a2dp.is_lc3_mono_mode_on = true;
 
-            ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_LC3_CONFIG, (void*)&param_bt_a2dp,
-                sizeof(pal_param_bta2dp_t));
+            ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_LC3_CONFIG, (void *)&param_bt_a2dp,
+                                sizeof(pal_param_bta2dp_t));
         } else if ((tRECONFIG_STATE)state == CHANNEL_STEREO) {
             param_bt_a2dp.is_lc3_mono_mode_on = false;
 
-            ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_LC3_CONFIG, (void*)&param_bt_a2dp,
-                sizeof(pal_param_bta2dp_t));
+            ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_LC3_CONFIG, (void *)&param_bt_a2dp,
+                                sizeof(pal_param_bta2dp_t));
         }
     } else if (session_type == LE_AUDIO_HARDWARE_OFFLOAD_DECODING_DATAPATH) {
         if ((tRECONFIG_STATE)state == SESSION_SUSPEND) {
@@ -233,7 +220,7 @@ static int reconfig_cb (tSESSION_TYPE session_type, int state)
             param_bt_a2dp.is_suspend_setparam = false;
             param_bt_a2dp.dev_id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
 
-            ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_SUSPENDED, (void*)&param_bt_a2dp,
+            ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_SUSPENDED, (void *)&param_bt_a2dp,
                                 sizeof(pal_param_bta2dp_t));
         } else if ((tRECONFIG_STATE)state == SESSION_RESUME) {
             std::unique_lock<std::mutex> guard(AudioExtension::reconfig_wait_mutex_);
@@ -241,23 +228,22 @@ static int reconfig_cb (tSESSION_TYPE session_type, int state)
             param_bt_a2dp.is_suspend_setparam = false;
             param_bt_a2dp.dev_id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
 
-            ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_SUSPENDED, (void*)&param_bt_a2dp,
+            ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_SUSPENDED, (void *)&param_bt_a2dp,
                                 sizeof(pal_param_bta2dp_t));
         }
     }
-    LOG(DEBUG) << __func__ << " reconfig_cb exit with state " <<  reconfigStateName.at(state).c_str() << " for " <<
-                   deviceNameLUT.at(SessionTypePalDevMap.at(session_type)).c_str();
+    LOG(DEBUG) << __func__ << " reconfig_cb exit with state " << reconfigStateName.at(state).c_str()
+               << " for " << deviceNameLUT.at(SessionTypePalDevMap.at(session_type)).c_str();
     return ret;
 }
 
-A2dpExtension::~A2dpExtension() {
-}
-A2dpExtension::A2dpExtension() :
-AudioExtensionBase (kBluetoothIpcLibrary, isExtensionEnabled(kBluetoothProperty)) {
+A2dpExtension::~A2dpExtension() {}
+A2dpExtension::A2dpExtension()
+    : AudioExtensionBase(kBluetoothIpcLibrary, isExtensionEnabled(kBluetoothProperty)) {
     LOG(INFO) << __func__ << " Enter";
     if (mHandle != nullptr) {
-        if (!(a2dp_bt_audio_pre_init = (a2dp_bt_audio_pre_init_t)dlsym(
-            mHandle, "bt_audio_pre_init")) ) {
+        if (!(a2dp_bt_audio_pre_init =
+                      (a2dp_bt_audio_pre_init_t)dlsym(mHandle, "bt_audio_pre_init"))) {
             LOG(ERROR) << __func__ << " dlsym failed";
             goto feature_disabled;
         }
@@ -268,8 +254,8 @@ AudioExtensionBase (kBluetoothIpcLibrary, isExtensionEnabled(kBluetoothProperty)
             a2dp_bt_audio_pre_init();
         }
 
-        if (!(register_reconfig_cb = (register_reconfig_cb_t)dlsym(
-            mHandle, "register_reconfig_cb")) ) {
+        if (!(register_reconfig_cb =
+                      (register_reconfig_cb_t)dlsym(mHandle, "register_reconfig_cb"))) {
             LOG(ERROR) << __func__ << " dlsym failed for reconfig";
             goto feature_disabled;
         }
@@ -294,13 +280,11 @@ feature_disabled:
     LOG(VERBOSE) << __func__ << "---- Feature A2DP offload is disabled ---";
 }
 
-void HfpExtension::audio_extn_hfp_set_parameters(struct str_parms *params)
-{
-    if (hfp_set_parameters)hfp_set_parameters(micMute, params);
+void HfpExtension::audio_extn_hfp_set_parameters(struct str_parms *params) {
+    if (hfp_set_parameters) hfp_set_parameters(micMute, params);
 }
 
-int HfpExtension::audio_extn_hfp_set_mic_mute(bool state)
-{
+int HfpExtension::audio_extn_hfp_set_mic_mute(bool state) {
     if (audio_extn_hfp_is_active()) {
         micMute = state;
         return ((hfp_set_mic_mute) ? hfp_set_mic_mute(state) : -1);
@@ -308,40 +292,26 @@ int HfpExtension::audio_extn_hfp_set_mic_mute(bool state)
     return -1;
 }
 
-bool HfpExtension::audio_extn_hfp_is_active()
-{
+bool HfpExtension::audio_extn_hfp_is_active() {
     return ((hfp_is_active) ? hfp_is_active() : false);
 }
 
-HfpExtension::~HfpExtension() {
-}
-HfpExtension::HfpExtension() :
-AudioExtensionBase (kHfpLibrary, isExtensionEnabled(kHfpProperty)) {
+HfpExtension::~HfpExtension() {}
+HfpExtension::HfpExtension() : AudioExtensionBase(kHfpLibrary, isExtensionEnabled(kHfpProperty)) {
     LOG(INFO) << __func__ << " Enter";
     if (mHandle != nullptr) {
-        if (!(hfp_init = (hfp_init_t)dlsym(
-            mHandle, "hfp_init")) ||
-            !(hfp_is_active =
-            (hfp_is_active_t)dlsym(
-                mHandle, "hfp_is_active")) ||
-            !(hfp_get_usecase =
-            (hfp_get_usecase_t)dlsym(
-                mHandle, "hfp_get_usecase")) ||
-            !(hfp_set_mic_mute =
-            (hfp_set_mic_mute_t)dlsym(
-                mHandle, "hfp_set_mic_mute")) ||
-            !(hfp_set_mic_mute2 =
-            (hfp_set_mic_mute2_t)dlsym(
-                mHandle, "hfp_set_mic_mute2")) ||
-            !(hfp_set_parameters =
-            (hfp_set_parameters_t)dlsym(
-                mHandle, "hfp_set_parameters"))) {
-            LOG(ERROR) << __func__ <<" dlsym failed";
+        if (!(hfp_init = (hfp_init_t)dlsym(mHandle, "hfp_init")) ||
+            !(hfp_is_active = (hfp_is_active_t)dlsym(mHandle, "hfp_is_active")) ||
+            !(hfp_get_usecase = (hfp_get_usecase_t)dlsym(mHandle, "hfp_get_usecase")) ||
+            !(hfp_set_mic_mute = (hfp_set_mic_mute_t)dlsym(mHandle, "hfp_set_mic_mute")) ||
+            !(hfp_set_mic_mute2 = (hfp_set_mic_mute2_t)dlsym(mHandle, "hfp_set_mic_mute2")) ||
+            !(hfp_set_parameters = (hfp_set_parameters_t)dlsym(mHandle, "hfp_set_parameters"))) {
+            LOG(ERROR) << __func__ << " dlsym failed";
             goto feature_disabled;
         }
-        LOG(DEBUG) << __func__ <<"---- Feature HFP is Enabled ----";
+        LOG(DEBUG) << __func__ << "---- Feature HFP is Enabled ----";
         return;
-   }
+    }
 
 feature_disabled:
     if (mHandle) {
@@ -357,46 +327,42 @@ feature_disabled:
     hfp_set_parameters = NULL;
 }
 
-FmExtension::~FmExtension() {
-}
+FmExtension::~FmExtension() {}
 
 bool FmExtension::audio_extn_fm_get_status() {
-    if (fm_running_status)
-        return fm_running_status;
+    if (fm_running_status) return fm_running_status;
 
     return false;
 }
 
 void FmExtension::audio_extn_fm_set_parameters(struct str_parms *params) {
-    if (fm_set_params)
-        fm_set_params(params);
+    if (fm_set_params) fm_set_params(params);
 }
-FmExtension::FmExtension() :
-AudioExtensionBase (kFmLibrary) {
+FmExtension::FmExtension() : AudioExtensionBase(kFmLibrary) {
     LOG(INFO) << __func__ << " Enter";
     if (mHandle != nullptr) {
-        fm_set_params = (set_parameters_t) dlsym(mHandle, "fm_set_parameters");
-        fm_running_status = (fm_running_status_t) dlsym(mHandle, "fm_get_running_status");
-        if (!fm_set_params || !fm_running_status){
+        fm_set_params = (set_parameters_t)dlsym(mHandle, "fm_set_parameters");
+        fm_running_status = (fm_running_status_t)dlsym(mHandle, "fm_get_running_status");
+        if (!fm_set_params || !fm_running_status) {
             LOG(ERROR) << "error " << dlerror();
             dlclose(mHandle);
         }
     }
 }
 
-PerfLockExtension::~PerfLockExtension() {
-}
-PerfLockExtension::PerfLockExtension() :
-AudioExtensionBase (kHfpLibrary, isExtensionEnabled(kHfpProperty)) {
+PerfLockExtension::~PerfLockExtension() {}
+PerfLockExtension::PerfLockExtension()
+    : AudioExtensionBase(kHfpLibrary, isExtensionEnabled(kHfpProperty)) {
     LOG(INFO) << __func__ << " Enter";
     if (mHandle != nullptr) {
-        mAcquirePerfLock = reinterpret_cast<AcquirePerfLock> (dlsym(mHandle, "perf_lock_acq"));
-        mReleasePerfLock = reinterpret_cast<ReleasePerfLock> (dlsym(mHandle, "perf_lock_rel"));
+        mAcquirePerfLock = reinterpret_cast<AcquirePerfLock>(dlsym(mHandle, "perf_lock_acq"));
+        mReleasePerfLock = reinterpret_cast<ReleasePerfLock>(dlsym(mHandle, "perf_lock_rel"));
     }
 }
 
-int KarokeExtension::karaoke_open(pal_device_id_t device_out, pal_stream_callback pal_callback, pal_channel_info ch_info) {
-    //std::shared_ptr<AudioDevice> adevice = AudioDevice::GetInstance();
+int KarokeExtension::karaoke_open(pal_device_id_t device_out, pal_stream_callback pal_callback,
+                                  pal_channel_info ch_info) {
+    // std::shared_ptr<AudioDevice> adevice = AudioDevice::GetInstance();
     const int num_pal_devs = 2;
     struct pal_device pal_devs[num_pal_devs];
     karaoke_stream_handle = NULL;
@@ -427,9 +393,9 @@ int KarokeExtension::karaoke_open(pal_device_id_t device_out, pal_stream_callbac
     for (int i = 0; i < num_pal_devs; ++i) {
         pal_devs[i].id = i ? device_in : device_out;
         if (device_out == PAL_DEVICE_OUT_USB_HEADSET || device_in == PAL_DEVICE_IN_USB_HEADSET) {
-            //Configure USB Digital Headset parameters
-            pal_param_device_capability_t *device_cap_query = (pal_param_device_capability_t *)
-                                                       malloc(sizeof(pal_param_device_capability_t));
+            // Configure USB Digital Headset parameters
+            pal_param_device_capability_t *device_cap_query =
+                    (pal_param_device_capability_t *)malloc(sizeof(pal_param_device_capability_t));
             if (!device_cap_query) {
                 LOG(ERROR) << __func__ << " Failed to allocate mem for device_cap_query";
                 return 0;
@@ -442,15 +408,14 @@ int KarokeExtension::karaoke_open(pal_device_id_t device_out, pal_stream_callbac
                 device_cap_query->id = PAL_DEVICE_IN_USB_DEVICE;
                 device_cap_query->is_playback = false;
             }
-            //TODO: //get usb details
-            device_cap_query->addr.card_id = 0;//adevice->usb_card_id_;
-            device_cap_query->addr.device_num = 0;//adevice->usb_dev_num_;
+            // TODO: //get usb details
+            device_cap_query->addr.card_id = 0;    // adevice->usb_card_id_;
+            device_cap_query->addr.device_num = 0; // adevice->usb_dev_num_;
             device_cap_query->config = &dynamic_media_config;
-            pal_get_param(PAL_PARAM_ID_DEVICE_CAPABILITY,
-                                 (void **)&device_cap_query,
-                                 &payload_size, nullptr);
-            pal_devs[i].address.card_id = 0;//adevice->usb_card_id_;
-            pal_devs[i].address.device_num = 0;//adevice->usb_dev_num_;
+            pal_get_param(PAL_PARAM_ID_DEVICE_CAPABILITY, (void **)&device_cap_query, &payload_size,
+                          nullptr);
+            pal_devs[i].address.card_id = 0;    // adevice->usb_card_id_;
+            pal_devs[i].address.device_num = 0; // adevice->usb_dev_num_;
             pal_devs[i].config.sample_rate = dynamic_media_config.sample_rate[0];
             pal_devs[i].config.ch_info = ch_info;
             pal_devs[i].config.aud_fmt_id = (pal_audio_fmt_t)dynamic_media_config.format[0];
@@ -462,13 +427,8 @@ int KarokeExtension::karaoke_open(pal_device_id_t device_out, pal_stream_callbac
             pal_devs[i].config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
         }
     }
-    return pal_stream_open(&sattr,
-            num_pal_devs, pal_devs,
-            0,
-            NULL,
-            pal_callback,
-            (uint64_t) this,
-            &karaoke_stream_handle);
+    return pal_stream_open(&sattr, num_pal_devs, pal_devs, 0, NULL, pal_callback, (uint64_t) this,
+                           &karaoke_stream_handle);
 }
 
 int KarokeExtension::karaoke_start() {
@@ -479,16 +439,13 @@ int KarokeExtension::karaoke_stop() {
     return pal_stream_stop(karaoke_stream_handle);
 }
 
-int KarokeExtension::karaoke_close(){
+int KarokeExtension::karaoke_close() {
     return pal_stream_close(karaoke_stream_handle);
 }
-KarokeExtension::~KarokeExtension() {
-}
-KarokeExtension::KarokeExtension() :
-AudioExtensionBase (kKarokeLibrary) {
+KarokeExtension::~KarokeExtension() {}
+KarokeExtension::KarokeExtension() : AudioExtensionBase(kKarokeLibrary) {
     LOG(INFO) << __func__ << " Enter";
     if (mHandle != nullptr) {
-
     }
 }
 }
