@@ -7,7 +7,8 @@
 #define LOG_TAG "AHAL_PlatformConverter"
 
 #include <android-base/logging.h>
-#include <qti-audio-core/PlatformConverter.h>
+#include <media/stagefright/foundation/MediaDefs.h>
+#include <qti-audio/PlatformConverter.h>
 
 using ::aidl::android::media::audio::common::AudioChannelLayout;
 using ::aidl::android::media::audio::common::AudioDeviceAddress;
@@ -17,7 +18,44 @@ using ::aidl::android::media::audio::common::AudioFormatDescription;
 using ::aidl::android::media::audio::common::AudioFormatType;
 using ::aidl::android::media::audio::common::PcmType;
 
-namespace qti::audio::core {
+// clang-format off
+namespace {
+__attribute__((no_sanitize("unsigned-integer-overflow")))
+static void hash_combiner(std::size_t& seed, const std::size_t& v) {
+    // see boost::hash_combine
+    seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
+}  // namespace
+// clang-format on
+
+namespace std {
+template <>
+struct hash<::aidl::android::media::audio::common::AudioDeviceDescription> {
+    std::size_t operator()(const ::aidl::android::media::audio::common::AudioDeviceDescription& add)
+            const noexcept {
+        std::size_t seed = 0;
+        hash_combiner(seed, std::hash<::aidl::android::media::audio::common::AudioDeviceType>{}(
+                                    add.type));
+        hash_combiner(seed, std::hash<std::string>{}(add.connection));
+        return seed;
+    }
+};
+
+template <>
+struct hash<::aidl::android::media::audio::common::AudioFormatDescription> {
+    std::size_t operator()(const ::aidl::android::media::audio::common::AudioFormatDescription& aft)
+            const noexcept {
+        std::size_t seed = 0;
+        hash_combiner(seed, std::hash<::aidl::android::media::audio::common::AudioFormatType>{}(
+                                    aft.type));
+        hash_combiner(seed, std::hash<::aidl::android::media::audio::common::PcmType>{}(aft.pcm));
+        hash_combiner(seed, std::hash<std::string>{}(aft.encoding));
+        return seed;
+    }
+};
+} // namespace std
+
+namespace qti::audio {
 
 AudioDeviceDescription makeAudioDeviceDescription(AudioDeviceType type,
                                                   const std::string& connection = "") {
@@ -224,8 +262,19 @@ std::map<T, S> make_ReverseMap(const std::vector<std::pair<S, T>>& v) {
     return result;
 }
 
+using AidlToPalDeviceMap =
+        std::map<::aidl::android::media::audio::common::AudioDeviceDescription, pal_device_id_t>;
+using AidlToPalAudioFormatMap =
+        std::map<::aidl::android::media::audio::common::AudioFormatDescription, pal_audio_fmt_t>;
+
+const static AidlToPalDeviceMap kAidlToPalDeviceMap =
+        make_DirectMap<AudioDeviceDescription, pal_device_id_t>(getDevicePairs());
+const static AidlToPalAudioFormatMap kAidlToPalAudioFormatMap =
+        make_ReverseMap<pal_audio_fmt_t, AudioFormatDescription>(getFormatPairs());
+
+// static
 std::unique_ptr<pal_channel_info> PlatformConverter::getPalChannelInfoForChannelCount(
-        int count) const {
+        int count) noexcept {
     auto ch_info = std::make_unique<pal_channel_info>();
     if (count == 1) {
         ch_info->channels = 1;
@@ -285,7 +334,9 @@ std::unique_ptr<pal_channel_info> PlatformConverter::getPalChannelInfoForChannel
     return std::move(ch_info);
 }
 
-uint16_t PlatformConverter::getBitWidthForAidlPCM(const AudioFormatDescription& aidlFormat) const {
+// static
+uint16_t PlatformConverter::getBitWidthForAidlPCM(
+        const AudioFormatDescription& aidlFormat) noexcept {
     if (aidlFormat.type != AudioFormatType::PCM) {
         return 0;
     }
@@ -305,11 +356,12 @@ uint16_t PlatformConverter::getBitWidthForAidlPCM(const AudioFormatDescription& 
     return 0;
 }
 
+// static
 pal_audio_fmt_t PlatformConverter::getPalFormatId(
-        const ::aidl::android::media::audio::common::AudioFormatDescription& formatDescription)
-        const {
-    auto element = mAidlToPalAudioFormatMap.find(formatDescription);
-    if (element == mAidlToPalAudioFormatMap.cend()) {
+        const ::aidl::android::media::audio::common::AudioFormatDescription&
+                formatDescription) noexcept {
+    auto element = kAidlToPalAudioFormatMap.find(formatDescription);
+    if (element == kAidlToPalAudioFormatMap.cend()) {
         LOG(ERROR) << __func__ << " failed to find corressponding pal format for "
                    << formatDescription.toString();
         // no format found hence return range end;
@@ -319,11 +371,12 @@ pal_audio_fmt_t PlatformConverter::getPalFormatId(
     return element->second;
 }
 
+// static
 pal_device_id_t PlatformConverter::getPalDeviceId(
-        const ::aidl::android::media::audio::common::AudioDeviceDescription& deviceDescription)
-        const {
-    auto element = mAidlToPalDeviceMap.find(deviceDescription);
-    if (element == mAidlToPalDeviceMap.cend()) {
+        const ::aidl::android::media::audio::common::AudioDeviceDescription&
+                deviceDescription) noexcept {
+    auto element = kAidlToPalDeviceMap.find(deviceDescription);
+    if (element == kAidlToPalDeviceMap.cend()) {
         LOG(ERROR) << __func__ << " failed to find corressponding pal device for "
                    << deviceDescription.toString();
         // no device found hence return 0;
@@ -332,15 +385,16 @@ pal_device_id_t PlatformConverter::getPalDeviceId(
     return element->second;
 }
 
-std::string PlatformConverter::toString() const {
+// static
+std::string PlatformConverter::toString() noexcept {
     std::ostringstream os;
     os << "### platform conversion start ###" << std::endl;
     os << "devices: Aidl to PAL" << std::endl;
-    for (const auto & [ key, value ] : mAidlToPalDeviceMap) {
+    for (const auto& [key, value] : kAidlToPalDeviceMap) {
         os << key.toString() << " => " << deviceNameLUT.at(value).c_str() << std::endl;
     }
     os << std::endl << "formats: Aidl to PAL " << std::endl;
-    for (const auto & [ key, value ] : mAidlToPalAudioFormatMap) {
+    for (const auto& [key, value] : kAidlToPalAudioFormatMap) {
         os << key.toString() << " => "
            << "pal format: 0x" << std::hex << value << std::endl;
     }
@@ -348,17 +402,4 @@ std::string PlatformConverter::toString() const {
     return os.str();
 }
 
-// static
-const PlatformConverter& PlatformConverter::getInstance() {
-    static const auto kPlatformConverter = []() {
-        std::unique_ptr<PlatformConverter> platformConverter{new PlatformConverter()};
-        platformConverter->mAidlToPalDeviceMap =
-                make_DirectMap<AudioDeviceDescription, pal_device_id_t>(getDevicePairs());
-        platformConverter->mAidlToPalAudioFormatMap =
-                make_ReverseMap<pal_audio_fmt_t, AudioFormatDescription>(getFormatPairs());
-        return std::move(platformConverter);
-    }();
-    return *(kPlatformConverter.get());
-}
-
-} // namespace qti::audio::core
+} // namespace qti::audio
