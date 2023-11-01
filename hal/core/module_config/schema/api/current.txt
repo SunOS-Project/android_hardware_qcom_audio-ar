@@ -209,6 +209,7 @@ package audio_module_config_qti {
     enum_constant public static final audio_module_config_qti.ConnectionType ipv4;
     enum_constant public static final audio_module_config_qti.ConnectionType spdif;
     enum_constant public static final audio_module_config_qti.ConnectionType usb;
+    enum_constant public static final audio_module_config_qti.ConnectionType virtual;
     enum_constant public static final audio_module_config_qti.ConnectionType wireless;
   }
 

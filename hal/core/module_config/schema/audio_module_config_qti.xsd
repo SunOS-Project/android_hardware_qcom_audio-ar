@@ -206,6 +206,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
             <xs:enumeration value="spdif" />
             <xs:enumeration value="wireless" />
             <xs:enumeration value="usb" />
+            <xs:enumeration value="virtual" />
         </xs:restriction>
     </xs:simpleType>
     <xs:complexType name="devicePorts">
