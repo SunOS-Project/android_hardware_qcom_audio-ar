@@ -316,6 +316,15 @@ void Telephony::updateHDVoice(const bool enable) {
     configureHDVoice();
 }
 
+void Telephony::updateDeviceMute(const bool isMute, const std::string& muteDirection) {
+    std::scoped_lock lock{mLock};
+    mIsDeviceMuted = isMute;
+    mMuteDirection = muteDirection;
+    LOG(INFO) << __func__ << ": is muted: " << mIsDeviceMuted
+              << ", mute direction: " << mMuteDirection;
+    configureDeviceMute();
+}
+
 void Telephony::configureVolumeBoost() {
     if (mPalHandle == nullptr) {
         LOG(ERROR) << __func__ << ": invalid pal handle";
@@ -364,6 +373,30 @@ void Telephony::configureHDVoice() {
     if (int32_t ret = ::pal_stream_set_param(mPalHandle, PAL_PARAM_ID_HD_VOICE, palParamPayload);
         ret) {
         LOG(ERROR) << __func__ << ": failed to set PAL_PARAM_ID_HD_VOICE";
+        return;
+    }
+}
+
+void Telephony::configureDeviceMute() {
+    if (mPalHandle == nullptr) {
+        LOG(ERROR) << __func__ << ": invalid pal handle";
+        return;
+    }
+    auto byteSize = sizeof(pal_param_payload) + sizeof(pal_device_mute_t);
+    auto bytes = std::make_unique<uint8_t[]>(byteSize);
+    auto palParamPayload = reinterpret_cast<pal_param_payload*>(bytes.get());
+    palParamPayload->payload_size = sizeof(pal_device_mute_t);
+    auto palDeviceMute =
+            reinterpret_cast<pal_device_mute_t*>(palParamPayload + sizeof(pal_param_payload));
+    palDeviceMute->mute = mIsDeviceMuted;
+    if (mMuteDirection == "rx") {
+        palDeviceMute->dir = PAL_AUDIO_OUTPUT;
+    } else {
+        palDeviceMute->dir = PAL_AUDIO_INPUT;
+    }
+    if (int32_t ret = ::pal_stream_set_param(mPalHandle, PAL_PARAM_ID_DEVICE_MUTE, palParamPayload);
+        ret) {
+        LOG(ERROR) << __func__ << ": failed to set PAL_PARAM_ID_DEVICE_MUTE";
         return;
     }
 }

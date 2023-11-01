@@ -364,6 +364,10 @@ void ModulePrimary::onSetTelephonyParameters(const std::vector<VendorParameter>&
     Telephony::SetUpdates setUpdates{};
     bool isSetUpdate = false;
 
+    bool isDeviceMuted = false;
+    std::string muteDirection{""};
+    bool isDeviceMuteUpdate = false;
+
     for (const auto& p : parameters) {
         std::string paramValue{};
         if (!extractParameter<VString>(p, &paramValue)) {
@@ -391,11 +395,19 @@ void ModulePrimary::onSetTelephonyParameters(const std::vector<VendorParameter>&
         } else if (Parameters::kVoiceHDVoice == p.id) {
             const bool enable = paramValue == "true" ? true : false;
             mTelephony->updateHDVoice(enable);
+        } else if (Parameters::kVoiceDeviceMute == p.id) {
+            isDeviceMuted = paramValue == "true" ? true : false;
+            isDeviceMuteUpdate = true;
+        } else if (Parameters::kVoiceDirection == p.id) {
+            muteDirection = paramValue;
         }
     }
 
     if (isSetUpdate) {
         mTelephony->reconfigure(setUpdates);
+    }
+    if (isDeviceMuteUpdate) {
+        mTelephony->updateDeviceMute(isDeviceMuted, muteDirection);
     }
 
     return;
@@ -417,6 +429,8 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
                                  {Parameters::kVolumeBoost, Feature::TELEPHONY},
                                  {Parameters::kVoiceSlowTalk, Feature::TELEPHONY},
                                  {Parameters::kVoiceHDVoice, Feature::TELEPHONY},
+                                 {Parameters::kVoiceDeviceMute, Feature::TELEPHONY},
+                                 {Parameters::kVoiceDirection, Feature::TELEPHONY},
                                  {Parameters::kInCallMusic, Feature::GENERIC}};
     return map;
 }
