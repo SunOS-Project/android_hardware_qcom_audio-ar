@@ -302,6 +302,13 @@ void Telephony::updateVolumeBoost(const bool enable) {
     configureVolumeBoost();
 }
 
+void Telephony::updateSlowTalk(const bool enable) {
+    std::scoped_lock lock{mLock};
+    mIsSlowTalkEnabled = enable;
+    LOG(INFO) << __func__ << ": is enabled: " << mIsSlowTalkEnabled;
+    configureSlowTalk();
+}
+
 void Telephony::configureVolumeBoost() {
     if (mPalHandle == nullptr) {
         LOG(ERROR) << __func__ << ": invalid pal handle";
@@ -316,6 +323,23 @@ void Telephony::configureVolumeBoost() {
                 ::pal_stream_set_param(mPalHandle, PAL_PARAM_ID_VOLUME_BOOST, palParamPayload);
         ret) {
         LOG(ERROR) << __func__ << ": failed to set PAL_PARAM_ID_VOLUME_BOOST";
+        return;
+    }
+}
+
+void Telephony::configureSlowTalk() {
+    if (mPalHandle == nullptr) {
+        LOG(ERROR) << __func__ << ": invalid pal handle";
+        return;
+    }
+    auto byteSize = sizeof(pal_param_payload) + sizeof(bool);
+    auto bytes = std::make_unique<uint8_t[]>(byteSize);
+    auto palParamPayload = reinterpret_cast<pal_param_payload*>(bytes.get());
+    palParamPayload->payload_size = sizeof(bool);
+    palParamPayload->payload[0] = mIsSlowTalkEnabled;
+    if (int32_t ret = ::pal_stream_set_param(mPalHandle, PAL_PARAM_ID_SLOW_TALK, palParamPayload);
+        ret) {
+        LOG(ERROR) << __func__ << ": failed to set PAL_PARAM_ID_SLOW_TALK";
         return;
     }
 }

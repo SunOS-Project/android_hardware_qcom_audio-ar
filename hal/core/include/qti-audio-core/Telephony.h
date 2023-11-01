@@ -86,6 +86,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     void reconfigure(const SetUpdates& setUpdates);
 
     void updateVolumeBoost(const bool enable);
+    void updateSlowTalk(const bool enable);
 
     bool isCrsCallSupported();
 
@@ -106,6 +107,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     void startCall();
     void stopCall();
     void configureVolumeBoost();
+    void configureSlowTalk();
     void updateVoiceVolume();
     void updateDevices();
     void updateTtyMode();
@@ -129,6 +131,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
 
     SetUpdates mSetUpdates{};
     bool mIsVolumeBoostEnabled{false};
+    bool mIsSlowTalkEnabled{false};
     using TtyMap = std::map<TelecomConfig::TtyMode, pal_tty_t>;
     const TtyMap mTtyMap{
             {TelecomConfig::TtyMode::OFF, PAL_TTY_OFF},
