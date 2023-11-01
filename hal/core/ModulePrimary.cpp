@@ -388,6 +388,9 @@ void ModulePrimary::onSetTelephonyParameters(const std::vector<VendorParameter>&
         } else if (Parameters::kVoiceSlowTalk == p.id) {
             const bool enable = paramValue == "true" ? true : false;
             mTelephony->updateSlowTalk(enable);
+        } else if (Parameters::kVoiceHDVoice == p.id) {
+            const bool enable = paramValue == "true" ? true : false;
+            mTelephony->updateHDVoice(enable);
         }
     }
 
@@ -413,6 +416,7 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
                                  {Parameters::kVoiceCRSCall, Feature::TELEPHONY},
                                  {Parameters::kVolumeBoost, Feature::TELEPHONY},
                                  {Parameters::kVoiceSlowTalk, Feature::TELEPHONY},
+                                 {Parameters::kVoiceHDVoice, Feature::TELEPHONY},
                                  {Parameters::kInCallMusic, Feature::GENERIC}};
     return map;
 }
