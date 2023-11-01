@@ -295,6 +295,31 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
     }
 }
 
+void Telephony::updateVolumeBoost(const bool enable) {
+    std::scoped_lock lock{mLock};
+    mIsVolumeBoostEnabled = enable;
+    LOG(INFO) << __func__ << ": is enabled: " << mIsVolumeBoostEnabled;
+    configureVolumeBoost();
+}
+
+void Telephony::configureVolumeBoost() {
+    if (mPalHandle == nullptr) {
+        LOG(ERROR) << __func__ << ": invalid pal handle";
+        return;
+    }
+    auto byteSize = sizeof(pal_param_payload) + sizeof(bool);
+    auto bytes = std::make_unique<uint8_t[]>(byteSize);
+    auto palParamPayload = reinterpret_cast<pal_param_payload*>(bytes.get());
+    palParamPayload->payload_size = sizeof(bool);
+    palParamPayload->payload[0] = mIsVolumeBoostEnabled;
+    if (int32_t ret =
+                ::pal_stream_set_param(mPalHandle, PAL_PARAM_ID_VOLUME_BOOST, palParamPayload);
+        ret) {
+        LOG(ERROR) << __func__ << ": failed to set PAL_PARAM_ID_VOLUME_BOOST";
+        return;
+    }
+}
+
 void Telephony::updateVoiceVolume() {
     if (mPalHandle == nullptr) {
         return;
