@@ -48,6 +48,7 @@ static std::string kHfpLibrary = "libhfp_pal.so";
 static std::string kFmLibrary = "libfmpal.so";
 static std::string kKarokeLibrary = "dummy.so"; // TODO
 static std::string kPerfLockLibrary = "libqti-perfd-client.so";
+static std::string kGefLibrary = "libqtigefar.so";
 
 static std::string kBatteryListenerProperty = "vendor.audio.feature.battery_listener.enable";
 static std::string kHfpProperty = "vendor.audio.feature.hfp.enable";
@@ -97,6 +98,9 @@ typedef int (*hfp_set_mic_mute2_t)(bool state);
 
 typedef void (*a2dp_bt_audio_pre_init_t)(void);
 typedef void (*register_reconfig_cb_t)(int (*reconfig_cb)(tSESSION_TYPE, int));
+
+typedef void (*gef_init_t)(void);
+typedef void (*gef_deinit_t)(void);
 
 static bool isExtensionEnabled(std::string property) {
     return property_get_bool(property.c_str(), false);
@@ -211,6 +215,18 @@ class KarokeExtension : public AudioExtensionBase {
     struct pal_stream_attributes sattr;
 };
 
+class GefExtension : public AudioExtensionBase {
+  public:
+    GefExtension();
+    ~GefExtension();
+    void gef_interface_init();
+    void gef_interface_deinit();
+
+  private:
+    gef_init_t gef_init;
+    gef_deinit_t gef_deinit;
+};
+
 class AudioExtension {
   public:
     static AudioExtension& getInstance() {
@@ -235,6 +251,8 @@ class AudioExtension {
     std::unique_ptr<HfpExtension> mHfpExtension = std::make_unique<HfpExtension>();
     std::unique_ptr<FmExtension> mFmExtension = std::make_unique<FmExtension>();
     std::unique_ptr<KarokeExtension> mKarokeExtension = std::make_unique<KarokeExtension>();
+    std::unique_ptr<PerfLockExtension> mPerfLockExtension = std::make_unique<PerfLockExtension>();
+    std::unique_ptr<GefExtension> mGefExtension = std::make_unique<GefExtension>();
     static std::mutex reconfig_wait_mutex_;
 };
 } // namespace qti::audio::core

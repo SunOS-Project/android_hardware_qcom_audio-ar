@@ -16,6 +16,7 @@ using ::aidl::android::media::audio::common::AudioDeviceDescription;
 using ::aidl::android::media::audio::common::AudioDeviceType;
 using ::aidl::android::media::audio::common::AudioFormatDescription;
 using ::aidl::android::media::audio::common::AudioFormatType;
+using ::aidl::android::media::audio::common::AudioOutputFlags;
 using ::aidl::android::media::audio::common::PcmType;
 
 // clang-format off
@@ -67,6 +68,9 @@ AudioDeviceDescription makeAudioDeviceDescription(AudioDeviceType type,
 
 using DevicePair = std::pair<AudioDeviceDescription, pal_device_id_t>;
 using DevicePairs = std::vector<DevicePair>;
+
+using outputFlagsStreamtypeMap =
+        std::unordered_map<int32_t, pal_stream_type_t>;
 
 // conversions
 DevicePairs getDevicePairs() {
@@ -383,6 +387,53 @@ pal_device_id_t PlatformConverter::getPalDeviceId(
         return PAL_DEVICE_OUT_MIN;
     }
     return element->second;
+}
+
+outputFlagsStreamtypeMap populatemOutputFlagsStreamtypeMap() {
+    outputFlagsStreamtypeMap result;
+    constexpr auto flagCastToint = [](auto flag) { return static_cast<int32_t>(flag); };
+    constexpr auto PrimaryPlaybackFlags =
+            static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::PRIMARY));
+    result[PrimaryPlaybackFlags] = PAL_STREAM_DEEP_BUFFER;
+    constexpr auto deepBufferPlaybackFlags =
+            static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::DEEP_BUFFER));
+    result[deepBufferPlaybackFlags] = PAL_STREAM_DEEP_BUFFER;
+    constexpr auto compressOffloadPlaybackFlags =
+            static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::DIRECT) |
+                                 1 << flagCastToint(AudioOutputFlags::COMPRESS_OFFLOAD) |
+                                 1 << flagCastToint(AudioOutputFlags::NON_BLOCKING) |
+                                 1 << flagCastToint(AudioOutputFlags::GAPLESS_OFFLOAD));
+    result[compressOffloadPlaybackFlags] = PAL_STREAM_COMPRESSED;
+    constexpr auto lowLatencyPlaybackFlags =
+            static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::PRIMARY) |
+                                 1 << flagCastToint(AudioOutputFlags::FAST));
+    result[lowLatencyPlaybackFlags] = PAL_STREAM_LOW_LATENCY;
+    constexpr auto pcmOffloadPlaybackFlags =
+            static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::DIRECT));
+    result[pcmOffloadPlaybackFlags] = PAL_STREAM_PCM_OFFLOAD;
+    constexpr auto voipPlaybackFlags =
+            static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::VOIP_RX));
+    result[voipPlaybackFlags] =  PAL_STREAM_VOIP_RX;
+    constexpr auto spatialPlaybackFlags =
+            static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::SPATIALIZER));
+    result[spatialPlaybackFlags] = PAL_STREAM_SPATIAL_AUDIO;
+    constexpr auto ullPlaybackFlags = static_cast<int32_t>(
+            1 << flagCastToint(AudioOutputFlags::FAST) | 1 << flagCastToint(AudioOutputFlags::RAW));
+    result[ullPlaybackFlags] = PAL_STREAM_ULTRA_LOW_LATENCY;
+    constexpr auto mmapPlaybackFlags =
+            static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::DIRECT) |
+                                 1 << flagCastToint(AudioOutputFlags::MMAP_NOIRQ));
+    result[mmapPlaybackFlags] = PAL_STREAM_ULTRA_LOW_LATENCY;
+    constexpr auto inCallMusicFlags =
+            static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::INCALL_MUSIC));
+    result[inCallMusicFlags] = PAL_STREAM_VOICE_CALL_MUSIC;
+    return result;
+}
+
+const static outputFlagsStreamtypeMap kOutputFlagsStreamtypeMap =
+        populatemOutputFlagsStreamtypeMap();
+pal_stream_type_t PlatformConverter::getPalStreamTypeId(int32_t outputFlag) noexcept {
+    return kOutputFlagsStreamtypeMap.at(outputFlag);
 }
 
 // static

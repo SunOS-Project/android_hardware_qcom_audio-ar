@@ -494,7 +494,7 @@ int KarokeExtension::karaoke_open(pal_device_id_t device_out, pal_stream_callbac
             pal_devs[i].config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
         }
     }
-    return pal_stream_open(&sattr, num_pal_devs, pal_devs, 0, NULL, pal_callback, (uint64_t) this,
+    return pal_stream_open(&sattr, num_pal_devs, pal_devs, 0, NULL, pal_callback, (uint64_t)this,
                            &karaoke_stream_handle);
 }
 
@@ -515,4 +515,39 @@ KarokeExtension::KarokeExtension() : AudioExtensionBase(kKarokeLibrary) {
     if (mHandle != nullptr) {
     }
 }
+
+void GefExtension::gef_interface_init() {
+    if (gef_init) gef_init();
 }
+
+void GefExtension::gef_interface_deinit() {
+    if (gef_deinit) gef_deinit();
+}
+
+GefExtension::~GefExtension() {
+    gef_interface_deinit();
+}
+
+GefExtension::GefExtension() : AudioExtensionBase(kGefLibrary, true) {
+    LOG(INFO) << __func__ << " Enter";
+    if (mHandle != nullptr) {
+        if (!(gef_init = (gef_init_t)dlsym(mHandle, "gef_interface_init")) ||
+            !(gef_deinit = (gef_deinit_t)dlsym(mHandle, "gef_interface_deinit"))) {
+            LOG(ERROR) << __func__ << "dlsym failed";
+            goto feature_disabled;
+        }
+        LOG(INFO) << __func__ << "----- GEF interface is initialized ----";
+        gef_interface_init();
+        return;
+    }
+
+feature_disabled:
+    if (mHandle) {
+        dlclose(mHandle);
+        mHandle = NULL;
+    }
+
+    gef_init = NULL;
+    gef_deinit = NULL;
+}
+} // namespace qti::audio::core
