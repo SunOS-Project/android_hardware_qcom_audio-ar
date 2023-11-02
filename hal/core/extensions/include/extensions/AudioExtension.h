@@ -47,6 +47,7 @@ static std::string kBatteryListenerLibrary = std::string("libbatterylistener.so"
 static std::string kHfpLibrary = "libhfp_pal.so";
 static std::string kFmLibrary = "libfmpal.so";
 static std::string kKarokeLibrary = "dummy.so"; // TODO
+static std::string kPerfLockLibrary = "libqti-perfd-client.so";
 
 static std::string kBatteryListenerProperty = "vendor.audio.feature.battery_listener.enable";
 static std::string kHfpProperty = "vendor.audio.feature.hfp.enable";
@@ -142,6 +143,18 @@ class PerfLockExtension : public AudioExtensionBase {
 
     AcquirePerfLock mAcquirePerfLock = nullptr;
     ReleasePerfLock mReleasePerfLock = nullptr;
+    static int perf_lock_acquire_cnt;
+
+    int perf_lock_init();
+    void perf_lock_acquire();
+    void perf_lock_release();
+
+   private:
+    std::mutex perf_lock_mutex;
+    bool mInit = false;
+    int perf_lock_handle;
+    int perf_lock_opts[20];
+    int perf_lock_opts_size;
 };
 
 class A2dpExtension : public AudioExtensionBase {
@@ -222,7 +235,6 @@ class AudioExtension {
     std::unique_ptr<HfpExtension> mHfpExtension = std::make_unique<HfpExtension>();
     std::unique_ptr<FmExtension> mFmExtension = std::make_unique<FmExtension>();
     std::unique_ptr<KarokeExtension> mKarokeExtension = std::make_unique<KarokeExtension>();
-    std::unique_ptr<PerfLockExtension> mPerfLockExtension = std::make_unique<PerfLockExtension>();
     static std::mutex reconfig_wait_mutex_;
 };
 } // namespace qti::audio::core

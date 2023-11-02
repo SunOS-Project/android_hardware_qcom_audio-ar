@@ -164,12 +164,15 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
     uint64_t cookie = reinterpret_cast<uint64_t>(this);
     pal_stream_callback palFn = nullptr;
     attr->flags = static_cast<pal_stream_flags_t>(PAL_STREAM_FLAG_MMAP_NO_IRQ);
-    if (int32_t ret = ::pal_stream_open(attr.get(), palDevices.size(), palDevices.data(), 0,
-                                        nullptr, palFn, cookie, &(this->mPalHandle));
-        ret) {
-        LOG(ERROR) << __func__ << " pal stream open failed!!! ret:" << std::to_string(ret);
-        mPalHandle = nullptr;
-        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+    {
+        PerfLockExtension perfLock;
+        if (int32_t ret = ::pal_stream_open(attr.get(), palDevices.size(), palDevices.data(), 0,
+                                            nullptr, palFn, cookie, &(this->mPalHandle));
+            ret) {
+            LOG(ERROR) << __func__ << " pal stream open failed!!! ret:" << std::to_string(ret);
+            mPalHandle = nullptr;
+            return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+        }
     }
     const size_t ringBufSizeInBytes = getPeriodSize();
     const size_t ringBufCount = getPeriodCount();
@@ -198,12 +201,14 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
         mPalHandle = nullptr;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
-
-    if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
-        LOG(ERROR) << __func__ << " pal stream start failed!! ret:" << std::to_string(ret);
-        ::pal_stream_close(mPalHandle);
-        mPalHandle = nullptr;
-        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+    {
+        PerfLockExtension perfLock;
+        if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
+            LOG(ERROR) << __func__ << " pal stream start failed!! ret:" << std::to_string(ret);
+            ::pal_stream_close(mPalHandle);
+            mPalHandle = nullptr;
+            return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+        }
     }
     LOG(INFO) << __func__ << ": stream is configured for " << mTagName;
 
@@ -726,13 +731,15 @@ void StreamOutPrimary::configure() {
     if (mTag == Usecase::ULL_PLAYBACK) {
         attr->flags = static_cast<pal_stream_flags_t>(PAL_STREAM_FLAG_MMAP);
     }
-
-    if (int32_t ret = ::pal_stream_open(attr.get(), palDevices.size(), palDevices.data(), 0,
-                                        nullptr, palFn, cookie, &(this->mPalHandle));
-        ret) {
-        LOG(ERROR) << __func__ << " pal stream open failed!!! ret:" << ret;
-        mPalHandle = nullptr;
-        return;
+    {
+        PerfLockExtension perfLock;
+        if (int32_t ret = ::pal_stream_open(attr.get(), palDevices.size(), palDevices.data(), 0,
+                                            nullptr, palFn, cookie, &(this->mPalHandle));
+            ret) {
+            LOG(ERROR) << __func__ << " pal stream open failed!!! ret:" << ret;
+            mPalHandle = nullptr;
+            return;
+        }
     }
     if (karaoke) {
         int size = palDevices.size();
@@ -768,12 +775,14 @@ void StreamOutPrimary::configure() {
         LOG(VERBOSE) << __func__ << " pal stream set param: "
                                     "PAL_PARAM_ID_CODEC_CONFIGURATION successful";
     }
-
-    if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
-        LOG(ERROR) << __func__ << " pal stream start failed!! ret:" << ret;
-        ::pal_stream_close(mPalHandle);
-        mPalHandle = nullptr;
-        return;
+    {
+        PerfLockExtension perfLock;
+        if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
+            LOG(ERROR) << __func__ << " pal stream start failed!! ret:" << ret;
+            ::pal_stream_close(mPalHandle);
+            mPalHandle = nullptr;
+            return;
+        }
     }
 
     if (karaoke) mAudExt.mKarokeExtension->karaoke_start();
