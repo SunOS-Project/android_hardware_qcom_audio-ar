@@ -130,35 +130,35 @@ std::string getName(const Usecase tag) {
         case Usecase::INVALID:
             return "INVALID";
         case Usecase::PRIMARY_PLAYBACK:
-            return "PRIMARY_PLAYBACK";
+            return "usecase(0:PRIMARY_PLAYBACK)";
         case Usecase::DEEP_BUFFER_PLAYBACK:
-            return "DEEP_BUFFER_PLAYBACK";
+            return "usecase(1:DEEP_BUFFER_PLAYBACK)";
         case Usecase::LOW_LATENCY_PLAYBACK:
-            return "LOW_LATENCY_PLAYBACK";
+            return "usecase(2:LOW_LATENCY_PLAYBACK)";
         case Usecase::PCM_RECORD:
-            return "PCM_RECORD";
+            return "usecase(3:PCM_RECORD)";
         case Usecase::COMPRESS_OFFLOAD_PLAYBACK:
-            return "COMPRESS_OFFLOAD_PLAYBACK";
+            return "usecase(4:COMPRESS_OFFLOAD_PLAYBACK)";
         case Usecase::COMPRESS_CAPTURE:
-            return "COMPRESS_CAPTURE";
+            return "usecase(5:COMPRESS_CAPTURE)";
         case Usecase::PCM_OFFLOAD_PLAYBACK:
-            return "PCM_OFFLOAD_PLAYBACK";
+            return "usecase(6:PCM_OFFLOAD_PLAYBACK)";
         case Usecase::VOIP_PLAYBACK:
-            return "VOIP_PLAYBACK";
+            return "usecase(7:VOIP_PLAYBACK)";
         case Usecase::SPATIAL_PLAYBACK:
-            return "SPATIAL_PLAYBACK";
+            return "usecase(8:SPATIAL_PLAYBACK)";
         case Usecase::VOIP_RECORD:
-            return "VOIP_RECORD";
+            return "usecase(9:VOIP_RECORD)";
         case Usecase::ULL_PLAYBACK:
-            return "ULL_PLAYBACK";
+            return "usecase(10:ULL_PLAYBACK)";
         case Usecase::MMAP_PLAYBACK:
-            return "MMAP_PLAYBACK";
+            return "usecase(11:MMAP_PLAYBACK)";
         case Usecase::MMAP_RECORD:
-            return "MMAP_RECORD";
+            return "usecase(12:MMAP_RECORD)";
         case Usecase::VOICE_CALL_RECORD:
-            return "VOICE_CALL_RECORD";
+            return "usecase(13:VOICE_CALL_RECORD)";
         case Usecase::IN_CALL_MUSIC:
-            return "IN_CALL_MUSIC";
+            return "usecase(14:IN_CALL_MUSIC)";
         default:
             return std::to_string(static_cast<uint16_t>(tag));
     }

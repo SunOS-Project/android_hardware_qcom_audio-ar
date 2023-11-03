@@ -135,7 +135,7 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
         return std::move(prev.append(" | ").append(device.toString()));
     };
 
-    LOG(VERBOSE) << __func__ << ": stream is connected to "
+    LOG(VERBOSE) << __func__ << ": " << mTagName << " connected to "
                  << std::accumulate(mConnectedDevices.cbegin(), mConnectedDevices.cend(),
                                     std::string(""), devicesString);
 
