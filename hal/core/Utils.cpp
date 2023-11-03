@@ -7,6 +7,8 @@
 
 #include <android-base/logging.h>
 #include <qti-audio-core/Utils.h>
+#include <aidl/android/media/audio/common/AudioInputFlags.h>
+#include <aidl/android/media/audio/common/AudioOutputFlags.h>
 
 using ::aidl::android::media::audio::common::AudioDevice;
 using ::aidl::android::media::audio::common::AudioDeviceDescription;
@@ -14,6 +16,9 @@ using ::aidl::android::media::audio::common::AudioDeviceType;
 using ::aidl::android::media::audio::common::AudioDeviceAddress;
 using ::aidl::android::media::audio::common::AudioPortConfig;
 using ::aidl::android::media::audio::common::AudioPortExt;
+using ::aidl::android::media::audio::common::AudioIoFlags;
+using ::aidl::android::media::audio::common::AudioInputFlags;
+using ::aidl::android::media::audio::common::AudioOutputFlags;
 
 using ::aidl::android::hardware::audio::core::VendorParameter;
 
@@ -36,6 +41,29 @@ bool isTelephonyRXDevice(const AudioDevice& device) noexcept {
 bool isTelephonyTXDevice(const AudioDevice& device) noexcept {
     return device.type.type == AudioDeviceType::OUT_TELEPHONY_TX;
 };
+
+bool isInputMMap(const AudioIoFlags& ioFlags) noexcept {
+    if (ioFlags.getTag() == AudioIoFlags::Tag::input) {
+        constexpr auto inputMMapFlag = static_cast<int32_t>(
+            1 << static_cast<int32_t>(AudioInputFlags::MMAP_NOIRQ));
+        return ((inputMMapFlag & ioFlags.get<AudioIoFlags::Tag::input>()) != 0);
+    }
+    return false;
+}
+
+bool isOutputMMap(const AudioIoFlags& ioFlags) noexcept {
+    if (ioFlags.getTag() == AudioIoFlags::Tag::output) {
+        constexpr auto outputMMapFlag = static_cast<int32_t>(
+            1 << static_cast<int32_t>(AudioOutputFlags::MMAP_NOIRQ));
+        return ((outputMMapFlag & ioFlags.get<AudioIoFlags::Tag::output>()) !=
+                0);
+    }
+    return false;
+}
+
+bool isMMap(const AudioIoFlags& ioFlags) noexcept {
+    return (isInputMMap(ioFlags) || isOutputMMap(ioFlags));
+}
 
 int64_t getInt64FromString(const std::string& s) noexcept {
     // Todo handle actual value 0

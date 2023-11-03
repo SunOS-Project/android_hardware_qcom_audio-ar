@@ -140,9 +140,6 @@ class StreamContext {
     }
 
     void fillDescriptor(::aidl::android::hardware::audio::core::StreamDescriptor* desc);
-    void fillMMapDescriptor(const int32_t fd, const int64_t burstSizeFrames, const int32_t flags,
-                            const int32_t bufferSizeFrames,
-                            ::aidl::android::hardware::audio::core::StreamDescriptor* desc);
     std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> getAsyncCallback()
             const {
         return mAsyncCallback;

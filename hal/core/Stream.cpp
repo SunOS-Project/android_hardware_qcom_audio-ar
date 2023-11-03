@@ -67,27 +67,6 @@ void StreamContext::fillDescriptor(StreamDescriptor* desc) {
     }
 }
 
-void StreamContext::fillMMapDescriptor(const int32_t fd, const int64_t burstSizeFrames,
-                                       const int32_t flags, const int32_t bufferSizeFrames,
-                                       StreamDescriptor* desc) {
-    if (burstSizeFrames > 0) {
-        desc->audio.set<StreamDescriptor::AudioBuffer::Tag::mmap>();
-        auto& mmapRef = desc->audio.get<StreamDescriptor::AudioBuffer::Tag::mmap>();
-
-        // ndk::ScopedFileDescriptor fileDesc(fd);
-        // mmapRef.sharedMemory.fd = ndk::ScopedFileDescriptor(dup(fileDesc.get()));
-        mmapRef.sharedMemory.fd = ndk::ScopedFileDescriptor(dup(fd));
-        mmapRef.burstSizeFrames = burstSizeFrames;
-        mmapRef.flags = flags;
-        desc->bufferSizeFrames = bufferSizeFrames;
-        LOG(VERBOSE) << __func__ << ": filled MMAP buffer, burst size frames "
-                     << mmapRef.burstSizeFrames << " flags " << mmapRef.flags
-                     << " buffer size frames " << desc->bufferSizeFrames;
-    } else {
-        LOG(ERROR) << __func__ << ": MMAP buffer is uninitialized.";
-    }
-}
-
 size_t StreamContext::getBufferSizeInFrames() const {
     if (mDataMQ) {
         return mDataMQ->getQuantumCount() * mDataMQ->getQuantumSize() / getFrameSize();

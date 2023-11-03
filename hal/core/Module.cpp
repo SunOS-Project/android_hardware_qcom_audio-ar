@@ -75,6 +75,7 @@ using ::aidl::android::hardware::audio::core::AudioPatch;
 using ::aidl::android::hardware::audio::core::AudioRoute;
 using ::aidl::android::hardware::audio::core::IBluetooth;
 using ::aidl::android::hardware::audio::core::VendorParameter;
+using ::aidl::android::hardware::audio::core::StreamDescriptor;
 using ::aidl::android::hardware::audio::core::sounddose::ISoundDose;
 
 namespace qti::audio::core {
@@ -168,6 +169,11 @@ ndk::ScopedAStatus Module::createStreamContext(
         LOG(ERROR) << __func__ << ": non-positive buffer size " << in_bufferSizeFrames;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
+    if (in_bufferSizeFrames < kMinimumStreamBufferSizeFrames) {
+        LOG(ERROR) << __func__ << ": insufficient buffer size " << in_bufferSizeFrames
+                   << ", must be at least " << kMinimumStreamBufferSizeFrames;
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
     auto& configs = getConfig().portConfigs;
     auto portConfigIt = findById<AudioPortConfig>(configs, in_portConfigId);
     // Since this is a private method, it is assumed that
@@ -187,18 +193,6 @@ ndk::ScopedAStatus Module::createStreamContext(
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
     const auto& flags = portConfigIt->flags.value();
-    if ((flags.getTag() == AudioIoFlags::Tag::input &&
-         !isBitPositionFlagSet(flags.get<AudioIoFlags::Tag::input>(),
-                               AudioInputFlags::MMAP_NOIRQ)) ||
-        (flags.getTag() == AudioIoFlags::Tag::output &&
-         !isBitPositionFlagSet(flags.get<AudioIoFlags::Tag::output>(),
-                               AudioOutputFlags::MMAP_NOIRQ))) {
-        if (in_bufferSizeFrames < kMinimumStreamBufferSizeFrames) {
-            LOG(ERROR) << __func__ << ": insufficient buffer size " << in_bufferSizeFrames
-                       << ", must be at least " << kMinimumStreamBufferSizeFrames;
-            return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
-        }
-    }
     StreamContext::DebugParameters params{mDebug.streamTransientStateDelayMs,
                                           mVendorDebug.forceTransientBurst,
                                           mVendorDebug.forceSynchronousDrain};
@@ -761,16 +755,20 @@ ndk::ScopedAStatus Module::openInputStream(const OpenInputStreamArguments& in_ar
         RETURN_STATUS_IF_ERROR(
                 streamWrapper.setConnectedDevices(findConnectedDevices(in_args.portConfigId)));
     }
-    const bool isMMap = isBitPositionFlagSet(port->flags.get<AudioIoFlags::Tag::input>(),
-                                             AudioInputFlags::MMAP_NOIRQ);
-    if (isMMap) {
-        // int32_t fd; int64_t burstSizeFrames;
-        // int32_t flags; int32_t bufferSizeFrames;
-        MMapBuffer mBuffer;
+
+    if (isInputMMap(port->flags)) {
+        int32_t fd, mmapFlags, bufferSizeFrames;
+        int64_t burstSizeFrames;
         RETURN_STATUS_IF_ERROR(streamWrapper.configureMMapStream(
-                &mBuffer.fd, &mBuffer.burstSizeFrames, &mBuffer.flags, &mBuffer.bufferSizeFrames));
-        context.fillMMapDescriptor(mBuffer.fd, mBuffer.burstSizeFrames, mBuffer.flags,
-                                   mBuffer.bufferSizeFrames, &_aidl_return->desc);
+            &fd, &burstSizeFrames, &mmapFlags, &bufferSizeFrames));
+        _aidl_return->desc.audio
+            .set<StreamDescriptor::AudioBuffer::Tag::mmap>();
+        auto& mmapRef = _aidl_return->desc.audio
+                            .get<StreamDescriptor::AudioBuffer::Tag::mmap>();
+        mmapRef.sharedMemory.fd = ndk::ScopedFileDescriptor{fd};
+        mmapRef.burstSizeFrames = burstSizeFrames;
+        mmapRef.flags = mmapFlags;
+        _aidl_return->desc.bufferSizeFrames = bufferSizeFrames;
     }
     AIBinder_setMinSchedulerPolicy(streamWrapper.getBinder().get(), SCHED_NORMAL,
                                    ANDROID_PRIORITY_AUDIO);
@@ -818,16 +816,20 @@ ndk::ScopedAStatus Module::openOutputStream(const OpenOutputStreamArguments& in_
         RETURN_STATUS_IF_ERROR(
                 streamWrapper.setConnectedDevices(findConnectedDevices(in_args.portConfigId)));
     }
-    const bool isMMap = isBitPositionFlagSet(port->flags.get<AudioIoFlags::Tag::output>(),
-                                             AudioOutputFlags::MMAP_NOIRQ);
-    if (isMMap) {
-        // int32_t fd; int64_t burstSizeFrames;
-        // int32_t flags; int32_t bufferSizeFrames;
-        MMapBuffer mBuffer;
+
+    if (isOutputMMap(port->flags)) {
+        int32_t fd, mmapFlags, bufferSizeFrames;
+        int64_t burstSizeFrames;
         RETURN_STATUS_IF_ERROR(streamWrapper.configureMMapStream(
-                &mBuffer.fd, &mBuffer.burstSizeFrames, &mBuffer.flags, &mBuffer.bufferSizeFrames));
-        context.fillMMapDescriptor(mBuffer.fd, mBuffer.burstSizeFrames, mBuffer.flags,
-                                   mBuffer.bufferSizeFrames, &_aidl_return->desc);
+            &fd, &burstSizeFrames, &mmapFlags, &bufferSizeFrames));
+        _aidl_return->desc.audio
+            .set<StreamDescriptor::AudioBuffer::Tag::mmap>();
+        auto& mmapRef = _aidl_return->desc.audio
+                            .get<StreamDescriptor::AudioBuffer::Tag::mmap>();
+        mmapRef.sharedMemory.fd = ndk::ScopedFileDescriptor{fd};
+        mmapRef.burstSizeFrames = burstSizeFrames;
+        mmapRef.flags = mmapFlags;
+        _aidl_return->desc.bufferSizeFrames = bufferSizeFrames;
     }
     AIBinder_setMinSchedulerPolicy(streamWrapper.getBinder().get(), SCHED_NORMAL,
                                    ANDROID_PRIORITY_AUDIO);

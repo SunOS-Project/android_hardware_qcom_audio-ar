@@ -146,7 +146,7 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
     ndk::ScopedAStatus getAAudioHardwareBurstMinUsec(int32_t* _aidl_return) override;
 
     // This value is used for all AudioPatches.
-    static constexpr int32_t kMinimumStreamBufferSizeFrames = 256;
+    static constexpr int32_t kMinimumStreamBufferSizeFrames = 48;
     // The maximum stream buffer size is 1 GiB = 2 ** 30 bytes;
     static constexpr int32_t kMaximumStreamBufferSizeBytes = 1 << 30;
 
@@ -158,12 +158,6 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
         bool forceSynchronousDrain = false;
     };
 
-    struct MMapBuffer {
-        int32_t fd;
-        int64_t burstSizeFrames;
-        int32_t flags;
-        int32_t bufferSizeFrames;
-    };
     // ids of device ports created at runtime via 'connectExternalDevice'.
     // Also stores a list of ids of mix ports with dynamic profiles that were populated from
     // the connected port. This list can be empty, thus an int->int multimap can't be used.
