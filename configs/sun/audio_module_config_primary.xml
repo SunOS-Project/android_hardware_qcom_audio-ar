@@ -115,7 +115,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
             <profile samplingRates="8000 11025 16000 22050 32000 44100 48000 64000 88200 96000 128000 176400 192000" channelLayouts="LAYOUT_MONO LAYOUT_STEREO" formatType="PCM" pcmType="INT_16_BIT" />
         </devicePort>
         <!-- Todo check the sanity of below later w.r.t channel layouts -->
-        <devicePort tagName="proxy_device_out" deviceType="OUT_AFE_PROXY" role="sink" attached="true">
+        <devicePort tagName="proxy_device_out" deviceType="OUT_AFE_PROXY" role="sink">
             <profile samplingRates="8000 11025 16000 22050 32000 44100 48000 64000 88200 96000 128000 176400 192000" channelLayouts="LAYOUT_MONO LAYOUT_STEREO" formatType="PCM" pcmType="INT_16_BIT" />
         </devicePort>
         <devicePort tagName="fm_device_out" deviceType="OUT_FM" role="sink" attached="true">
