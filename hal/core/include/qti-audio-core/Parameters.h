@@ -30,6 +30,7 @@ const static std::string kVoiceCallState{"call_state"};
 const static std::string kVoiceCallType{"call_type"};
 const static std::string kVoiceVSID{"vsid"};
 const static std::string kVoiceDeviceMute{"device_mute"};
+const static std::string kVolumeBoost{"volume_boost"};
 const static std::string kVoiceDirection{"direction"};
 const static std::string kVoiceSlowTalk{"st_enable"};
 const static std::string kVoiceHDVoice{"hd_voice"};

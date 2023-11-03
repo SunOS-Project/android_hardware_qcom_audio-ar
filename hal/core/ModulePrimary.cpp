@@ -362,6 +362,11 @@ void ModulePrimary::onSetTelephonyParameters(const std::vector<VendorParameter>&
     }
 
     Telephony::SetUpdates setUpdates{};
+    bool isSetUpdate = false;
+
+    bool isDeviceMuted = false;
+    std::string muteDirection{""};
+    bool isDeviceMuteUpdate = false;
 
     for (const auto& p : parameters) {
         std::string paramValue{};
@@ -372,16 +377,38 @@ void ModulePrimary::onSetTelephonyParameters(const std::vector<VendorParameter>&
         if (Parameters::kVoiceCallState == p.id) {
             setUpdates.mCallState =
                     static_cast<Telephony::CallState>(getInt64FromString(paramValue));
+            isSetUpdate = true;
         } else if (Parameters::kVoiceVSID == p.id) {
             setUpdates.mVSID = static_cast<Telephony::VSID>(getInt64FromString(paramValue));
+            isSetUpdate = true;
         } else if (Parameters::kVoiceCallType == p.id) {
             setUpdates.mCallType = std::move(paramValue);
+            isSetUpdate = true;
         } else if (Parameters::kVoiceCRSCall == p.id) {
             setUpdates.mIsCrsCall = paramValue == "true" ? true : false;
+        } else if (Parameters::kVolumeBoost == p.id) {
+            const bool enable = paramValue == "on" ? true : false;
+            mTelephony->updateVolumeBoost(enable);
+        } else if (Parameters::kVoiceSlowTalk == p.id) {
+            const bool enable = paramValue == "true" ? true : false;
+            mTelephony->updateSlowTalk(enable);
+        } else if (Parameters::kVoiceHDVoice == p.id) {
+            const bool enable = paramValue == "true" ? true : false;
+            mTelephony->updateHDVoice(enable);
+        } else if (Parameters::kVoiceDeviceMute == p.id) {
+            isDeviceMuted = paramValue == "true" ? true : false;
+            isDeviceMuteUpdate = true;
+        } else if (Parameters::kVoiceDirection == p.id) {
+            muteDirection = paramValue;
         }
     }
 
-    mTelephony->reconfigure(setUpdates);
+    if (isSetUpdate) {
+        mTelephony->reconfigure(setUpdates);
+    }
+    if (isDeviceMuteUpdate) {
+        mTelephony->updateDeviceMute(isDeviceMuted, muteDirection);
+    }
 
     return;
 }
@@ -399,6 +426,11 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
                                  {Parameters::kVoiceCallType, Feature::TELEPHONY},
                                  {Parameters::kVoiceVSID, Feature::TELEPHONY},
                                  {Parameters::kVoiceCRSCall, Feature::TELEPHONY},
+                                 {Parameters::kVolumeBoost, Feature::TELEPHONY},
+                                 {Parameters::kVoiceSlowTalk, Feature::TELEPHONY},
+                                 {Parameters::kVoiceHDVoice, Feature::TELEPHONY},
+                                 {Parameters::kVoiceDeviceMute, Feature::TELEPHONY},
+                                 {Parameters::kVoiceDirection, Feature::TELEPHONY},
                                  {Parameters::kInCallMusic, Feature::GENERIC}};
     return map;
 }

@@ -85,6 +85,11 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     on the primary module */
     void reconfigure(const SetUpdates& setUpdates);
 
+    void updateVolumeBoost(const bool enable);
+    void updateSlowTalk(const bool enable);
+    void updateHDVoice(const bool enable);
+    void updateDeviceMute(const bool isMute, const std::string& muteDirection);
+
     bool isCrsCallSupported();
 
     // The following below APIs are both aimed to solve routing on telephony
@@ -103,6 +108,10 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
   protected:
     void startCall();
     void stopCall();
+    void configureVolumeBoost();
+    void configureSlowTalk();
+    void configureHDVoice();
+    void configureDeviceMute();
     void updateVoiceVolume();
     void updateDevices();
     void updateTtyMode();
@@ -125,6 +134,11 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
             ::aidl::android::media::audio::common::AudioMode::NORMAL};
 
     SetUpdates mSetUpdates{};
+    bool mIsVolumeBoostEnabled{false};
+    bool mIsSlowTalkEnabled{false};
+    bool mIsHDVoiceEnabled{false};
+    bool mIsDeviceMuted{false};
+    std::string mMuteDirection{""};
     using TtyMap = std::map<TelecomConfig::TtyMode, pal_tty_t>;
     const TtyMap mTtyMap{
             {TelecomConfig::TtyMode::OFF, PAL_TTY_OFF},
