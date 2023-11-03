@@ -625,9 +625,7 @@ size_t StreamOutPrimary::getPeriodSize() const noexcept {
     } else if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         return CompressPlayback::getPeriodBufferSize(mMixPortConfig.format.value());
     } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
-        return PcmOffloadPlayback::getPeriodSize(mMixPortConfig.format.value(),
-                                                 mMixPortConfig.channelMask.value(),
-                                                 mMixPortConfig.sampleRate.value().value);
+        return PcmOffloadPlayback::getPeriodSize(mMixPortConfig);
     } else if (mTag == Usecase::VOIP_PLAYBACK) {
         return VoipPlayback::getPeriodSize(mMixPortConfig);
     } else if (mTag == Usecase::SPATIAL_PLAYBACK) {

@@ -742,16 +742,13 @@ size_t CompressCapture::getPeriodBufferSize(
 
 // static
 size_t PcmOffloadPlayback::getPeriodSize(
-        const ::aidl::android::media::audio::common::AudioFormatDescription& formatDescription,
-        const ::aidl::android::media::audio::common::AudioChannelLayout& channelLayout,
-        const int32_t sampleRate) {
-    const auto frameSize = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
-            formatDescription, channelLayout);
-    size_t periodSize = sampleRate * (kPeriodDurationMs / 1000) * frameSize;
+        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
+    const auto frameSize =
+            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
+    size_t periodSize =
+            mixPortConfig.sampleRate.value().value * (kPeriodDurationMs / 1000) * frameSize;
     periodSize = getNearestMultiple(
-            periodSize,
-            std::lcm(32, ::aidl::android::hardware::audio::common::getPcmSampleSizeInBytes(
-                                 formatDescription.pcm)));
+            periodSize, std::lcm(32, getPcmSampleSizeInBytes(mixPortConfig.format.value().pcm)));
     return periodSize;
 }
 
