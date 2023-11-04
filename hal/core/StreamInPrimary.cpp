@@ -64,6 +64,10 @@ StreamInPrimary::StreamInPrimary(StreamContext&& context, const SinkMetadata& si
         mExt.emplace<MMapRecord>();
     } else if (mTag == Usecase::VOICE_CALL_RECORD) {
         mExt.emplace<VoiceCallRecord>();
+    } else if (mTag == Usecase::FAST_RECORD) {
+        mExt.emplace<FastRecord>();
+    } else if (mTag == Usecase::ULTRA_FAST_RECORD) {
+        mExt.emplace<UltraFastRecord>();
     }
     LOG(VERBOSE) << __func__ << ": " << *this;
 }
@@ -88,6 +92,20 @@ ndk::ScopedAStatus StreamInPrimary::setConnectedDevices(
     auto connectedPalDevices = mPlatform.getPalDevices(mConnectedDevices);
     if (mTag == Usecase::PCM_RECORD) {
         std::get<PcmRecord>(mExt).configurePalDevices(mMixPortConfig, connectedPalDevices);
+    } else if (mTag == Usecase::ULTRA_FAST_RECORD) {
+        auto countProxyDevices = std::count_if(mConnectedDevices.cbegin(), mConnectedDevices.cend(),
+                                               isInputAFEProxyDevice);
+        if (countProxyDevices > 0) {
+            std::get<UltraFastRecord>(mExt).mIsWFDCapture = true;
+            LOG(INFO) << __func__
+                      << ": ultra fast record on input AFE proxy (WFD client AHAL CAPTURE)";
+        } else {
+            std::get<UltraFastRecord>(mExt).mIsWFDCapture = false;
+            auto channelCount = getChannelCount(mMixPortConfig.channelMask.value());
+            if (channelCount == 2) {
+                mPlatform.configurePalDevicesCustomKey(connectedPalDevices, "dual-mic");
+            }
+        }
     }
 
     if (!connectedPalDevices.empty() &&
@@ -501,6 +519,10 @@ ndk::ScopedAStatus StreamInPrimary::removeEffect(
 size_t StreamInPrimary::getPeriodSize() const noexcept {
     if (mTag == Usecase::PCM_RECORD) {
         return PcmRecord::getMinFrames(mMixPortConfig) * mFrameSizeBytes;
+    } else if(mTag == Usecase::FAST_RECORD){
+        return FastRecord::getPeriodSize(mMixPortConfig);
+    } else if(mTag == Usecase::ULTRA_FAST_RECORD){
+        return UltraFastRecord::kPeriodSize * mFrameSizeBytes;
     } else if (mTag == Usecase::COMPRESS_CAPTURE) {
         return CompressCapture::getPeriodBufferSize(mMixPortConfig.format.value());
     } else if (mTag == Usecase::VOIP_RECORD) {
@@ -519,6 +541,10 @@ size_t StreamInPrimary::getPeriodSize() const noexcept {
 size_t StreamInPrimary::getPeriodCount() const noexcept {
     if (mTag == Usecase::PCM_RECORD) {
         return PcmRecord::kPeriodCount;
+    } else if(mTag == Usecase::FAST_RECORD){
+        return FastRecord::kPeriodCount;
+    } else if(mTag == Usecase::ULTRA_FAST_RECORD){
+        return UltraFastRecord::kPeriodCount;
     } else if (mTag == Usecase::COMPRESS_CAPTURE) {
         return CompressCapture::kPeriodCount;
     } else if (mTag == Usecase::VOIP_RECORD) {
@@ -551,6 +577,16 @@ void StreamInPrimary::configure() {
         attr->type = PAL_STREAM_VOICE_CALL_RECORD;
         attr->info.voice_rec_info.record_direction =
                 std::get<VoiceCallRecord>(mExt).getRecordDirection(mMixPortConfig);
+    } else if (mTag == Usecase::FAST_RECORD) {
+        attr->type = PAL_STREAM_LOW_LATENCY;
+    } else if (mTag == Usecase::ULTRA_FAST_RECORD) {
+        if (std::get<UltraFastRecord>(mExt).mIsWFDCapture) {
+            attr->type = PAL_STREAM_PROXY;
+            attr->info.opt_stream_info.tx_proxy_type = PAL_STREAM_PROXY_TX_WFD;
+        } else {
+            attr->type = PAL_STREAM_ULTRA_LOW_LATENCY;
+            attr->flags = PAL_STREAM_FLAG_MMAP;
+        }
     } else {
         LOG(ERROR) << __func__ << " invalid usecase to configure";
         return;

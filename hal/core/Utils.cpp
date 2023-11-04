@@ -65,6 +65,10 @@ bool isMMap(const AudioIoFlags& ioFlags) noexcept {
     return (isInputMMap(ioFlags) || isOutputMMap(ioFlags));
 }
 
+bool isInputAFEProxyDevice(const AudioDevice& device) noexcept {
+    return device.type.type == AudioDeviceType::IN_AFE_PROXY;
+}
+
 int64_t getInt64FromString(const std::string& s) noexcept {
     // Todo handle actual value 0
     return static_cast<int64_t>(strtol(s.c_str(), nullptr, 10));

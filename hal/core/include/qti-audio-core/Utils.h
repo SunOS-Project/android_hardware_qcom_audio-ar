@@ -48,6 +48,8 @@ bool isOutputMMap(const ::aidl::android::media::audio::common::AudioIoFlags&) no
 
 bool isMMap(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
 
+bool isInputAFEProxyDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
+
 template <class T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& list) noexcept {
     os << std::accumulate(list.cbegin(), list.cend(), std::string(""),

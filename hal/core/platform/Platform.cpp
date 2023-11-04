@@ -42,6 +42,7 @@ using ::aidl::android::media::audio::common::AudioProfile;
 using ::aidl::android::media::audio::common::PcmType;
 
 using ::aidl::android::hardware::audio::common::getChannelCount;
+using ::aidl::android::hardware::audio::common::getFrameSizeInBytes;
 using ::aidl::android::hardware::audio::common::isBitPositionFlagSet;
 
 namespace qti::audio::core {
@@ -60,6 +61,12 @@ size_t Platform::getIOBufferSizeInFrames(
         numFrames = LowLatencyPlayback::kPeriodSize;
     } else if (tag == Usecase::PCM_RECORD) {
         numFrames = PcmRecord::getMinFrames(mixPortConfig);
+    } else if (tag == Usecase::FAST_RECORD) {
+        numFrames = FastRecord::getPeriodSize(mixPortConfig) /
+                    getFrameSizeInBytes(mixPortConfig.format.value(),
+                                        mixPortConfig.channelMask.value());
+    } else if (tag == Usecase::ULTRA_FAST_RECORD) {
+        numFrames = UltraFastRecord::kPeriodSize;
     } else if (tag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         const size_t numBytes = CompressPlayback::getPeriodBufferSize(mixPortConfig.format.value());
         constexpr size_t compressFrameSize = 1;

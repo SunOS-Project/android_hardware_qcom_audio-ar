@@ -45,17 +45,6 @@ void AudioExtension::audio_extn_get_parameters(struct str_parms *query, struct s
     char *kv_pairs = NULL;
     char value[32] = {0};
     int ret, val = 0;
-
-    ret = str_parms_get_str(query, AUDIO_PARAMETER_KEY_CAN_OPEN_PROXY, value, sizeof(value));
-    if (ret >= 0) {
-        val = 1;
-        str_parms_add_int(reply, AUDIO_PARAMETER_KEY_CAN_OPEN_PROXY, val);
-    }
-    kv_pairs = str_parms_to_str(reply);
-    if (kv_pairs != NULL) {
-        LOG(VERBOSE) << __func__ << " returns " << kv_pairs;
-    }
-    free(kv_pairs);
 }
 void AudioExtension::audio_extn_set_parameters(struct str_parms *params) {
     mHfpExtension->audio_extn_hfp_set_parameters(params);

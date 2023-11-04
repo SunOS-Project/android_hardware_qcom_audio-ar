@@ -60,6 +60,7 @@ class ModulePrimary final : public Module {
         TELEPHONY,
         BLUETOOTH,
         HDR,
+        WFD,
         AUDIOEXTENSION,
     };
 
@@ -166,6 +167,9 @@ class ModulePrimary final : public Module {
             const std::vector<std::string>&);
     // GetHandler for Telephony
     std::vector<::aidl::android::hardware::audio::core::VendorParameter> onGetTelephonyParameters(
+            const std::vector<std::string>&);
+    // GetHandler for WFD
+    std::vector<::aidl::android::hardware::audio::core::VendorParameter> onGetWFDParameters(
             const std::vector<std::string>&);
     std::vector<::aidl::android::hardware::audio::core::VendorParameter> onGetAudioExtnParams(
             const std::vector<std::string>&);

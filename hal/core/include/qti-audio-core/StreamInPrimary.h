@@ -89,7 +89,7 @@ class StreamInPrimary : public StreamIn, public StreamCommonImpl {
     pal_stream_handle_t* mPalHandle{nullptr};
 
     std::variant<std::monostate, PcmRecord, CompressCapture, VoipRecord, MMapRecord,
-                 VoiceCallRecord>
+                 VoiceCallRecord, FastRecord, UltraFastRecord>
             mExt;
     // references
     Platform& mPlatform{Platform::getInstance()};
