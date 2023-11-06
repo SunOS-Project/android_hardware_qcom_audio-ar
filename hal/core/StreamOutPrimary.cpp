@@ -212,6 +212,8 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
     }
     LOG(INFO) << __func__ << ": stream is configured for " << mTagName;
 
+    mVolumes.size() > 0 ? (void)setHwVolume(mVolumes) : (void)0;
+
     return ndk::ScopedAStatus::ok();
 }
 
