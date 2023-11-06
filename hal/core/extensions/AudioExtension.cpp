@@ -22,6 +22,7 @@ namespace qti::audio::core {
 
 std::mutex AudioExtension::reconfig_wait_mutex_;
 bool BatteryListenerExtension::isCharging;
+int PerfLockExtension::perf_lock_acquire_cnt = 0;
 
 AudioExtensionBase::AudioExtensionBase(std::string library, bool enabled)
     : mLibraryName(library), mEnabled(enabled) {
@@ -350,14 +351,80 @@ FmExtension::FmExtension() : AudioExtensionBase(kFmLibrary) {
     }
 }
 
-PerfLockExtension::~PerfLockExtension() {}
-PerfLockExtension::PerfLockExtension()
-    : AudioExtensionBase(kHfpLibrary, isExtensionEnabled(kHfpProperty)) {
+PerfLockExtension::~PerfLockExtension() {
     LOG(INFO) << __func__ << " Enter";
-    if (mHandle != nullptr) {
-        mAcquirePerfLock = reinterpret_cast<AcquirePerfLock>(dlsym(mHandle, "perf_lock_acq"));
-        mReleasePerfLock = reinterpret_cast<ReleasePerfLock>(dlsym(mHandle, "perf_lock_rel"));
+    if (mInit) {
+        perf_lock_mutex.lock();
+        mInit = false;
+        if (PerfLockExtension::perf_lock_acquire_cnt > 0) {
+            --PerfLockExtension::perf_lock_acquire_cnt;
+        }
+        if (PerfLockExtension::perf_lock_acquire_cnt == 0)
+            perf_lock_release();
+        perf_lock_mutex.unlock();
+    } else {
+        LOG(INFO) << "Perf lock not initialized";
     }
+}
+
+PerfLockExtension::PerfLockExtension() :
+AudioExtensionBase (kPerfLockLibrary, isExtensionEnabled(kPerfLockProperty)) {
+     LOG(INFO) << __func__ << " Enter";
+     if (mHandle != nullptr) {
+        if (!mInit) {
+            LOG(ERROR) << __func__ << " Initializing perf lock.";
+            int32_t ret = perf_lock_init();
+            if (ret) {
+                LOG(ERROR) << __func__ << " Failed to initialize perf lock.";
+                return;
+            }
+            mInit = true;
+        }
+        perf_lock_mutex.lock();
+        ++PerfLockExtension::perf_lock_acquire_cnt;
+        if (perf_lock_acquire_cnt == 1)
+            perf_lock_acquire();
+        perf_lock_mutex.unlock();
+    }
+}
+
+int PerfLockExtension::perf_lock_init() {
+    LOG(INFO) << __func__ << " Enter";
+    mAcquirePerfLock = reinterpret_cast<AcquirePerfLock> (dlsym(mHandle, "perf_lock_acq"));
+    if (mAcquirePerfLock == NULL) {
+        LOG(ERROR) << __func__ << " Perf Lock acquire is null.";
+        dlclose(mHandle);
+        return -1;
+    }
+    mReleasePerfLock = reinterpret_cast<ReleasePerfLock> (dlsym(mHandle, "perf_lock_rel"));
+    if (mReleasePerfLock == NULL) {
+        LOG(ERROR) << __func__ << " Perf lock release is null.";
+        dlclose(mHandle);
+        return -1;
+    }
+    perf_lock_opts[0] = 0x40400000;
+    perf_lock_opts[1] = 0x1;
+    perf_lock_opts[2] = 0x40C00000;
+    perf_lock_opts[3] = 0x1;
+    perf_lock_opts_size = 4;
+    LOG(INFO) << __func__ << " Perf lock initialization successful.";
+    return 0;
+}
+
+void PerfLockExtension::perf_lock_acquire() {
+    perf_lock_handle = mAcquirePerfLock(perf_lock_handle, 0, perf_lock_opts, perf_lock_opts_size);
+    if (perf_lock_handle <= 0) {
+        LOG(ERROR) << __func__ << " Failed to acquire perf lock.";
+    }
+    LOG(VERBOSE) << __func__ << " Acquired perf lock, handle: 0x" << perf_lock_handle;
+}
+
+void PerfLockExtension::perf_lock_release() {
+    if (!perf_lock_handle) {
+        LOG(ERROR) << __func__ << " Failed to release perf lock";
+    }
+    mReleasePerfLock(perf_lock_handle);
+    LOG(VERBOSE) << __func__ << " Releasing perf lock handle: 0x" << perf_lock_handle;
 }
 
 int KarokeExtension::karaoke_open(pal_device_id_t device_out, pal_stream_callback pal_callback,
