@@ -527,6 +527,7 @@ ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdA
 
     if (!mDebug.simulateDeviceConnections) {
         RETURN_STATUS_IF_ERROR(populateConnectedDevicePort(&connectedPort, templateId));
+        onExternalDeviceConnectionChanged(connectedPort, true /*connected*/);
         const auto& dynamicProfiles = getDynamicProfiles(in_templateIdAndAdditionalData);
         if (dynamicProfiles.size() != 0) {
             connectedPort.profiles = dynamicProfiles;
@@ -560,8 +561,6 @@ ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdA
     auto[connectedPortsIt, _] =
             mConnectedDevicePorts.insert(std::pair(connectedPort.id, std::set<int32_t>()));
     ports.push_back(connectedPort);
-    // Upon this, we must let platform know about external device connection
-    onExternalDeviceConnectionChanged(connectedPort, true /*connected*/);
 
     std::vector<int32_t> routablePortIds;
     std::vector<AudioRoute> newRoutes;
