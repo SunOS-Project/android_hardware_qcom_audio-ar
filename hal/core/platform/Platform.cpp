@@ -54,6 +54,8 @@ size_t Platform::getIOBufferSizeInFrames(
     size_t numFrames = 0;
     if (tag == Usecase::DEEP_BUFFER_PLAYBACK) {
         numFrames = DeepBufferPlayback::kPeriodSize;
+    } else if (tag == Usecase::PCM_OFFLOAD_PLAYBACK) {
+        numFrames = PcmOffloadPlayback::getPeriodSize(mixPortConfig);
     } else if (tag == Usecase::LOW_LATENCY_PLAYBACK) {
         numFrames = LowLatencyPlayback::kPeriodSize;
     } else if (tag == Usecase::PCM_RECORD) {

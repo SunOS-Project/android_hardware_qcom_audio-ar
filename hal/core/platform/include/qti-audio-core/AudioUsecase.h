@@ -286,9 +286,7 @@ class PcmOffloadPlayback final {
     constexpr static size_t kPeriodCount = 4;
     constexpr static size_t kPlatformDelayMs = 30;
     static size_t getPeriodSize(
-            const ::aidl::android::media::audio::common::AudioFormatDescription& formatDescription,
-            const ::aidl::android::media::audio::common::AudioChannelLayout& channelLayout,
-            const int32_t sampleRate);
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
 
   private:
     int64_t mCachePresentationPosition;
