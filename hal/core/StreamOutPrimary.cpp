@@ -636,7 +636,7 @@ size_t StreamOutPrimary::getPeriodSize() const noexcept {
     } else if (mTag == Usecase::VOIP_PLAYBACK) {
         return VoipPlayback::getPeriodSize(mMixPortConfig);
     } else if (mTag == Usecase::SPATIAL_PLAYBACK) {
-        return PrimaryPlayback::kPeriodSize * mFrameSizeBytes;
+        return SpatialPlayback::kPeriodSize * mFrameSizeBytes;
     } else if (mTag == Usecase::ULL_PLAYBACK) {
         return UllPlayback::getPeriodSize(mMixPortConfig.format.value(),
                                           mMixPortConfig.channelMask.value());
