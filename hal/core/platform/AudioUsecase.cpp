@@ -26,6 +26,7 @@ using ::aidl::android::media::audio::common::AudioPortConfig;
 using ::aidl::android::media::audio::common::AudioPortExt;
 using ::aidl::android::media::audio::common::AudioPortMixExtUseCase;
 using ::aidl::android::hardware::audio::core::VendorParameter;
+using ::aidl::android::media::audio::common::AudioChannelLayout;
 
 namespace qti::audio::core {
 
@@ -49,6 +50,8 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
 
     const auto& flagsTag = mixPortConfig.flags.value().getTag();
     constexpr auto flagCastToint = [](auto flag) { return static_cast<int32_t>(flag); };
+
+    const auto& channelLayout = mixPortConfig.channelMask.value();
 
     constexpr int32_t noneFlags = 0;
     constexpr auto primaryPlaybackFlags =
@@ -109,6 +112,10 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
             tag = Usecase::MMAP_PLAYBACK;
         } else if (outFlags == inCallMusicFlags) {
             tag = Usecase::IN_CALL_MUSIC;
+        } else if (channelLayout.getTag() == AudioChannelLayout::Tag::layoutMask &&
+                   channelLayout.get<AudioChannelLayout::Tag::layoutMask>() ==
+                           AudioChannelLayout::LAYOUT_STEREO_HAPTIC_A) {
+            tag = Usecase::HAPTICS_PLAYBACK;
         }
     } else if (flagsTag == AudioIoFlags::Tag::input) {
         auto& inFlags = mixPortConfig.flags.value().get<AudioIoFlags::Tag::input>();
@@ -183,6 +190,8 @@ std::string getName(const Usecase tag) {
             return "ULTRA_FAST_RECORD";
         case Usecase::HOTWORD_RECORD:
             return "HOTWORD_RECORD";
+        case Usecase::HAPTICS_PLAYBACK:
+            return "HAPTICS_PLAYBACK";
         default:
             return std::to_string(static_cast<uint16_t>(tag));
     }

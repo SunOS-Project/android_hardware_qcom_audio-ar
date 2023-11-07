@@ -48,6 +48,7 @@ enum class Usecase : uint16_t {
     FAST_RECORD,
     ULTRA_FAST_RECORD,
     HOTWORD_RECORD,
+    HAPTICS_PLAYBACK,
 };
 
 Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
@@ -409,4 +410,10 @@ class HotwordRecord : public PcmRecord {
             mixPortConfig);
 };
 
-}  // namespace qti::audio::core
+class HapticsPlayback {
+    public:
+    constexpr static size_t kPeriodSize = 240; //same as low-latency
+    constexpr static size_t kPeriodCount = 2;
+};
+
+} // namespace qti::audio::core
