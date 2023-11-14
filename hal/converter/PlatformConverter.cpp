@@ -156,8 +156,12 @@ DevicePairs getDevicePairs() {
                                         AudioDeviceDescription::CONNECTION_BT_A2DP),
              PAL_DEVICE_OUT_BLUETOOTH_A2DP},
 
-            {makeAudioDeviceDescription(AudioDeviceType::IN_AFE_PROXY), PAL_DEVICE_IN_PROXY},
-            {makeAudioDeviceDescription(AudioDeviceType::OUT_AFE_PROXY), PAL_DEVICE_OUT_PROXY},
+            {makeAudioDeviceDescription(AudioDeviceType::IN_AFE_PROXY,
+                                        AudioDeviceDescription::CONNECTION_VIRTUAL),
+             PAL_DEVICE_IN_PROXY},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_AFE_PROXY,
+                                        AudioDeviceDescription::CONNECTION_VIRTUAL),
+             PAL_DEVICE_OUT_PROXY},
 
             {makeAudioDeviceDescription(AudioDeviceType::OUT_DEVICE,
                                         AudioDeviceDescription::CONNECTION_USB),
