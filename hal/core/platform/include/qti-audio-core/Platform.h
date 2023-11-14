@@ -12,7 +12,6 @@
 #include <extensions/AudioExtension.h>
 
 #include <PalApi.h>
-#include <qti-audio-core/PlatformConverter.h>
 
 namespace qti::audio::core {
 class Platform {
@@ -114,6 +113,5 @@ class Platform {
     std::map<std::string, std::string> mParameters;
     card_status_t mSndCardStatus{CARD_STATUS_OFFLINE};
     bool mInCallMusicEnabled{false};
-    const PlatformConverter& mTypeConverter{PlatformConverter::getInstance()};
 };
 } // namespace qti::audio::core

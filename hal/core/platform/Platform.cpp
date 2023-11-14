@@ -13,6 +13,7 @@
 #include <qti-audio-core/AudioUsecase.h>
 #include <qti-audio-core/Platform.h>
 #include <qti-audio-core/PlatformUtils.h>
+#include <qti-audio/PlatformConverter.h>
 #include <system/audio.h>
 
 #include <aidl/qti/audio/core/VString.h>
@@ -106,14 +107,14 @@ size_t Platform::getMinimumStreamSizeFrames(const std::vector<AudioPortConfig*>&
 std::unique_ptr<pal_stream_attributes> Platform::getPalStreamAttributes(
         const AudioPortConfig& portConfig, const bool isInput) const {
     const auto& audioFormat = portConfig.format.value();
-    const auto palFormat = mTypeConverter.getPalFormatId(audioFormat);
+    const auto palFormat = PlatformConverter::getPalFormatId(audioFormat);
     if (palFormat == PAL_AUDIO_FMT_COMPRESSED_RANGE_END) {
         return nullptr;
     }
 
     const auto& audioChannelLayout = portConfig.channelMask.value();
-    auto palChannelInfo =
-            mTypeConverter.getPalChannelInfoForChannelCount(getChannelCount(audioChannelLayout));
+    auto palChannelInfo = PlatformConverter::getPalChannelInfoForChannelCount(
+            getChannelCount(audioChannelLayout));
     if (palChannelInfo == nullptr) {
         LOG(ERROR) << __func__ << " failed to find corresponding pal channel info for "
                    << audioChannelLayout.toString();
@@ -126,7 +127,7 @@ std::unique_ptr<pal_stream_attributes> Platform::getPalStreamAttributes(
     }
 
     auto attributes = std::make_unique<pal_stream_attributes>();
-    auto bitWidth = mTypeConverter.getBitWidthForAidlPCM(audioFormat);
+    auto bitWidth = PlatformConverter::getBitWidthForAidlPCM(audioFormat);
     bitWidth == 0 ? (void)(bitWidth = kDefaultPCMBidWidth) : (void)0;
 
     if (!isInput) {
@@ -148,8 +149,8 @@ std::unique_ptr<pal_stream_attributes> Platform::getPalStreamAttributes(
 
 std::unique_ptr<pal_stream_attributes> Platform::getDefaultTelephonyAttributes() const {
     auto attributes = std::make_unique<pal_stream_attributes>();
-    auto inChannelInfo = mTypeConverter.getPalChannelInfoForChannelCount(1);
-    auto outChannelInfo = mTypeConverter.getPalChannelInfoForChannelCount(2);
+    auto inChannelInfo = PlatformConverter::getPalChannelInfoForChannelCount(1);
+    auto outChannelInfo = PlatformConverter::getPalChannelInfoForChannelCount(2);
     attributes->type = PAL_STREAM_VOICE_CALL;
     attributes->direction = PAL_AUDIO_INPUT_OUTPUT;
     attributes->in_media_config.sample_rate = kDefaultOutputSampleRate;
@@ -180,7 +181,7 @@ std::vector<pal_device> Platform::getPalDevices(const std::vector<AudioDevice>& 
 
     size_t i = 0;
     for (auto& device : setDevices) {
-        const auto palDeviceId = mTypeConverter.getPalDeviceId(device.type);
+        const auto palDeviceId = PlatformConverter::getPalDeviceId(device.type);
         if (palDeviceId == PAL_DEVICE_OUT_MIN) {
             return {};
         }
@@ -253,7 +254,7 @@ std::vector<AudioProfile> Platform::getDynamicProfiles(
         return {};
     }
     auto& audioDeviceDesc = devicePortExt.device.type;
-    const auto palDeviceId = mTypeConverter.getPalDeviceId(audioDeviceDesc);
+    const auto palDeviceId = PlatformConverter::getPalDeviceId(audioDeviceDesc);
     if (palDeviceId == PAL_DEVICE_OUT_MIN) {
         return {};
     }
@@ -353,7 +354,7 @@ bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
     const auto& devicePortExt = deviceAudioPort.ext.get<AudioPortExt::Tag::device>();
 
     auto& audioDeviceDesc = devicePortExt.device.type;
-    const auto palDeviceId = mTypeConverter.getPalDeviceId(audioDeviceDesc);
+    const auto palDeviceId = PlatformConverter::getPalDeviceId(audioDeviceDesc);
     if (palDeviceId == PAL_DEVICE_OUT_MIN) {
         return false;
     }
@@ -771,7 +772,7 @@ uint32_t Platform::getBluetoothLatencyMs(
     pal_param_bta2dp_t btConfig{};
     for (const auto& device : bluetoothDevices) {
         if (isBluetoothDevice(device)) {
-            btConfig.dev_id = mTypeConverter.getPalDeviceId(device.type);
+            btConfig.dev_id = PlatformConverter::getPalDeviceId(device.type);
             // first bluetooth device
             break;
         }
@@ -827,7 +828,7 @@ std::string Platform::toString() const {
     for (const auto & [ key, value ] : mParameters) {
         os << key << "=>" << value << std::endl;
     }
-    os << mTypeConverter.toString() << std::endl;
+    os << PlatformConverter::toString() << std::endl;
     os << " === platform end ===" << std::endl;
     return os.str();
 }
