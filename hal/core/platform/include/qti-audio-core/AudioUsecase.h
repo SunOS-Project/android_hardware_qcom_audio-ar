@@ -42,6 +42,8 @@ enum class Usecase : uint16_t {
     MMAP_RECORD,
     VOICE_CALL_RECORD,
     IN_CALL_MUSIC,
+    FAST_RECORD,
+    ULTRA_FAST_RECORD,
 };
 
 Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
@@ -88,6 +90,23 @@ class PcmRecord final {
             std::vector<pal_device>& palDevices);
     void setHdrOnPalDevice(pal_device* palDeviceIn);
     HdrMode getHdrMode();
+};
+
+class FastRecord {
+  public:
+    constexpr static size_t kPeriodSize = 240;
+    constexpr static size_t kPeriodCount = 4;
+    static size_t getPeriodSize(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
+};
+
+class UltraFastRecord {
+  public:
+    constexpr static int32_t kSampleRate = 48000;
+    constexpr static size_t kPeriodSize = kSampleRate/1000; // 1ms
+    constexpr static size_t kPeriodCount = 512;
+    // This Use case behave differently when device connected is input AFE proxy
+    bool mIsWFDCapture{false};
 };
 
 class CompressPlayback final {

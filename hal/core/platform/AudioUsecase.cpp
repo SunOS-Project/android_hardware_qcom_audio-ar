@@ -37,6 +37,13 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
                    << mixPortConfig.toString();
         return tag;
     }
+
+    if (!(mixPortConfig.sampleRate) || (mixPortConfig.sampleRate.value().value == 0)) {
+        LOG(ERROR) << __func__ << ": mix port config missing sample rate!!!";
+        return tag;
+    }
+
+    const auto& streamSampleRate = mixPortConfig.sampleRate.value().value;
     const auto& mixUsecase = mixPortConfig.ext.get<AudioPortExt::Tag::mix>().usecase;
     const auto mixUsecaseTag = mixUsecase.getTag();
 
@@ -53,6 +60,8 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
                                  1 << flagCastToint(AudioOutputFlags::COMPRESS_OFFLOAD) |
                                  1 << flagCastToint(AudioOutputFlags::NON_BLOCKING) |
                                  1 << flagCastToint(AudioOutputFlags::GAPLESS_OFFLOAD));
+    constexpr auto fastRecordFlags =
+            static_cast<int32_t>(1 << flagCastToint(AudioInputFlags::FAST));
     constexpr auto compressCaptureFlags =
             static_cast<int32_t>(1 << flagCastToint(AudioInputFlags::DIRECT));
     constexpr auto lowLatencyPlaybackFlags =
@@ -110,6 +119,11 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
                     tag = Usecase::VOICE_CALL_RECORD;
                 }
             }
+        } else if (inFlags == fastRecordFlags) {
+            tag = Usecase::FAST_RECORD;
+            if (streamSampleRate == UltraFastRecord::kSampleRate) {
+                tag = Usecase::ULTRA_FAST_RECORD;
+            }
         } else if (inFlags == compressCaptureFlags) {
             tag = Usecase::COMPRESS_CAPTURE;
         } else if (inFlags == recordVoipFlags && mixUsecaseTag == AudioPortMixExtUseCase::source &&
@@ -159,6 +173,10 @@ std::string getName(const Usecase tag) {
             return "usecase(13:VOICE_CALL_RECORD)";
         case Usecase::IN_CALL_MUSIC:
             return "usecase(14:IN_CALL_MUSIC)";
+        case Usecase::FAST_RECORD:
+            return "FAST_RECORD";
+        case Usecase::ULTRA_FAST_RECORD:
+            return "ULTRA_FAST_RECORD";
         default:
             return std::to_string(static_cast<uint16_t>(tag));
     }
@@ -245,6 +263,20 @@ void PcmRecord::configurePalDevices(
 }
 
 // end of pcm record
+
+// start of fast record
+
+// static
+size_t FastRecord::getPeriodSize(
+        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
+    size_t frameSize =
+            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
+    size_t size = kPeriodSize * frameSize;
+    size = getNearestMultiple(size, std::lcm(32, frameSize));
+    return size;
+}
+
+// end of fast record
 
 // start of compress playback
 CompressPlayback::CompressPlayback(

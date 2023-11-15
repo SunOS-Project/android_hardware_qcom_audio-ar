@@ -571,12 +571,30 @@ std::vector<VendorParameter> ModulePrimary::onGetTelephonyParameters(
     return results;
 }
 
+std::vector<VendorParameter> ModulePrimary::onGetWFDParameters(
+        const std::vector<std::string>& ids) {
+    std::vector<VendorParameter> results{};
+    for (const auto& id : ids) {
+        if (id == Parameters::kCanOpenProxy) {
+            VendorParameter param;
+            param.id = id;
+            VString parcel;
+            parcel.value = "1"; // This "1" indicates WFD client can try AHAL Capture.
+            setParameter(parcel, param);
+            results.push_back(param);
+        } else {
+            LOG(ERROR) << __func__ << ": unknown parameter in WFD feature. id:" << id;
+        }
+    }
+    return results;
+}
+
 // static
 ModulePrimary::GetParameterToFeatureMap ModulePrimary::fillGetParameterToFeatureMap() {
     GetParameterToFeatureMap map{{Parameters::kVoiceIsCRsSupported, Feature::TELEPHONY},
                                  {Parameters::kA2dpSuspended, Feature::BLUETOOTH},
-                                 {Parameters::kFMStatus, Feature::AUDIOEXTENSION},
-                                 {Parameters::kCanOpenProxy, Feature::AUDIOEXTENSION}};
+                                 {Parameters::kCanOpenProxy, Feature::WFD},
+                                 {Parameters::kFMStatus, Feature::AUDIOEXTENSION}};
     return map;
 }
 
@@ -584,6 +602,7 @@ ModulePrimary::GetParameterToFeatureMap ModulePrimary::fillGetParameterToFeature
 ModulePrimary::FeatureToGetHandlerMap ModulePrimary::fillFeatureToGetHandlerMap() {
     FeatureToGetHandlerMap map{{Feature::TELEPHONY, &ModulePrimary::onGetTelephonyParameters},
                                {Feature::BLUETOOTH, &ModulePrimary::onGetBluetoothParams},
+                               {Feature::WFD, &ModulePrimary::onGetWFDParameters},
                                {Feature::AUDIOEXTENSION, &ModulePrimary::onGetAudioExtnParams}};
     return map;
 }
