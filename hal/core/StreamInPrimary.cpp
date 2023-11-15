@@ -68,6 +68,8 @@ StreamInPrimary::StreamInPrimary(StreamContext&& context, const SinkMetadata& si
         mExt.emplace<FastRecord>();
     } else if (mTag == Usecase::ULTRA_FAST_RECORD) {
         mExt.emplace<UltraFastRecord>();
+    } else if (mTag == Usecase::HOTWORD_RECORD) {
+        mExt.emplace<HotwordRecord>();
     }
     LOG(VERBOSE) << __func__ << ": " << *this;
 }
@@ -267,27 +269,28 @@ void StreamInPrimary::resume() {
     pal_buffer palBuffer{};
     palBuffer.buffer = static_cast<uint8_t*>(buffer);
     palBuffer.size = frameCount * mFrameSizeBytes;
-    LOG(VERBOSE) << __func__ << ": framecount" << frameCount
-                 << " mFrameSizeBytes:" << mFrameSizeBytes;
+    LOG(VERBOSE) << __func__ << ": framecount " << frameCount
+                 << " mFrameSizeBytes " << mFrameSizeBytes;
     int32_t bytesRead = ::pal_stream_read(mPalHandle, &palBuffer);
     if (bytesRead < 0) {
         LOG(ERROR) << __func__ << " read failed, ret:" << std::to_string(bytesRead);
         return ::android::NOT_ENOUGH_DATA;
     }
 
-    LOG(VERBOSE) << __func__ << ": read bytes:" << bytesRead;
-
     if (mTag == Usecase::COMPRESS_CAPTURE) {
         auto& compressCapture = std::get<CompressCapture>(mExt);
         compressCapture.mNumReadCalls++;
         *latencyMs = compressCapture.getLatencyMs();
-    } else if (mTag == Usecase::PCM_RECORD) {
+    } else if (mTag == Usecase::PCM_RECORD || mTag == Usecase::HOTWORD_RECORD) {
         *latencyMs = PcmRecord::kCaptureDurationMs;
     } else {
         // default latency
         *latencyMs = Module::kLatencyMs;
     }
     *actualFrameCount = static_cast<size_t>(bytesRead) / mFrameSizeBytes;
+
+    LOG(VERBOSE) << __func__<< ": bytes read " << bytesRead
+                 << ", return frame count " << *actualFrameCount;
 
     return ::android::OK;
 }
@@ -324,8 +327,12 @@ void StreamInPrimary::resume() {
 
 void StreamInPrimary::shutdown() {
     if (mPalHandle != nullptr) {
-        ::pal_stream_stop(mPalHandle);
-        ::pal_stream_close(mPalHandle);
+        if (mTag == Usecase::HOTWORD_RECORD){
+            ::pal_stream_set_param(mPalHandle, PAL_PARAM_ID_STOP_BUFFERING, nullptr);
+        } else {
+            ::pal_stream_stop(mPalHandle);
+            ::pal_stream_close(mPalHandle);
+        }
     }
     mPalHandle = nullptr;
 }
@@ -576,7 +583,7 @@ void StreamInPrimary::configure() {
     } else if (mTag == Usecase::VOICE_CALL_RECORD) {
         attr->type = PAL_STREAM_VOICE_CALL_RECORD;
         attr->info.voice_rec_info.record_direction =
-                std::get<VoiceCallRecord>(mExt).getRecordDirection(mMixPortConfig);
+            std::get<VoiceCallRecord>(mExt).getRecordDirection(mMixPortConfig);
     } else if (mTag == Usecase::FAST_RECORD) {
         attr->type = PAL_STREAM_LOW_LATENCY;
     } else if (mTag == Usecase::ULTRA_FAST_RECORD) {
@@ -587,6 +594,10 @@ void StreamInPrimary::configure() {
             attr->type = PAL_STREAM_ULTRA_LOW_LATENCY;
             attr->flags = PAL_STREAM_FLAG_MMAP;
         }
+    } else if(mTag == Usecase::HOTWORD_RECORD){
+        mPalHandle =
+            std::get<HotwordRecord>(mExt).getPalHandle(mMixPortConfig);
+        return;
     } else {
         LOG(ERROR) << __func__ << " invalid usecase to configure";
         return;

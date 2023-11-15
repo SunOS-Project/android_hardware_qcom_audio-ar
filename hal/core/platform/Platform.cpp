@@ -90,6 +90,8 @@ size_t Platform::getIOBufferSizeInFrames(
         numFrames = InCallMusic::kPeriodSize;
     } else if (tag == Usecase::SPATIAL_PLAYBACK) {
         numFrames = SpatialPlayback::kPeriodSize;
+    } else if (tag == Usecase::HOTWORD_RECORD) {
+        numFrames = HotwordRecord::getMinFrames(mixPortConfig);
     }
     LOG(VERBOSE) << __func__ << " IOBufferSizeInFrames:" << std::to_string(numFrames) << " for "
                  << getName(tag);

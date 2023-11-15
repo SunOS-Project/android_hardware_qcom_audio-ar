@@ -44,6 +44,7 @@ enum class Usecase : uint16_t {
     IN_CALL_MUSIC,
     FAST_RECORD,
     ULTRA_FAST_RECORD,
+    HOTWORD_RECORD,
 };
 
 Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
@@ -72,7 +73,7 @@ class LowLatencyPlayback final {
     constexpr static size_t kPeriodCount = 2;
 };
 
-class PcmRecord final {
+class PcmRecord {
   public:
     constexpr static uint32_t kCaptureDurationMs = 20;
     constexpr static uint32_t kPeriodCount = 4;
@@ -391,4 +392,11 @@ class InCallMusic {
     constexpr static size_t kPeriodCount = 4;
 };
 
-} // namespace qti::audio::core
+class HotwordRecord : public PcmRecord {
+  public:
+    pal_stream_handle_t* getPalHandle(
+        const ::aidl::android::media::audio::common::AudioPortConfig&
+            mixPortConfig);
+};
+
+}  // namespace qti::audio::core

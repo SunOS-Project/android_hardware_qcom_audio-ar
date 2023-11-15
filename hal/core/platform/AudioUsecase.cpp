@@ -84,6 +84,8 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
             static_cast<int32_t>(1 << flagCastToint(AudioInputFlags::MMAP_NOIRQ));
     constexpr auto inCallMusicFlags =
             static_cast<int32_t>(1 << flagCastToint(AudioOutputFlags::INCALL_MUSIC));
+    constexpr auto hotWordRecordFlags =
+            static_cast<int32_t>(1 << flagCastToint(AudioInputFlags::HW_HOTWORD));
 
     if (flagsTag == AudioIoFlags::Tag::output) {
         auto& outFlags = mixPortConfig.flags.value().get<AudioIoFlags::Tag::output>();
@@ -132,6 +134,8 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
             tag = Usecase::VOIP_RECORD;
         } else if (inFlags == mmapRecordFlags) {
             tag = Usecase::MMAP_RECORD;
+        } else if (inFlags == hotWordRecordFlags) {
+            tag = Usecase::HOTWORD_RECORD;
         }
     }
     LOG(VERBOSE) << __func__ << " choosen tag:" << getName(tag) << " for mix port config "
@@ -174,9 +178,11 @@ std::string getName(const Usecase tag) {
         case Usecase::IN_CALL_MUSIC:
             return "usecase(14:IN_CALL_MUSIC)";
         case Usecase::FAST_RECORD:
-            return "FAST_RECORD";
+            return "usecase(15:FAST_RECORD)";
         case Usecase::ULTRA_FAST_RECORD:
-            return "ULTRA_FAST_RECORD";
+            return "usecase(16:ULTRA_FAST_RECORD)";
+        case Usecase::HOTWORD_RECORD:
+            return "usecase(17:HOTWORD_RECORD)";
         default:
             return std::to_string(static_cast<uint16_t>(tag));
     }
@@ -956,4 +962,32 @@ size_t VoiceCallRecord::getPeriodSize(
 
 // end of VoiceCallRecord
 
-} // namespace qti::audio::core
+// start of HotwordRecord
+
+pal_stream_handle_t* HotwordRecord::getPalHandle(
+    const ::aidl::android::media::audio::common::AudioPortConfig&
+        mixPortConfig) {
+    size_t payloadSize = 0;
+    pal_param_st_capture_info_t stCaptureInfo{0, nullptr};
+
+    auto& ioHandle = mixPortConfig.ext.get<AudioPortExt::Tag::mix>().handle;
+    stCaptureInfo.capture_handle = ioHandle;
+
+    int32_t ret = pal_get_param(PAL_PARAM_ID_ST_CAPTURE_INFO, (void**)&stCaptureInfo,
+                                &payloadSize, nullptr);
+    if (ret) {
+        LOG(ERROR) << __func__ << ": sound trigger handle not found, status " << ret;
+        return nullptr;
+    }
+
+    LOG(DEBUG) << __func__
+               << ": sound trigger pal handle " << stCaptureInfo.pal_handle
+               << " for IOHandle  " << ioHandle;
+
+    return stCaptureInfo.pal_handle;
+}
+
+// end of HotwordRecord
+
+}  // namespace qti::audio::core
+

@@ -89,8 +89,7 @@ class StreamInPrimary : public StreamIn, public StreamCommonImpl {
     pal_stream_handle_t* mPalHandle{nullptr};
 
     std::variant<std::monostate, PcmRecord, CompressCapture, VoipRecord, MMapRecord,
-                 VoiceCallRecord, FastRecord, UltraFastRecord>
-            mExt;
+                 VoiceCallRecord, FastRecord, UltraFastRecord, HotwordRecord>  mExt;
     // references
     Platform& mPlatform{Platform::getInstance()};
     const ::aidl::android::media::audio::common::AudioPortConfig& mMixPortConfig;
