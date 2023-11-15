@@ -90,8 +90,9 @@ size_t Platform::getIOBufferSizeInFrames(
 size_t Platform::getMinimumStreamSizeFrames(const std::vector<AudioPortConfig*>& sources,
                                             const std::vector<AudioPortConfig*>& sinks) const {
     if (sources.size() > 1) {
-        LOG(WARNING) << __func__ << " unable to decide the minimum stream size for sources "
-                                    "more than one; actual size:"
+        LOG(WARNING) << __func__
+                     << " unable to decide the minimum stream size for sources "
+                        "more than one; actual size:"
                      << sources.size();
         return 0;
     }
@@ -382,6 +383,29 @@ bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
         const auto deviceId = deviceAddressAlsa[1];
         deviceConnection->device_config.usb_addr.card_id = cardId;
         deviceConnection->device_config.usb_addr.device_num = deviceId;
+
+    } else if (isHdmiDevice(devicePortExt.device)) {
+        const auto& addressTag = devicePortExt.device.address.getTag();
+        if (addressTag != AudioDeviceAddress::Tag::id ||
+            devicePortExt.device.address.get<AudioDeviceAddress::Tag::id>().empty()) {
+            LOG(ERROR) << __func__
+                       << ": no hdmi address controller/stream provided for the AudioPort"
+                       << deviceAudioPort.toString();
+            return false;
+        }
+        const auto hdmiAddress = devicePortExt.device.address.get<AudioDeviceAddress::Tag::id>();
+        LOG(VERBOSE) << __func__ << " hdmi address " << hdmiAddress;
+        int controller = -1;
+        int stream = -1;
+        int status =
+                std::sscanf(hdmiAddress.c_str(), "controller=%d;stream=%d", &controller, &stream);
+        if (status != 2) {
+            LOG(ERROR) << __func__
+                       << ": failed to extract HDMI controller and stream from the device";
+            return false;
+        }
+        deviceConnection->device_config.dp_config.controller = controller;
+        deviceConnection->device_config.dp_config.stream = stream;
     }
 
     v = deviceConnection.get();
@@ -405,6 +429,7 @@ bool Platform::setVendorParameters(
     }
     return true;
 }
+
 bool Platform::setBluetoothParameters(const char* kvpairs) {
     struct str_parms* parms = NULL;
     int ret = 0, val = 0;
@@ -704,7 +729,7 @@ bool Platform::setBluetoothParameters(const char* kvpairs) {
 
 bool Platform::setParameter(const std::string& key, const std::string& value) {
     // Todo check for validity of key
-    const auto & [ first, second ] = mParameters.insert_or_assign(key, value);
+    const auto& [first, second] = mParameters.insert_or_assign(key, value);
     LOG(VERBOSE) << __func__ << " platform parameter with key:" << key << " "
                  << (second ? "inserted" : "re-assigned") << " with value:" << value;
     return true;
@@ -740,6 +765,13 @@ bool Platform::isInputDevice(const AudioDevice& d) const noexcept {
 
 bool Platform::isUsbDevice(const AudioDevice& d) const noexcept {
     if (d.type.connection == AudioDeviceDescription::CONNECTION_USB) {
+        return true;
+    }
+    return false;
+}
+
+bool Platform::isHdmiDevice(const AudioDevice& d) const noexcept {
+    if (d.type.connection == AudioDeviceDescription::CONNECTION_HDMI) {
         return true;
     }
     return false;
@@ -825,7 +857,7 @@ std::string Platform::toString() const {
     std::ostringstream os;
     os << " === platform start ===" << std::endl;
     os << "sound card status: " << mSndCardStatus << std::endl;
-    for (const auto & [ key, value ] : mParameters) {
+    for (const auto& [key, value] : mParameters) {
         os << key << "=>" << value << std::endl;
     }
     os << PlatformConverter::toString() << std::endl;
