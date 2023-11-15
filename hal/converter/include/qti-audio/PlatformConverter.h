@@ -17,8 +17,8 @@
 #include <aidl/android/media/audio/common/AudioDeviceType.h>
 #include <aidl/android/media/audio/common/AudioFormatDescription.h>
 #include <aidl/android/media/audio/common/AudioFormatType.h>
+#include <aidl/android/media/audio/common/AudioOutputFlags.h>
 #include <aidl/android/media/audio/common/PcmType.h>
-
 /* PAL types */
 #include <PalDefs.h>
 
@@ -45,6 +45,7 @@ class PlatformConverter {
     static pal_device_id_t getPalDeviceId(
             const ::aidl::android::media::audio::common::AudioDeviceDescription&
                     deviceDescription) noexcept;
+    static pal_stream_type_t getPalStreamTypeId(int32_t outputFlag) noexcept;
 
     static uint16_t getBitWidthForAidlPCM(
             const ::aidl::android::media::audio::common::AudioFormatDescription&) noexcept;
