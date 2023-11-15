@@ -319,7 +319,7 @@ class VoipPlayback final {
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
 };
 
-class SpatialPlayback {
+class SpatialPlayback final {
   public:
     constexpr static size_t kPeriodDurationMs = 10;
     constexpr static size_t kPeriodSize = 480; // 10ms
