@@ -104,9 +104,10 @@ class FastRecord {
 class UltraFastRecord {
   public:
     constexpr static int32_t kSampleRate = 48000;
-    constexpr static size_t kPeriodSize = kSampleRate/1000; // 1ms
-    constexpr static size_t kPeriodCount = 512;
-    // This Use case behave differently when device connected is input AFE proxy
+    // The below values at the moment are not generic, TODO make generic
+    constexpr static size_t kPeriodSize = 64 * (kSampleRate / 1000); // as per WFD requirement
+    constexpr static size_t kPeriodCount = 4;                        // as per WFD requirement
+    // This Use case behave differently when the device connected is input AFE proxy
     bool mIsWFDCapture{false};
 };
 
