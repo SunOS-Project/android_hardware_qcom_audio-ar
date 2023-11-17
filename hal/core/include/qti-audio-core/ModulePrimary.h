@@ -33,8 +33,66 @@ class ModulePrimary final : public Module {
   public:
     ModulePrimary() : Module(Type::DEFAULT) {}
 
+    // #################### start of overriding APIs from IModule ####################
+    binder_status_t dump(int fd, const char** args, uint32_t numArgs) override;
+    ndk::ScopedAStatus getBluetooth(
+            std::shared_ptr<::aidl::android::hardware::audio::core::IBluetooth>* _aidl_return)
+            override;
+    ndk::ScopedAStatus getBluetoothA2dp(
+            std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothA2dp>* _aidl_return)
+            override;
+    ndk::ScopedAStatus getBluetoothLe(
+            std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothLe>* _aidl_return)
+            override;
+    ndk::ScopedAStatus getTelephony(
+            std::shared_ptr<::aidl::android::hardware::audio::core::ITelephony>* _aidl_return)
+            override;
+    ndk::ScopedAStatus setVendorParameters(
+            const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
+                    in_parameters,
+            bool in_async) override;
+    ndk::ScopedAStatus getVendorParameters(
+            const std::vector<std::string>& in_ids,
+            std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return)
+            override;
+    // #################### end of overriding APIs from IModule ####################
+
+    // Mutex for stream lists protection
+    static std::mutex outListMutex;
+    static std::mutex inListMutex;
+
+    static std::vector<std::weak_ptr<StreamOut>>& getOutStreams() { return mStreamsOut; }
+    static std::vector<std::weak_ptr<StreamIn>>& getInStreams() { return mStreamsIn; }
+
+ protected:
+    // #################### start of overriding APIs from Module ####################
     std::string toStringInternal() override;
     void dumpInternal(const std::string& identifier = "no_id") override;
+    ndk::ScopedAStatus createInputStream(
+            StreamContext&& context,
+            const ::aidl::android::hardware::audio::common::SinkMetadata& sinkMetadata,
+            const std::vector<::aidl::android::media::audio::common::MicrophoneInfo>& microphones,
+            std::shared_ptr<StreamIn>* result) override;
+    ndk::ScopedAStatus createOutputStream(
+            StreamContext&& context,
+            const ::aidl::android::hardware::audio::common::SourceMetadata& sourceMetadata,
+            const std::optional<::aidl::android::media::audio::common::AudioOffloadInfo>&
+                    offloadInfo,
+            std::shared_ptr<StreamOut>* result) override;
+    std::vector<::aidl::android::media::audio::common::AudioProfile> getDynamicProfiles(
+            const ::aidl::android::media::audio::common::AudioPort& audioPort) override;
+    void onNewPatchCreation(
+            const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
+            const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
+            ::aidl::android::hardware::audio::core::AudioPatch& newPatch) override;
+    void updateTelephonyPatch(
+            const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
+            const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
+            const ::aidl::android::hardware::audio::core::AudioPatch& newPatch) override;
+    void onExternalDeviceConnectionChanged(
+            const ::aidl::android::media::audio::common::AudioPort& audioPort,
+            bool connected) override;
+    // #################### end of overriding APIs from Module ####################
 
     // start of Module Parameters
 
@@ -63,10 +121,6 @@ class ModulePrimary final : public Module {
         WFD,
         AUDIOEXTENSION,
     };
-
-    // Mutex for stream lists protection
-    static std::mutex outListMutex;
-    static std::mutex inListMutex;
 
     // For set parameters
     using SetHandler = std::function<void(
@@ -99,56 +153,6 @@ class ModulePrimary final : public Module {
     static void updateStreamInList(const std::shared_ptr<StreamIn> streamIn) {
         mStreamsIn.push_back(streamIn);
     }
-    static std::vector<std::weak_ptr<StreamOut>>& getOutStreams() { return mStreamsOut; }
-    static std::vector<std::weak_ptr<StreamIn>>& getInStreams() { return mStreamsIn; }
-
-  protected:
-    binder_status_t dump(int fd, const char** args, uint32_t numArgs) override;
-    ndk::ScopedAStatus getBluetooth(
-            std::shared_ptr<::aidl::android::hardware::audio::core::IBluetooth>* _aidl_return)
-            override;
-    ndk::ScopedAStatus getBluetoothA2dp(
-            std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothA2dp>* _aidl_return)
-            override;
-    ndk::ScopedAStatus getBluetoothLe(
-            std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothLe>* _aidl_return)
-            override;
-    ndk::ScopedAStatus getTelephony(
-            std::shared_ptr<::aidl::android::hardware::audio::core::ITelephony>* _aidl_return)
-            override;
-
-    ndk::ScopedAStatus createInputStream(
-            StreamContext&& context,
-            const ::aidl::android::hardware::audio::common::SinkMetadata& sinkMetadata,
-            const std::vector<::aidl::android::media::audio::common::MicrophoneInfo>& microphones,
-            std::shared_ptr<StreamIn>* result) override;
-    ndk::ScopedAStatus createOutputStream(
-            StreamContext&& context,
-            const ::aidl::android::hardware::audio::common::SourceMetadata& sourceMetadata,
-            const std::optional<::aidl::android::media::audio::common::AudioOffloadInfo>&
-                    offloadInfo,
-            std::shared_ptr<StreamOut>* result) override;
-    ndk::ScopedAStatus setVendorParameters(
-            const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
-                    in_parameters,
-            bool in_async) override;
-    ndk::ScopedAStatus getVendorParameters(
-            const std::vector<std::string>& in_ids,
-            std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return)
-            override;
-    std::vector<::aidl::android::media::audio::common::AudioProfile> getDynamicProfiles(
-            const ::aidl::android::media::audio::common::AudioPort& audioPort) override;
-    void onNewPatchCreation(
-            const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
-            const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
-            ::aidl::android::hardware::audio::core::AudioPatch& newPatch) override;
-    void updateTelephonyPatch(
-            const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
-            const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
-            const ::aidl::android::hardware::audio::core::AudioPatch& newPatch) override;
-    void onExternalDeviceConnectionChanged(
-            const ::aidl::android::media::audio::common::AudioPort& audioPort,
-            bool connected) override;
 
     // start of module parameters handling
     bool processSetVendorParameters(
