@@ -222,7 +222,8 @@ struct DriverInterface {
         return ::android::OK;
     }
     // This function is only called once.
-    virtual void shutdown() = 0;
+    // Implementers must provide implementation to shutdown the platform resources
+    virtual void shutdown() { return;}
 };
 
 class StreamWorkerCommonLogic : public ::android::hardware::audio::common::StreamLogic {

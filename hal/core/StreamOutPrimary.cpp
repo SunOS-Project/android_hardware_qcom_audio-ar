@@ -75,11 +75,7 @@ StreamOutPrimary::StreamOutPrimary(StreamContext&& context, const SourceMetadata
 }
 
 StreamOutPrimary::~StreamOutPrimary() {
-    if (mPalHandle != nullptr) {
-        ::pal_stream_stop(mPalHandle);
-        ::pal_stream_close(mPalHandle);
-    }
-    if (karaoke) mAudExt.mKarokeExtension->karaoke_stop();
+    shutdown();
     LOG(VERBOSE) << __func__ << ": " << *this;
 }
 
