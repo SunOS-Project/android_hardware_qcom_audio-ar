@@ -1224,17 +1224,12 @@ ndk::ScopedAStatus Module::setMasterVolume(float in_volume) {
 }
 
 ndk::ScopedAStatus Module::getMicMute(bool* _aidl_return) {
-    *_aidl_return = mMicMute;
-    LOG(DEBUG) << __func__ << ": returning " << *_aidl_return;
+    LOG(ERROR) << __func__ << ": not implemented " << *_aidl_return;
     return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus Module::setMicMute(bool in_mute) {
-    LOG(DEBUG) << __func__ << ": " << in_mute;
-    int ret = 0;
-    mMicMute = in_mute;
-    ret = mAudExt.mHfpExtension->audio_extn_hfp_set_mic_mute(in_mute);
-    // ToDo : set mute on all active streams
+    LOG(ERROR) << __func__ << ": not implemented" << in_mute;
     return ndk::ScopedAStatus::ok();
 }
 

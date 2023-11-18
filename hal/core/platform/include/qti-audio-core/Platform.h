@@ -79,6 +79,8 @@ class Platform {
     void configurePalDevicesCustomKey(std::vector<pal_device>& palDevices,
                                       const std::string& key) const;
 
+    bool setStreamMicMute(pal_stream_handle_t* streamHandlePtr, const bool muted);
+
     std::vector<::aidl::android::media::audio::common::AudioDevice> getPrimaryPlaybackDevices()
             const {
         return mPrimaryPlaybackDevices;

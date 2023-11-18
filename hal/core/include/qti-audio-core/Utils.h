@@ -36,6 +36,8 @@ namespace qti::audio::core {
 
 bool isMixPortConfig(const ::aidl::android::media::audio::common::AudioPortConfig&) noexcept;
 
+bool isInputMixPortConfig(const ::aidl::android::media::audio::common::AudioPortConfig&) noexcept;
+
 bool isDevicePortConfig(const ::aidl::android::media::audio::common::AudioPortConfig&) noexcept;
 
 bool isTelephonyRXDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
@@ -49,6 +51,10 @@ bool isOutputMMap(const ::aidl::android::media::audio::common::AudioIoFlags&) no
 bool isMMap(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
 
 bool isInputAFEProxyDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
+
+std::vector<int32_t> getActiveInputMixPortConfigIds(
+        const std::vector<::aidl::android::media::audio::common::AudioPortConfig>&
+                activePortConfigs);
 
 template <class T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& list) noexcept {

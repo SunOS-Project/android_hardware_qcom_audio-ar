@@ -176,7 +176,6 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
     float mMasterVolume = 1.0f;
     ChildInterface<::aidl::android::hardware::audio::core::sounddose::ISoundDose> mSoundDose;
     std::optional<bool> mIsMmapSupported;
-    AudioExtension& mAudExt{AudioExtension::getInstance()};
 
   protected:
     // #################### start of virtual APIs to be implemented by children ####################

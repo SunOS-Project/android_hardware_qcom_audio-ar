@@ -138,6 +138,17 @@ ndk::ScopedAStatus StreamInPrimary::setConnectedDevices(
     return ndk::ScopedAStatus::ok();
 }
 
+void StreamInPrimary::setStreamMicMute(const bool muted) {
+    if (mPalHandle == nullptr) {
+        return;
+    }
+    if (!mPlatform.setStreamMicMute(mPalHandle, muted)) {
+        LOG(ERROR) << __func__ << ": " << mTagName << " failed";
+        return;
+    }
+    return;
+}
+
 ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd, int64_t* burstSizeFrames,
                                                         int32_t* flags, int32_t* bufferSizeFrames) {
     if (mTag != Usecase::MMAP_RECORD) {

@@ -184,6 +184,13 @@ void Platform::configurePalDevicesCustomKey(std::vector<pal_device>& palDevices,
     return;
 }
 
+bool Platform::setStreamMicMute(pal_stream_handle_t* streamHandlePtr, const bool muted) {
+    if (int32_t ret = ::pal_stream_set_mute(streamHandlePtr, muted); ret) {
+        return false;
+    }
+    return true;
+}
+
 std::vector<pal_device> Platform::getPalDevices(const std::vector<AudioDevice>& setDevices) const {
     if (setDevices.size() == 0) {
         LOG(ERROR) << __func__ << " the set devices is empty";

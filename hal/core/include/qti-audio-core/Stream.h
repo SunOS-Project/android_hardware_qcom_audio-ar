@@ -388,6 +388,7 @@ struct StreamCommonInterface {
             const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices) = 0;
     virtual ndk::ScopedAStatus configureMMapStream(int32_t* fd, int64_t* burstSizeFrames,
                                                    int32_t* flags, int32_t* bufferSizeFrames) = 0;
+     virtual void setStreamMicMute(const bool muted) = 0;
 };
 
 // This is equivalent to automatically generated 'IStreamCommonDelegator' but uses
@@ -497,6 +498,7 @@ class StreamCommonImpl : virtual public StreamCommonInterface, virtual public Dr
     ndk::ScopedAStatus setConnectedDevices(
             const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices)
             override;
+    void setStreamMicMute(const bool muted) override;
     ndk::ScopedAStatus configureMMapStream(int32_t* fd, int64_t* burstSizeFrames, int32_t* flags,
                                            int32_t* bufferSizeFrames) override;
 
@@ -654,6 +656,12 @@ class StreamWrapper {
         return ndk::ScopedAStatus::ok();
     }
 
+    void setStreamMicMute(const bool muted) {
+        auto s = mStream.lock();
+        if (s) return s->setStreamMicMute(muted);
+        return;
+    }
+
     ndk::ScopedAStatus configureMMapStream(int32_t* fd, int64_t* burstSizeFrames, int32_t* flags,
                                            int32_t* bufferSizeFrames) {
         auto s = mStream.lock();
@@ -687,6 +695,12 @@ class Streams {
             return it->second.setConnectedDevices(devices);
         }
         return ndk::ScopedAStatus::ok();
+    }
+    void setStreamMicMute(int32_t portConfigId, const bool muted) {
+        if (auto it = mStreams.find(portConfigId); it != mStreams.end()) {
+            return it->second.setStreamMicMute(muted);
+        }
+        return;
     }
     std::string toString() const {
         std::ostringstream os;

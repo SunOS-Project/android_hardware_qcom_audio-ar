@@ -92,6 +92,8 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
 
     bool isCrsCallSupported();
 
+    void setMicMute(const bool muted);
+
     // The following below APIs are both aimed to solve routing on telephony
     // Hence Choose one
 

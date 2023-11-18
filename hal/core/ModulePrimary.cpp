@@ -133,6 +133,27 @@ binder_status_t ModulePrimary::dump(int fd, const char** args, uint32_t numArgs)
     return 0;
 }
 
+ndk::ScopedAStatus ModulePrimary::getMicMute(bool* _aidl_return) {
+    *_aidl_return = mMicMute;
+    LOG(VERBOSE) << __func__ << ": returning " << *_aidl_return;
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus ModulePrimary::setMicMute(bool in_mute) {
+    LOG(VERBOSE) << __func__ << ": " << in_mute;
+    mMicMute = in_mute;
+
+    mTelephony->setMicMute(mMicMute);
+
+    int ret = mAudExt.mHfpExtension->audio_extn_hfp_set_mic_mute(in_mute);
+
+    for (const auto& inputMixPortConfigId :
+         getActiveInputMixPortConfigIds(getConfig().portConfigs)) {
+        mStreams.setStreamMicMute(inputMixPortConfigId, mMicMute);
+    }
+    return ndk::ScopedAStatus::ok();
+}
+
 ndk::ScopedAStatus ModulePrimary::getBluetooth(std::shared_ptr<IBluetooth>* _aidl_return) {
     if (!mBluetooth) {
         mBluetooth = ndk::SharedRefBase::make<::qti::audio::core::Bluetooth>();

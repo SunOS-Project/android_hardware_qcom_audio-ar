@@ -30,6 +30,11 @@ bool isMixPortConfig(const AudioPortConfig& audioPortConfig) noexcept {
     return audioPortConfig.ext.getTag() == AudioPortExt::Tag::mix;
 };
 
+bool isInputMixPortConfig(const AudioPortConfig& audioPortConfig) noexcept {
+    return isMixPortConfig(audioPortConfig) && audioPortConfig.flags &&
+           audioPortConfig.flags.value().getTag() == AudioIoFlags::Tag::input;
+}
+
 bool isDevicePortConfig(const AudioPortConfig& audioPortConfig) noexcept {
     return audioPortConfig.ext.getTag() == AudioPortExt::Tag::device;
 };
@@ -67,6 +72,17 @@ bool isMMap(const AudioIoFlags& ioFlags) noexcept {
 
 bool isInputAFEProxyDevice(const AudioDevice& device) noexcept {
     return device.type.type == AudioDeviceType::IN_AFE_PROXY;
+}
+
+std::vector<int32_t> getActiveInputMixPortConfigIds(
+        const std::vector<AudioPortConfig>& activePortConfigs) {
+    std::vector<int32_t> result;
+    for (const auto& activePortConfig : activePortConfigs) {
+        if (isInputMixPortConfig(activePortConfig)) {
+            result.emplace_back(activePortConfig.id);
+        }
+    }
+    return result;
 }
 
 int64_t getInt64FromString(const std::string& s) noexcept {
