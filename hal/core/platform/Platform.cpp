@@ -454,6 +454,23 @@ bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
 
     return true;
 }
+
+void Platform::setWFDProxyChannels(const uint32_t numProxyChannels) noexcept {
+    mWFDProxyChannels = numProxyChannels;
+    pal_param_proxy_channel_config_t paramProxyChannelConfig{.num_proxy_channels =
+                                                                     mWFDProxyChannels};
+    if (int32_t ret = ::pal_set_param(PAL_PARAM_ID_PROXY_CHANNEL_CONFIG, &paramProxyChannelConfig,
+                                      sizeof(pal_param_proxy_channel_config_t));
+        ret) {
+        LOG(ERROR) << __func__ << ": PAL_PARAM_ID_PROXY_CHANNEL_CONFIG failed: " << ret;
+        return;
+    }
+}
+
+uint32_t Platform::getWFDProxyChannels() const noexcept {
+    return mWFDProxyChannels;
+}
+
 bool Platform::setVendorParameters(
         const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& in_parameters,
         bool in_async) {

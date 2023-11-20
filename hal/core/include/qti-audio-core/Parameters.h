@@ -38,17 +38,19 @@ const static std::string kVoiceIsCRsSupported{"isCRSsupported"};
 const static std::string kVoiceCRSCall{"crs_call"};
 const static std::string kVoiceCRSVolume{"CRS_volume"};
 
+// WFD
+const static std::string kCanOpenProxy{"can_open_proxy"};
+const static std::string kWfdChannelMap{"wfd_channel_cap"};
+
 // others
 const static std::string kUHQA{"UHQA"};
 const static std::string kFbspCfgWaitTime{"fbsp_cfg_wait_time"};
 const static std::string kFbspValiWaitTime{"fbsp_v_vali_wait_time"};
 const static std::string kTriggerSpeakerCall{"trigger_spkr_cal"};
-const static std::string kWfdChannelMap{"wfd_channel_cap"};
 const static std::string kHapticsIntensity{"haptics_intensity"};
 const static std::string kInCallMusic{"icmd_playback"};
 
 // Audio Extn
-const static std::string kCanOpenProxy{"can_open_proxy"};
 const static std::string kFMStatus{"fm_status"};
 
 // Bluetooth

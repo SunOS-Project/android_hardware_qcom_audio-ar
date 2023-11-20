@@ -440,6 +440,21 @@ void ModulePrimary::onSetTelephonyParameters(const std::vector<VendorParameter>&
     return;
 }
 
+void ModulePrimary::onSetWFDParameters(const std::vector<VendorParameter>& parameters) {
+    for (const auto& p : parameters) {
+        std::string paramValue{};
+        if (!extractParameter<VString>(p, &paramValue)) {
+            LOG(ERROR) << ": extraction failed for " << p.id;
+            continue;
+        }
+        if (Parameters::kWfdChannelMap == p.id) {
+            auto numProxyChannels = static_cast<uint32_t>(getInt64FromString(paramValue));
+            mPlatform.setWFDProxyChannels(numProxyChannels);
+        }
+    }
+    return;
+}
+
 // static
 ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeatureMap() {
     SetParameterToFeatureMap map{{Parameters::kHdrRecord, Feature::HDR},
@@ -458,7 +473,8 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
                                  {Parameters::kVoiceHDVoice, Feature::TELEPHONY},
                                  {Parameters::kVoiceDeviceMute, Feature::TELEPHONY},
                                  {Parameters::kVoiceDirection, Feature::TELEPHONY},
-                                 {Parameters::kInCallMusic, Feature::GENERIC}};
+                                 {Parameters::kInCallMusic, Feature::GENERIC},
+                                 {Parameters::kWfdChannelMap, Feature::WFD}};
     return map;
 }
 
@@ -468,6 +484,7 @@ ModulePrimary::FeatureToSetHandlerMap ModulePrimary::fillFeatureToSetHandlerMap(
             {Feature::GENERIC, &ModulePrimary::onSetGenericParameters},
             {Feature::HDR, &ModulePrimary::onSetHDRParameters},
             {Feature::TELEPHONY, &ModulePrimary::onSetTelephonyParameters},
+            {Feature::WFD, &ModulePrimary::onSetWFDParameters},
     };
     return map;
 }
