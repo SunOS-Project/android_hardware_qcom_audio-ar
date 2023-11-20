@@ -154,6 +154,12 @@ ndk::ScopedAStatus ModulePrimary::setMicMute(bool in_mute) {
     return ndk::ScopedAStatus::ok();
 }
 
+ndk::ScopedAStatus ModulePrimary::updateScreenState(bool in_isTurnedOn) {
+    LOG(VERBOSE) << __func__ << ": " << in_isTurnedOn;
+    mPlatform.updateScreenState(in_isTurnedOn);
+    return ndk::ScopedAStatus::ok();
+}
+
 ndk::ScopedAStatus ModulePrimary::getBluetooth(std::shared_ptr<IBluetooth>* _aidl_return) {
     if (!mBluetooth) {
         mBluetooth = ndk::SharedRefBase::make<::qti::audio::core::Bluetooth>();
