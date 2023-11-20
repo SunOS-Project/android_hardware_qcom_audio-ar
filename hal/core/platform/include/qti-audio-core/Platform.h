@@ -106,6 +106,9 @@ class Platform {
     void setWFDProxyChannels(const uint32_t numProxyChannels) noexcept;
     uint32_t getWFDProxyChannels() const noexcept;
 
+    void updateUHQA(const bool enable) noexcept;
+    bool isUHQAEnabled() const noexcept;
+
   private:
     bool getBtConfig(pal_param_bta2dp_t* bTConfig);
 
@@ -122,5 +125,6 @@ class Platform {
     bool mInCallMusicEnabled{false};
     bool mIsScreenTurnedOn{false};
     uint32_t mWFDProxyChannels{0};
+    bool mIsUHQAEnabled{false};
 };
 } // namespace qti::audio::core
