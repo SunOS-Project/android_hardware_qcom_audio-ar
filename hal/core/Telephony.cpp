@@ -278,19 +278,20 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
     // Todo Implement
     mPlatform.updateCallState((int)mSetUpdates.mCallState);
 
-    if (newUpdates.mCallState == CallState::IN_ACTIVE) {
-        // this is a sign to stop the call no matter what
-        mSetUpdates = newUpdates;
-        stopCall();
-        return;
-    }
-
     if (mSetUpdates.mCallState != CallState::ACTIVE && newUpdates.mCallState == CallState::ACTIVE) {
         // this is a clear sign that to start a call
         // other parameters value are needed
+        LOG(VERBOSE) << __func__ << "INACTIVE -> ACTIVE";
         mSetUpdates = newUpdates;
         updateVoiceMetadataForBT(true);
         startCall();
+        return;
+    }
+    if (newUpdates.mCallState == CallState::IN_ACTIVE && mSetUpdates.mCallState == CallState::ACTIVE) {
+        // this is a sign to stop the call no matter what
+        LOG(VERBOSE) << __func__ << "ACTIVE -> INACTIVE";
+        mSetUpdates = newUpdates;
+        stopCall();
         return;
     }
 }
@@ -433,6 +434,7 @@ void Telephony::updateTtyMode() {
 }
 
 void Telephony::startCall() {
+    LOG(VERBOSE) << __func__ << ": Enter";
     auto attributes = mPlatform.getDefaultTelephonyAttributes();
 
     auto palDevices = mPlatform.getPalDevices({mRxDevices.at(0), mTxDevices.at(0)});
@@ -457,16 +459,19 @@ void Telephony::startCall() {
         return;
     }
     updateVoiceVolume();
+    LOG(VERBOSE) << __func__ << ": Exit";
 }
 
 void Telephony::stopCall() {
+    LOG(VERBOSE) << __func__ << ": Enter";
     if (mPalHandle == nullptr) {
         return;
     }
     ::pal_stream_stop(mPalHandle);
     ::pal_stream_close(mPalHandle);
     updateVoiceMetadataForBT(false);
-    mPalHandle == nullptr;
+    mPalHandle = nullptr;
+    LOG(VERBOSE) << __func__ << ": EXIT";
 }
 
 void Telephony::updateDevices() {
