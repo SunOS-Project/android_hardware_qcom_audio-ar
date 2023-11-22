@@ -897,25 +897,22 @@ bool Platform::isSoundCardDown() const noexcept {
     return false;
 }
 
-uint32_t Platform::getBluetoothLatencyMs(
-        const std::vector<::aidl::android::media::audio::common::AudioDevice>& bluetoothDevices) {
+uint32_t Platform::getBluetoothLatencyMs(const std::vector<AudioDevice>& bluetoothDevices) {
     pal_param_bta2dp_t btConfig{};
     for (const auto& device : bluetoothDevices) {
-        if (isBluetoothDevice(device)) {
-            btConfig.dev_id = PlatformConverter::getPalDeviceId(device.type);
-            // first bluetooth device
-            break;
-        }
-    }
-    if (btConfig.dev_id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
-        btConfig.dev_id == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
-        btConfig.dev_id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST) {
-        if (getBtConfig(&btConfig)) {
-            return btConfig.latency;
+        btConfig.dev_id = PlatformConverter::getPalDeviceId(device.type);
+        // first bluetooth device
+        if (btConfig.dev_id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
+            btConfig.dev_id == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
+            btConfig.dev_id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST) {
+            if (getBtConfig(&btConfig)) {
+                return btConfig.latency;
+            }
         }
     }
     return 0;
 }
+
 bool Platform::isA2dpSuspended() {
     int ret = 0;
     size_t bt_param_size = 0;

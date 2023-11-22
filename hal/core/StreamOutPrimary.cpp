@@ -352,29 +352,29 @@ void StreamOutPrimary::resume() {
     }
 
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        int64_t frames = 0;
-        std::get<CompressPlayback>(mExt).getPositionInFrames(&frames);
-        LOG(VERBOSE) << __func__ << " dspFrames consumed:" << frames;
-        const auto latencyMs = mPlatform.getBluetoothLatencyMs(mConnectedDevices);
-        const auto sampleRate = mMixPortConfig.sampleRate.value().value;
-        const auto offset = latencyMs * sampleRate / 1000;
-        frames = (frames > offset) ? (frames - offset) : 0;
-        reply->observable.frames = frames;
+        std::get<CompressPlayback>(mExt).getPositionInFrames(&(reply->observable.frames));
+        LOG(VERBOSE) << __func__ << " " << mTagName
+                     << ": dspFrames consumed:" << reply->observable.frames;
     } else if (mTag == Usecase::MMAP_PLAYBACK) {
-        int64_t frames = 0;
-        int64_t timeNs = 0;
-        int32_t ret = 0;
-
-        ret = std::get<MMapPlayback>(mExt).getMMapPosition(&frames, &timeNs);
-        if (ret == 0) {
-            reply->hardware.frames = frames;
-            reply->hardware.timeNs = timeNs;
-            LOG(VERBOSE) << __func__ << ": Returning MMAP position: frames "
-                         << reply->hardware.frames << " timeNs " << reply->hardware.timeNs;
-        } else {
-            LOG(ERROR) << __func__ << ": getMmapPosition failed, ret= " << ret;
-            return ::android::base::ERROR;
+        if (int32_t ret = std::get<MMapPlayback>(mExt).getMMapPosition(&(reply->hardware.frames),
+                                                                       &(reply->hardware.timeNs));
+            ret) {
+            return ::android::BAD_VALUE;
         }
+        LOG(VERBOSE) << __func__ << " " << mTagName << ": frames " << reply->hardware.frames
+                     << " timeNs " << reply->hardware.timeNs;
+    }
+
+    // if the stream is connected to any bluetooth device, consider bluetooth encoder latency
+    if (hasBluetoothDevice(mConnectedDevices)) {
+        const auto& latencyMs = mPlatform.getBluetoothLatencyMs(mConnectedDevices);
+        const auto& sampleRate = mMixPortConfig.sampleRate.value().value;
+        const auto btExtraFrames = latencyMs * sampleRate / 1000;
+        // Todo, Check do we want to consider this for MMAP usecase
+        if (reply->observable.frames >= btExtraFrames) {
+            reply->observable.frames -= btExtraFrames;
+        }
+        LOG(VERBOSE) << __func__ << ": bluetooth latencyMs:" << latencyMs;
     }
 
     return ::android::OK;

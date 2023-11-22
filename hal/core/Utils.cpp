@@ -47,6 +47,16 @@ bool isTelephonyTXDevice(const AudioDevice& device) noexcept {
     return device.type.type == AudioDeviceType::OUT_TELEPHONY_TX;
 };
 
+bool isBluetoothDevice(const AudioDevice& device) noexcept {
+    return (device.type.connection == AudioDeviceDescription::CONNECTION_BT_A2DP ||
+            device.type.connection == AudioDeviceDescription::CONNECTION_BT_LE);
+}
+
+bool hasBluetoothDevice(const std::vector<AudioDevice>& devices) noexcept {
+    auto itr = std::find_if(devices.cbegin(), devices.cend(), isBluetoothDevice);
+    return itr != devices.cend();
+}
+
 bool isInputMMap(const AudioIoFlags& ioFlags) noexcept {
     if (ioFlags.getTag() == AudioIoFlags::Tag::input) {
         constexpr auto inputMMapFlag = static_cast<int32_t>(
