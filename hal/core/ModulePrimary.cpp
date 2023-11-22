@@ -253,7 +253,7 @@ void ModulePrimary::updateTelephonyPatch(const std::vector<AudioPortConfig*>& so
     }
 
     // Todo uncomment below ,upon device to device patch works for telephony
-    mTelephony->setDevicesFromPatch(devices, updateRx);
+    //mTelephony->setDevicesFromPatch(devices, updateRx);
     LOG(VERBOSE) << __func__ << ": device to device patch, " << patch.toString();
     return;
 }
