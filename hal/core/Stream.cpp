@@ -751,6 +751,10 @@ ndk::ScopedAStatus StreamCommonImpl::setConnectedDevices(
     return ndk::ScopedAStatus::ok();
 }
 
+void StreamCommonImpl::setStreamMicMute(const bool muted) {
+    return;
+}
+
 ndk::ScopedAStatus StreamCommonImpl::configureMMapStream(int32_t* fd, int64_t* burstSizeFrames,
                                                          int32_t* flags,
                                                          int32_t* bufferSizeFrames) {

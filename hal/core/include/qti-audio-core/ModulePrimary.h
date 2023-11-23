@@ -55,6 +55,8 @@ class ModulePrimary final : public Module {
             const std::vector<std::string>& in_ids,
             std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return)
             override;
+    ndk::ScopedAStatus getMicMute(bool* _aidl_return) override;
+    ndk::ScopedAStatus setMicMute(bool in_mute) override;
     // #################### end of overriding APIs from IModule ####################
 
     // Mutex for stream lists protection
@@ -191,6 +193,7 @@ class ModulePrimary final : public Module {
     ChildInterface<::aidl::android::hardware::audio::core::IBluetoothA2dp> mBluetoothA2dp;
     ChildInterface<::aidl::android::hardware::audio::core::IBluetoothLe> mBluetoothLe;
     Platform& mPlatform{Platform::getInstance()};
+    AudioExtension& mAudExt{AudioExtension::getInstance()};
 };
 
 } // namespace qti::audio::core

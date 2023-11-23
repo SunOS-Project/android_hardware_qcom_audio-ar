@@ -124,6 +124,16 @@ ndk::ScopedAStatus Telephony::setTelecomConfig(const TelecomConfig& in_config,
     return ndk::ScopedAStatus::ok();
 }
 
+void Telephony::setMicMute(const bool muted) {
+    std::scoped_lock lock{mLock};
+    if (mPalHandle == nullptr) {
+        return;
+    }
+    if (!mPlatform.setStreamMicMute(mPalHandle, muted)) {
+        LOG(ERROR) << __func__ << ": failed";
+    }
+}
+
 bool Telephony::isCrsCallSupported() {
     return false;
 }
