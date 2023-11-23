@@ -129,7 +129,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
             <profile samplingRates="8000 11025 16000 22050 32000 44100 48000 64000 88200 96000 128000 176400 192000" channelLayouts="LAYOUT_MONO LAYOUT_STEREO" formatType="PCM" pcmType="INT_16_BIT" />
         </devicePort>
         <!-- Todo check the sanity of below later w.r.t channel layouts -->
-        <devicePort tagName="proxy_device_out" deviceType="OUT_AFE_PROXY" role="sink">
+        <devicePort tagName="proxy_device_out" deviceType="OUT_AFE_PROXY" connection="virtual" role="sink">
             <profile samplingRates="8000 11025 16000 22050 32000 44100 48000 64000 88200 96000 128000 176400 192000" channelLayouts="LAYOUT_MONO LAYOUT_STEREO" formatType="PCM" pcmType="INT_16_BIT" />
         </devicePort>
         <devicePort tagName="fm_device_out" deviceType="OUT_FM" role="sink" attached="true">
@@ -178,7 +178,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <devicePort tagName="wired_headset_mic" deviceType="IN_HEADSET" connection="analog" role="source">
             <profile samplingRates="8000 11025 12000 16000 22050 24000 32000 44100 48000" channelLayouts="LAYOUT_MONO LAYOUT_STEREO LAYOUT_FRONT_BACK" formatType="PCM" pcmType="INT_16_BIT" />
         </devicePort>
-        <devicePort tagName="proxy_input_device" deviceType="IN_AFE_PROXY" role="source">
+        <devicePort tagName="proxy_input_device" deviceType="IN_AFE_PROXY" connection="virtual" role="source">
             <profile samplingRates="8000 11025 16000 22050 32000 44100 48000 64000 88200 96000 128000 176400 192000" channelLayouts="LAYOUT_MONO LAYOUT_STEREO" formatType="PCM" pcmType="INT_16_BIT" />
         </devicePort>
         <devicePort tagName="bt_sco_headset_mic" deviceType="IN_HEADSET" connection="bt-sco" role="source">
