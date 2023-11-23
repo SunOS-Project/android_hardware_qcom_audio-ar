@@ -169,6 +169,9 @@ class ModulePrimary final : public Module {
     // SetHandler For Telephony
     void onSetTelephonyParameters(
             const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&);
+    // SetHandler For WFD
+    void onSetWFDParameters(
+            const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&);
 
     std::vector<::aidl::android::hardware::audio::core::VendorParameter> processGetVendorParameters(
             const std::vector<std::string>&);

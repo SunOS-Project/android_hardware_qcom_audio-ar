@@ -103,6 +103,9 @@ class Platform {
     int getCallMode() { return mCallMode; }
     bool isA2dpSuspended();
 
+    void setWFDProxyChannels(const uint32_t numProxyChannels) noexcept;
+    uint32_t getWFDProxyChannels() const noexcept;
+
   private:
     bool getBtConfig(pal_param_bta2dp_t* bTConfig);
 
@@ -118,5 +121,6 @@ class Platform {
     card_status_t mSndCardStatus{CARD_STATUS_OFFLINE};
     bool mInCallMusicEnabled{false};
     bool mIsScreenTurnedOn{false};
+    uint32_t mWFDProxyChannels{0};
 };
 } // namespace qti::audio::core
