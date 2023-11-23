@@ -471,6 +471,22 @@ uint32_t Platform::getWFDProxyChannels() const noexcept {
     return mWFDProxyChannels;
 }
 
+void Platform::updateUHQA(const bool enable) noexcept {
+    mIsUHQAEnabled = enable;
+    pal_param_uhqa_t paramUHQAFlags{.uhqa_state = mIsUHQAEnabled};
+    if (int32_t ret =
+                ::pal_set_param(PAL_PARAM_ID_UHQA_FLAG, &paramUHQAFlags, sizeof(pal_param_uhqa_t));
+        ret) {
+        LOG(ERROR) << __func__ << ": PAL_PARAM_ID_UHQA_FLAG failed: " << ret;
+        return;
+    }
+    return;
+}
+
+bool Platform::isUHQAEnabled() const noexcept {
+    return mIsUHQAEnabled;
+}
+
 bool Platform::setVendorParameters(
         const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& in_parameters,
         bool in_async) {

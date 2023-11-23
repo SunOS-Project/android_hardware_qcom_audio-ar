@@ -358,8 +358,7 @@ bool ModulePrimary::processSetVendorParameters(const std::vector<VendorParameter
     return true;
 }
 
-void ModulePrimary::onSetGenericParameters(
-        const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& params) {
+void ModulePrimary::onSetGenericParameters(const std::vector<VendorParameter>& params) {
     for (const auto& param : params) {
         std::string paramValue{};
         if (!extractParameter<VString>(param, &paramValue)) {
@@ -370,6 +369,9 @@ void ModulePrimary::onSetGenericParameters(
             const auto isOn = getBoolFromString(paramValue);
             mPlatform.setInCallMusicState(isOn);
             LOG(INFO) << __func__ << ": ICMD playback:" << isOn;
+        } else if (Parameters::kUHQA == param.id) {
+            const bool enable = paramValue == "on" ? true : false;
+            mPlatform.updateUHQA(enable);
         }
     }
 }
@@ -474,6 +476,7 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
                                  {Parameters::kVoiceDeviceMute, Feature::TELEPHONY},
                                  {Parameters::kVoiceDirection, Feature::TELEPHONY},
                                  {Parameters::kInCallMusic, Feature::GENERIC},
+                                 {Parameters::kUHQA, Feature::GENERIC},
                                  {Parameters::kWfdChannelMap, Feature::WFD}};
     return map;
 }
