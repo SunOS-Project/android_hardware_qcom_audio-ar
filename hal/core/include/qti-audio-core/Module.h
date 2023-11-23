@@ -45,10 +45,7 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
     // static std::shared_ptr<Module> createInstance(Type type);
     explicit Module(Type type) : mType(type) {}
 
-  protected:
-    // The vendor extension done via inheritance can override interface methods and augment
-    // a call to the base implementation.
-
+    // #################### start of overriding APIs from IModule ####################
     ndk::ScopedAStatus setModuleDebug(
             const ::aidl::android::hardware::audio::core::ModuleDebug& in_debug) override;
     ndk::ScopedAStatus getTelephony(
@@ -144,6 +141,7 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
     ndk::ScopedAStatus supportsVariableLatency(bool* _aidl_return) override;
     ndk::ScopedAStatus getAAudioMixerBurstCount(int32_t* _aidl_return) override;
     ndk::ScopedAStatus getAAudioHardwareBurstMinUsec(int32_t* _aidl_return) override;
+    // #################### end of overriding APIs from IModule ####################
 
     // This value is used for all AudioPatches.
     static constexpr int32_t kMinimumStreamBufferSizeFrames = 48;
@@ -181,8 +179,7 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
     AudioExtension& mAudExt{AudioExtension::getInstance()};
 
   protected:
-    // The following virtual functions are intended for vendor extension via inheritance.
-
+    // #################### start of virtual APIs to be implemented by children ####################
     virtual ndk::ScopedAStatus createInputStream(
             StreamContext&& context,
             const ::aidl::android::hardware::audio::common::SinkMetadata& sinkMetadata,
@@ -229,6 +226,7 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
     virtual ndk::ScopedAStatus onMasterMuteChanged(bool mute);
     virtual ndk::ScopedAStatus onMasterVolumeChanged(float volume);
     virtual std::unique_ptr<ModuleConfig> initializeConfig();
+    // #################### end of virtual APIs to be implemented by children ####################
 
     // Utility and helper functions accessible to subclasses.
     void cleanUpPatch(int32_t patchId);
