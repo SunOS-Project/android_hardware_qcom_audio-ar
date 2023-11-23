@@ -80,6 +80,8 @@ class Platform {
                                       const std::string& key) const;
 
     bool setStreamMicMute(pal_stream_handle_t* streamHandlePtr, const bool muted);
+    bool updateScreenState(const bool isTurnedOn) noexcept;
+    bool isScreenTurnedOn() const noexcept;
 
     std::vector<::aidl::android::media::audio::common::AudioDevice> getPrimaryPlaybackDevices()
             const {
@@ -115,5 +117,6 @@ class Platform {
     std::map<std::string, std::string> mParameters;
     card_status_t mSndCardStatus{CARD_STATUS_OFFLINE};
     bool mInCallMusicEnabled{false};
+    bool mIsScreenTurnedOn{false};
 };
 } // namespace qti::audio::core

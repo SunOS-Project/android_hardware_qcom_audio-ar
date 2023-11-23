@@ -57,6 +57,7 @@ class ModulePrimary final : public Module {
             override;
     ndk::ScopedAStatus getMicMute(bool* _aidl_return) override;
     ndk::ScopedAStatus setMicMute(bool in_mute) override;
+    ndk::ScopedAStatus updateScreenState(bool in_isTurnedOn) override;
     // #################### end of overriding APIs from IModule ####################
 
     // Mutex for stream lists protection

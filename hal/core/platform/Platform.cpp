@@ -191,6 +191,22 @@ bool Platform::setStreamMicMute(pal_stream_handle_t* streamHandlePtr, const bool
     return true;
 }
 
+bool Platform::updateScreenState(const bool isTurnedOn) noexcept {
+    mIsScreenTurnedOn = isTurnedOn;
+    pal_param_screen_state_t screenState{.screen_state = mIsScreenTurnedOn};
+    if (int32_t ret = ::pal_set_param(PAL_PARAM_ID_SCREEN_STATE, &screenState,
+                                      sizeof(pal_param_screen_state_t));
+        ret) {
+        LOG(ERROR) << __func__ << ": PAL_PARAM_ID_SCREEN_STATE failed";
+        return false;
+    }
+    return true;
+}
+
+bool Platform::isScreenTurnedOn() const noexcept {
+    return mIsScreenTurnedOn;
+}
+
 std::vector<pal_device> Platform::getPalDevices(const std::vector<AudioDevice>& setDevices) const {
     if (setDevices.size() == 0) {
         LOG(ERROR) << __func__ << " the set devices is empty";
