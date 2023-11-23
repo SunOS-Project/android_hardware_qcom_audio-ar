@@ -160,6 +160,12 @@ ndk::ScopedAStatus ModulePrimary::updateScreenState(bool in_isTurnedOn) {
     return ndk::ScopedAStatus::ok();
 }
 
+ndk::ScopedAStatus ModulePrimary::updateScreenRotation(ScreenRotation in_rotation) {
+    LOG(VERBOSE) << __func__ << ": " << toString(in_rotation);
+    mPlatform.updateScreenRotation(in_rotation);
+    return ndk::ScopedAStatus::ok();
+}
+
 ndk::ScopedAStatus ModulePrimary::getBluetooth(std::shared_ptr<IBluetooth>* _aidl_return) {
     if (!mBluetooth) {
         mBluetooth = ndk::SharedRefBase::make<::qti::audio::core::Bluetooth>();

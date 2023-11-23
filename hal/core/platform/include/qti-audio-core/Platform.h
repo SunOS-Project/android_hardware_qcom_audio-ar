@@ -5,6 +5,7 @@
 
 #pragma once
 #include <aidl/android/hardware/audio/core/VendorParameter.h>
+#include <aidl/android/hardware/audio/core/IModule.h>
 #include <aidl/android/media/audio/common/AudioDevice.h>
 #include <aidl/android/media/audio/common/AudioFormatDescription.h>
 #include <aidl/android/media/audio/common/AudioPort.h>
@@ -109,6 +110,11 @@ class Platform {
     void updateUHQA(const bool enable) noexcept;
     bool isUHQAEnabled() const noexcept;
 
+    void updateScreenRotation(const ::aidl::android::hardware::audio::core::IModule::ScreenRotation
+                                      in_rotation) noexcept;
+    ::aidl::android::hardware::audio::core::IModule::ScreenRotation getCurrentScreenRotation()
+            const noexcept;
+
   private:
     bool getBtConfig(pal_param_bta2dp_t* bTConfig);
 
@@ -126,5 +132,7 @@ class Platform {
     bool mIsScreenTurnedOn{false};
     uint32_t mWFDProxyChannels{0};
     bool mIsUHQAEnabled{false};
+    ::aidl::android::hardware::audio::core::IModule::ScreenRotation mCurrentScreenRotation{
+            ::aidl::android::hardware::audio::core::IModule::ScreenRotation::DEG_0};
 };
 } // namespace qti::audio::core

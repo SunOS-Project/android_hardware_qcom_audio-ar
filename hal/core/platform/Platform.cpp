@@ -45,6 +45,7 @@ using ::aidl::android::media::audio::common::PcmType;
 using ::aidl::android::hardware::audio::common::getChannelCount;
 using ::aidl::android::hardware::audio::common::getFrameSizeInBytes;
 using ::aidl::android::hardware::audio::common::isBitPositionFlagSet;
+using ::aidl::android::hardware::audio::core::IModule;
 
 namespace qti::audio::core {
 
@@ -485,6 +486,36 @@ void Platform::updateUHQA(const bool enable) noexcept {
 
 bool Platform::isUHQAEnabled() const noexcept {
     return mIsUHQAEnabled;
+}
+
+void Platform::updateScreenRotation(const IModule::ScreenRotation in_rotation) noexcept {
+    pal_param_device_rotation_t paramDeviceRotation{};
+
+    auto notifyDeviceRotation = [&]() -> void {
+        if (int32_t ret = ::pal_set_param(PAL_PARAM_ID_DEVICE_ROTATION, &paramDeviceRotation,
+                                          sizeof(pal_param_device_rotation_t));
+            ret) {
+            LOG(ERROR) << ": PAL_PARAM_ID_DEVICE_ROTATION failed";
+        }
+    };
+
+    if (in_rotation == IModule::ScreenRotation::DEG_270 &&
+        mCurrentScreenRotation != IModule::ScreenRotation::DEG_270) {
+        /* Device rotated from normal position to inverted landscape. */
+        paramDeviceRotation.rotation_type = PAL_SPEAKER_ROTATION_RL;
+        notifyDeviceRotation();
+    } else if (in_rotation != IModule::ScreenRotation::DEG_270 &&
+               mCurrentScreenRotation == IModule::ScreenRotation::DEG_270) {
+        /* Phone was in inverted landspace and now is changed to portrait or inverted portrait. */
+        paramDeviceRotation.rotation_type = PAL_SPEAKER_ROTATION_LR;
+        notifyDeviceRotation();
+    }
+
+    mCurrentScreenRotation = in_rotation;
+}
+
+IModule::ScreenRotation Platform::getCurrentScreenRotation() const noexcept {
+    return mCurrentScreenRotation;
 }
 
 bool Platform::setVendorParameters(
