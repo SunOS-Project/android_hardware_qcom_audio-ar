@@ -4,8 +4,8 @@
  */
 
 #pragma once
-#include <aidl/android/hardware/audio/core/VendorParameter.h>
 #include <aidl/android/hardware/audio/core/IModule.h>
+#include <aidl/android/hardware/audio/core/VendorParameter.h>
 #include <aidl/android/media/audio/common/AudioDevice.h>
 #include <aidl/android/media/audio/common/AudioFormatDescription.h>
 #include <aidl/android/media/audio/common/AudioPort.h>
@@ -112,11 +112,13 @@ class Platform {
 
     void updateScreenRotation(const ::aidl::android::hardware::audio::core::IModule::ScreenRotation
                                       in_rotation) noexcept;
-    ::aidl::android::hardware::audio::core::IModule::ScreenRotation getCurrentScreenRotation()
-            const noexcept;
+    ::aidl::android::hardware::audio::core::IModule::ScreenRotation getCurrentScreenRotation() const
+            noexcept;
 
   private:
     bool getBtConfig(pal_param_bta2dp_t* bTConfig);
+    std::vector<::aidl::android::media::audio::common::AudioProfile> getUsbProfiles(
+            const ::aidl::android::media::audio::common::AudioPort& port) const;
 
   public:
     constexpr static uint32_t kDefaultOutputSampleRate = 48000;

@@ -102,9 +102,8 @@ size_t Platform::getIOBufferSizeInFrames(
 size_t Platform::getMinimumStreamSizeFrames(const std::vector<AudioPortConfig*>& sources,
                                             const std::vector<AudioPortConfig*>& sinks) const {
     if (sources.size() > 1) {
-        LOG(WARNING) << __func__
-                     << " unable to decide the minimum stream size for sources "
-                        "more than one; actual size:"
+        LOG(WARNING) << __func__ << " unable to decide the minimum stream size for sources "
+                                    "more than one; actual size:"
                      << sources.size();
         return 0;
     }
@@ -271,24 +270,9 @@ std::unique_ptr<pal_buffer_config_t> Platform::getPalBufferConfig(const size_t b
     return std::move(palBufferConfig);
 }
 
-std::vector<AudioProfile> Platform::getDynamicProfiles(
-        const AudioPort& dynamicDeviceAudioPort) const {
-    const auto& deviceExtTag = dynamicDeviceAudioPort.ext.getTag();
-    if (deviceExtTag != AudioPortExt::Tag::device) {
-        LOG(ERROR) << __func__ << ": provided AudioPort is not device port"
-                   << dynamicDeviceAudioPort.toString();
-        return {};
-    }
-
-    LOG(VERBOSE) << __func__ << ": fetching dynamic profiles for "
-                 << dynamicDeviceAudioPort.toString();
-
-    const auto& devicePortExt = dynamicDeviceAudioPort.ext.get<AudioPortExt::Tag::device>();
-
-    if (!isUsbDevice(devicePortExt.device)) {
-        LOG(ERROR) << __func__ << " device is not USB type ";
-        return {};
-    }
+std::vector<::aidl::android::media::audio::common::AudioProfile> Platform::getUsbProfiles(
+        const AudioPort& port) const {
+    const auto& devicePortExt = port.ext.get<AudioPortExt::Tag::device>();
     auto& audioDeviceDesc = devicePortExt.device.type;
     const auto palDeviceId = PlatformConverter::getPalDeviceId(audioDeviceDesc);
     if (palDeviceId == PAL_DEVICE_OUT_MIN) {
@@ -297,16 +281,13 @@ std::vector<AudioProfile> Platform::getDynamicProfiles(
 
     const auto& addressTag = devicePortExt.device.address.getTag();
     if (addressTag != AudioDeviceAddress::Tag::alsa) {
-        LOG(ERROR) << __func__ << ": no alsa address provided for the AudioPort"
-                   << dynamicDeviceAudioPort.toString();
+        LOG(ERROR) << __func__ << ": no alsa address provided for the AudioPort" << port.toString();
         return {};
     }
     const auto& deviceAddressAlsa =
             devicePortExt.device.address.get<AudioDeviceAddress::Tag::alsa>();
     const auto cardId = deviceAddressAlsa[0];
     const auto deviceId = deviceAddressAlsa[1];
-
-    void* v = nullptr;
 
     // get capability from device of USB
     auto deviceCapability = std::make_unique<pal_param_device_capability_t>();
@@ -321,14 +302,16 @@ std::vector<AudioProfile> Platform::getDynamicProfiles(
         return {};
     }
 
-    size_t payload_size = 0;
+    size_t payloadSize = 0;
     deviceCapability->id = palDeviceId;
     deviceCapability->addr.card_id = cardId;
     deviceCapability->addr.device_num = deviceId;
     deviceCapability->config = dynamicMediaConfig.get();
     deviceCapability->is_playback = isOutputDevice(devicePortExt.device);
-    v = deviceCapability.get();
-    if (int32_t ret = pal_get_param(PAL_PARAM_ID_DEVICE_CAPABILITY, &v, &payload_size, nullptr);
+
+    void* deviceCapabilityPtr = deviceCapability.get();
+    if (int32_t ret = pal_get_param(PAL_PARAM_ID_DEVICE_CAPABILITY, &deviceCapabilityPtr,
+                                    &payloadSize, nullptr);
         ret != 0) {
         LOG(ERROR) << __func__ << " PAL get param failed for PAL_PARAM_ID_DEVICE_CAPABILITY" << ret;
         return {};
@@ -338,51 +321,29 @@ std::vector<AudioProfile> Platform::getDynamicProfiles(
         return {};
     }
 
-    std::vector<AudioProfile> supportedProfiles;
-    const auto sampleRatesSupported = [&dynamicMediaConfig]() {
-        int i = 0;
-        std::vector<int32_t> sampleRates;
-        while (i <= MAX_SUPPORTED_SAMPLE_RATES && dynamicMediaConfig->sample_rate[i] != 0) {
-            sampleRates.push_back(dynamicMediaConfig->sample_rate[i]);
-            ++i;
-        }
-        return sampleRates;
-    }();
-    const auto channelsSupported = [&dynamicMediaConfig]() {
-        int i = 0;
-        std::vector<AudioChannelLayout> channels;
-        while (i <= MAX_SUPPORTED_CHANNEL_MASKS && dynamicMediaConfig->mask[i] != 0) {
-            // Todo change channels return type in dynamicMediaConfig
-            // channels.push_back(dynamicMediaConfig->mask[i]);
-            channels.push_back(AudioChannelLayout::make<AudioChannelLayout::Tag::layoutMask>(
-                    AudioChannelLayout::LAYOUT_STEREO));
-            ++i;
-        }
-        return channels;
-    }();
-    for (int i = 0; i <= MAX_SUPPORTED_FORMATS && dynamicMediaConfig->format[i] != 0; ++i) {
-        AudioProfile p;
-        p.format.type = AudioFormatType::PCM;
-        // TODO check remaining formats
-        if (dynamicMediaConfig->format[i] == PCM_24_BIT_PACKED) {
-            p.format.pcm = PcmType::INT_24_BIT;
-        } else if (dynamicMediaConfig->format[i] == PCM_32_BIT) {
-            p.format.pcm = PcmType::INT_32_BIT;
-        } else if (dynamicMediaConfig->format[i] == PCM_16_BIT) {
-            p.format.pcm = PcmType::INT_16_BIT;
-        } else {
-            // Todo check the default one
-            p.format.pcm = PcmType::INT_16_BIT;
-        }
-        p.sampleRates = sampleRatesSupported;
-        p.channelMasks = channelsSupported;
+    return getSupportedAudioProfiles(deviceCapability.get(), "usb");
+}
 
-        p.name = (isOutputDevice(devicePortExt.device) ? "usb_playback_profile"
-                                                       : "usb_record_profile") +
-                 p.format.toString();
-        supportedProfiles.emplace_back(p);
+std::vector<AudioProfile> Platform::getDynamicProfiles(
+        const AudioPort& dynamicDeviceAudioPort) const {
+    const auto& deviceExtTag = dynamicDeviceAudioPort.ext.getTag();
+    if (deviceExtTag != AudioPortExt::Tag::device) {
+        LOG(ERROR) << __func__ << ": provided AudioPort is not device port"
+                   << dynamicDeviceAudioPort.toString();
+        return {};
     }
-    return supportedProfiles;
+
+    LOG(VERBOSE) << __func__ << ": fetching dynamic profiles for "
+                 << dynamicDeviceAudioPort.toString();
+
+    const auto& devicePortExt = dynamicDeviceAudioPort.ext.get<AudioPortExt::Tag::device>();
+
+    if (isUsbDevice(devicePortExt.device)) {
+        return getUsbProfiles(dynamicDeviceAudioPort);
+    }
+
+    LOG(VERBOSE) << __func__ << " unsupported " << dynamicDeviceAudioPort.toString();
+    return {};
 }
 
 bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
@@ -827,7 +788,7 @@ bool Platform::setBluetoothParameters(const char* kvpairs) {
 
 bool Platform::setParameter(const std::string& key, const std::string& value) {
     // Todo check for validity of key
-    const auto& [first, second] = mParameters.insert_or_assign(key, value);
+    const auto & [ first, second ] = mParameters.insert_or_assign(key, value);
     LOG(VERBOSE) << __func__ << " platform parameter with key:" << key << " "
                  << (second ? "inserted" : "re-assigned") << " with value:" << value;
     return true;
@@ -955,7 +916,7 @@ std::string Platform::toString() const {
     std::ostringstream os;
     os << " === platform start ===" << std::endl;
     os << "sound card status: " << mSndCardStatus << std::endl;
-    for (const auto& [key, value] : mParameters) {
+    for (const auto & [ key, value ] : mParameters) {
         os << key << "=>" << value << std::endl;
     }
     os << PlatformConverter::toString() << std::endl;
