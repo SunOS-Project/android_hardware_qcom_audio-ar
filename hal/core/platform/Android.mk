@@ -16,7 +16,8 @@ LOCAL_EXPORT_C_INCLUDE_DIRS   := $(LOCAL_PATH)/include
 
 LOCAL_SRC_FILES := \
     Platform.cpp \
-    AudioUsecase.cpp
+    AudioUsecase.cpp \
+    PlatformUtils.cpp
 
 LOCAL_SHARED_LIBRARIES := \
     libbinder_ndk \

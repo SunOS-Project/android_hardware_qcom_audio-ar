@@ -5,10 +5,14 @@
 
 #pragma once
 
+#include <PalApi.h>
 #include <aidl/android/hardware/audio/core/VendorParameter.h>
 #include <aidl/qti/audio/core/VString.h>
 
 namespace qti::audio::core {
+
+using ::aidl::android::media::audio::common::AudioProfile;
+using ::aidl::android::media::audio::common::AudioChannelLayout;
 
 constexpr size_t getNearestMultiple(size_t num, size_t multiplier) {
     size_t remainder = 0;
@@ -47,5 +51,13 @@ auto getBoolValueFromVString = [](
     }
     return std::nullopt;
 };
+
+std::vector<AudioProfile> getSupportedAudioProfiles(pal_param_device_capability_t* capability,
+                                                    std::string devName);
+std::vector<AudioChannelLayout> getChannelMasksFromProfile(
+        pal_param_device_capability_t* capability);
+std::vector<int> getSampleRatesFromProfile(pal_param_device_capability_t* capability);
+AudioChannelLayout getChannelIndexMaskFromChannelCount(unsigned int channelCount);
+AudioChannelLayout getChannelLayoutMaskFromChannelCount(unsigned int channelCount, int isInput);
 
 } // namespace qti::audio::core
