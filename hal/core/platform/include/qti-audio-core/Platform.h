@@ -109,6 +109,11 @@ class Platform {
 
     void updateUHQA(const bool enable) noexcept;
     bool isUHQAEnabled() const noexcept;
+    void setFTMSpeakerProtectionMode(uint32_t const heatUpTime, uint32_t const runTime,
+                                     bool const isFactoryTest, bool const isValidationMode,
+                                     bool const isDynamicCalibration) const noexcept;
+    std::optional<std::string> getFTMResult() const noexcept;
+    std::optional<std::string> getSpeakerCalibrationResult() const noexcept;
 
     void updateScreenRotation(const ::aidl::android::hardware::audio::core::IModule::ScreenRotation
                                       in_rotation) noexcept;

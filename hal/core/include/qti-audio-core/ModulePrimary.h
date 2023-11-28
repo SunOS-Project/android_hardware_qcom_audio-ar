@@ -124,6 +124,7 @@ class ModulePrimary final : public Module {
         BLUETOOTH,
         HDR,
         WFD,
+        FTM, // Factory Test Mode
         AUDIOEXTENSION,
     };
 
@@ -174,6 +175,9 @@ class ModulePrimary final : public Module {
     // SetHandler For WFD
     void onSetWFDParameters(
             const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&);
+    // SetHandler For FTM
+    void onSetFTMParameters(
+            const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&);
 
     std::vector<::aidl::android::hardware::audio::core::VendorParameter> processGetVendorParameters(
             const std::vector<std::string>&);
@@ -182,6 +186,9 @@ class ModulePrimary final : public Module {
             const std::vector<std::string>&);
     // GetHandler for WFD
     std::vector<::aidl::android::hardware::audio::core::VendorParameter> onGetWFDParameters(
+            const std::vector<std::string>&);
+    // GetHandler for FTM
+    std::vector<::aidl::android::hardware::audio::core::VendorParameter> onGetFTMParameters(
             const std::vector<std::string>&);
     std::vector<::aidl::android::hardware::audio::core::VendorParameter> onGetAudioExtnParams(
             const std::vector<std::string>&);

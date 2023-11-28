@@ -449,6 +449,57 @@ bool Platform::isUHQAEnabled() const noexcept {
     return mIsUHQAEnabled;
 }
 
+void Platform::setFTMSpeakerProtectionMode(uint32_t const heatUpTime, uint32_t const runTime,
+                                           bool const isFactoryTest, bool const isValidationMode,
+                                           bool const isDynamicCalibration) const noexcept {
+    pal_spkr_prot_payload spPayload{
+            .spkrHeatupTime = heatUpTime,
+            .operationModeRunTime = runTime,
+    };
+
+    if (isFactoryTest)
+        spPayload.operationMode = PAL_SP_MODE_FACTORY_TEST;
+    else if (isValidationMode)
+        spPayload.operationMode = PAL_SP_MODE_V_VALIDATION;
+    else if (isDynamicCalibration)
+        spPayload.operationMode = PAL_SP_MODE_DYNAMIC_CAL;
+    else
+        return;
+
+    if (int32_t ret =
+                ::pal_set_param(PAL_PARAM_ID_SP_MODE, &spPayload, sizeof(pal_spkr_prot_payload));
+        ret) {
+        LOG(ERROR) << ": PAL_PARAM_ID_SP_MODE failed, ret:" << ret;
+        return;
+    }
+}
+
+std::optional<std::string> Platform::getFTMResult() const noexcept {
+    char ftmValue[255];
+    size_t dataSize = 0;
+    if (int32_t ret = ::pal_get_param(PAL_PARAM_ID_SP_MODE, reinterpret_cast<void**>(&ftmValue),
+                                      &dataSize, nullptr);
+        (ret || dataSize <= 0)) {
+        LOG(ERROR) << __func__ << ": PAL_PARAM_ID_SP_MODE failed, ret:" << ret
+                   << ", data size:" << dataSize;
+        return std::nullopt;
+    }
+    return std::string(ftmValue, dataSize);
+}
+
+std::optional<std::string> Platform::getSpeakerCalibrationResult() const noexcept {
+    char calValue[255];
+    size_t dataSize = 0;
+    if (int32_t ret = ::pal_get_param(PAL_PARAM_ID_SP_GET_CAL, reinterpret_cast<void**>(&calValue),
+                                      &dataSize, nullptr);
+        (ret || dataSize <= 0)) {
+        LOG(ERROR) << __func__ << ": PAL_PARAM_ID_SP_GET_CAL failed, ret:" << ret
+                   << ", data size:" << dataSize;
+        return std::nullopt;
+    }
+    return std::string(calValue, dataSize);
+}
+
 void Platform::updateScreenRotation(const IModule::ScreenRotation in_rotation) noexcept {
     pal_param_device_rotation_t paramDeviceRotation{};
 

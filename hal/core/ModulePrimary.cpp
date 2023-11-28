@@ -463,6 +463,50 @@ void ModulePrimary::onSetWFDParameters(const std::vector<VendorParameter>& param
     return;
 }
 
+void ModulePrimary::onSetFTMParameters(const std::vector<VendorParameter>& parameters) {
+    auto itrForCfgWaitTime =
+            std::find_if(parameters.cbegin(), parameters.cend(),
+                         [](const auto& p) { return p.id == Parameters::kFbspCfgWaitTime; });
+    auto itrForFTMWaitTime =
+            std::find_if(parameters.cbegin(), parameters.cend(),
+                         [](const auto& p) { return p.id == Parameters::kFbspFTMWaitTime; });
+    auto itrForValiWaitTime =
+            std::find_if(parameters.cbegin(), parameters.cend(),
+                         [](const auto& p) { return p.id == Parameters::kFbspValiWaitTime; });
+    auto itrForValiValiTime =
+            std::find_if(parameters.cbegin(), parameters.cend(),
+                         [](const auto& p) { return p.id == Parameters::kFbspValiValiTime; });
+    auto itrForTriggerSpeakerCall =
+            std::find_if(parameters.cbegin(), parameters.cend(),
+                         [](const auto& p) { return p.id == Parameters::kTriggerSpeakerCall; });
+
+    if (itrForCfgWaitTime != parameters.cend() && itrForFTMWaitTime != parameters.cend()) {
+        std::string heatTime{}, runTime{};
+        if ((!extractParameter<VString>(*itrForCfgWaitTime, &heatTime)) ||
+            (!extractParameter<VString>(*itrForFTMWaitTime, &runTime))) {
+            LOG(ERROR) << __func__ << ": extraction failed!!!";
+            return;
+        }
+        mPlatform.setFTMSpeakerProtectionMode(static_cast<uint32_t>(getInt64FromString(heatTime)),
+                                              static_cast<uint32_t>(getInt64FromString(runTime)),
+                                              true, false, false);
+    } else if(itrForValiWaitTime != parameters.cend() && itrForValiValiTime != parameters.cend()){
+        std::string heatTime{}, runTime{};
+        if ((!extractParameter<VString>(*itrForValiWaitTime, &heatTime)) ||
+            (!extractParameter<VString>(*itrForValiValiTime, &runTime))) {
+            LOG(ERROR) << __func__ << ": extraction failed!!!";
+            return;
+        }
+        mPlatform.setFTMSpeakerProtectionMode(static_cast<uint32_t>(getInt64FromString(heatTime)),
+                                              static_cast<uint32_t>(getInt64FromString(runTime)),
+                                              false, true, false);
+    } else if (itrForTriggerSpeakerCall != parameters.cend()) {
+        mPlatform.setFTMSpeakerProtectionMode(0, 0, false, false, true);
+    }
+
+    return;
+}
+
 // static
 ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeatureMap() {
     SetParameterToFeatureMap map{{Parameters::kHdrRecord, Feature::HDR},
@@ -483,6 +527,11 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
                                  {Parameters::kVoiceDirection, Feature::TELEPHONY},
                                  {Parameters::kInCallMusic, Feature::GENERIC},
                                  {Parameters::kUHQA, Feature::GENERIC},
+                                 {Parameters::kFbspCfgWaitTime, Feature::FTM},
+                                 {Parameters::kFbspFTMWaitTime, Feature::FTM},
+                                 {Parameters::kFbspValiWaitTime, Feature::FTM},
+                                 {Parameters::kFbspValiValiTime, Feature::FTM},
+                                 {Parameters::kTriggerSpeakerCall, Feature::FTM},
                                  {Parameters::kWfdChannelMap, Feature::WFD}};
     return map;
 }
@@ -494,6 +543,7 @@ ModulePrimary::FeatureToSetHandlerMap ModulePrimary::fillFeatureToSetHandlerMap(
             {Feature::HDR, &ModulePrimary::onSetHDRParameters},
             {Feature::TELEPHONY, &ModulePrimary::onSetTelephonyParameters},
             {Feature::WFD, &ModulePrimary::onSetWFDParameters},
+            {Feature::FTM, &ModulePrimary::onSetFTMParameters},
     };
     return map;
 }
@@ -642,11 +692,46 @@ std::vector<VendorParameter> ModulePrimary::onGetWFDParameters(
     return results;
 }
 
+std::vector<VendorParameter> ModulePrimary::onGetFTMParameters(
+        const std::vector<std::string>& ids) {
+    std::vector<VendorParameter> results{};
+    for (const auto& id : ids) {
+        VendorParameter param;
+        VString parcel;
+        if (id == Parameters::kFTMParam) {
+            param.id = id;
+            const auto& ftmResult = mPlatform.getFTMResult();
+            if (ftmResult) {
+                parcel.value = ftmResult.value();
+            } else {
+                parcel.value = "";
+            }
+            setParameter(parcel, param);
+            results.push_back(param);
+        } else if (id == Parameters::kFTMSPKRParam) {
+            param.id = id;
+            const auto& calResult = mPlatform.getSpeakerCalibrationResult();
+            if (calResult) {
+                parcel.value = calResult.value();
+            } else {
+                parcel.value = "false";
+            }
+            setParameter(parcel, param);
+            results.push_back(param);
+        } else {
+            LOG(ERROR) << __func__ << ": unknown parameter in FTM feature. id:" << id;
+        }
+    }
+    return results;
+}
+
 // static
 ModulePrimary::GetParameterToFeatureMap ModulePrimary::fillGetParameterToFeatureMap() {
     GetParameterToFeatureMap map{{Parameters::kVoiceIsCRsSupported, Feature::TELEPHONY},
                                  {Parameters::kA2dpSuspended, Feature::BLUETOOTH},
                                  {Parameters::kCanOpenProxy, Feature::WFD},
+                                 {Parameters::kFTMParam, Feature::FTM},
+                                 {Parameters::kFTMSPKRParam, Feature::FTM},
                                  {Parameters::kFMStatus, Feature::AUDIOEXTENSION}};
     return map;
 }
@@ -656,6 +741,7 @@ ModulePrimary::FeatureToGetHandlerMap ModulePrimary::fillFeatureToGetHandlerMap(
     FeatureToGetHandlerMap map{{Feature::TELEPHONY, &ModulePrimary::onGetTelephonyParameters},
                                {Feature::BLUETOOTH, &ModulePrimary::onGetBluetoothParams},
                                {Feature::WFD, &ModulePrimary::onGetWFDParameters},
+                               {Feature::FTM, &ModulePrimary::onGetFTMParameters},
                                {Feature::AUDIOEXTENSION, &ModulePrimary::onGetAudioExtnParams}};
     return map;
 }

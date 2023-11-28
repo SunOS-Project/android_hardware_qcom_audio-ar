@@ -46,10 +46,16 @@ const static std::string kWfdChannelMap{"wfd_channel_cap"};
 const static std::string kInCallMusic{"icmd_playback"};
 const static std::string kUHQA{"UHQA"};
 
-// others
+// FTM
 const static std::string kFbspCfgWaitTime{"fbsp_cfg_wait_time"};
+const static std::string kFbspFTMWaitTime{"fbsp_cfg_ftm_time"};
 const static std::string kFbspValiWaitTime{"fbsp_v_vali_wait_time"};
+const static std::string kFbspValiValiTime{"fbsp_v_vali_vali_time"};
 const static std::string kTriggerSpeakerCall{"trigger_spkr_cal"};
+const static std::string kFTMParam{"get_ftm_param"};
+const static std::string kFTMSPKRParam{"get_spkr_cal"};
+
+// others
 const static std::string kHapticsIntensity{"haptics_intensity"};
 
 // Audio Extn
