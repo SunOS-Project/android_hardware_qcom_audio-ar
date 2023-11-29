@@ -59,6 +59,8 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
         CallState mCallState{CallState::INVALID};
         CallType mCallType{""};
         bool mIsCrsCall{false};
+        float mCRSVolume = 0.0f;
+        bool mIsCRSStarted{false};
         VSID mVSID{VSID::INVALID};
         std::string toString() const {
             std::ostringstream os;
@@ -70,6 +72,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
 
     constexpr static size_t KCodecBackendDefaultBitWidth = 16;
     const static ::aidl::android::media::audio::common::AudioDevice kDefaultRxDevice;
+    const static ::aidl::android::media::audio::common::AudioDevice kDefaultCRSRxDevice;
 
     /* All the public APIs are guarded by mLock, Hence never call a public
      * API from anther public API */
@@ -91,6 +94,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     void updateDeviceMute(const bool isMute, const std::string& muteDirection);
 
     bool isCrsCallSupported();
+    void setCRSVolumeFromIndex(const int index);
 
     void setMicMute(const bool muted);
 
@@ -117,6 +121,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     void updateVoiceVolume();
     void updateDevices();
     void updateTtyMode();
+    void updateCrsDevice();
     std::vector<::aidl::android::media::audio::common::AudioDevice> getMatchingTxDevices(
             const std::vector<::aidl::android::media::audio::common::AudioDevice>& rxDevices);
 

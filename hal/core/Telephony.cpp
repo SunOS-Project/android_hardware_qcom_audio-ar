@@ -44,6 +44,8 @@ namespace qti::audio::core {
 
 const AudioDevice Telephony::kDefaultRxDevice =
         AudioDevice{.type.type = AudioDeviceType::OUT_SPEAKER_EARPIECE};
+const AudioDevice Telephony::kDefaultCRSRxDevice =
+        AudioDevice{.type.type = AudioDeviceType::OUT_SPEAKER};
 
 Telephony::Telephony() {
     mTelecomConfig.voiceVolume = Float{TelecomConfig::VOICE_VOLUME_MAX};
@@ -87,6 +89,13 @@ ndk::ScopedAStatus Telephony::switchAudioMode(AudioMode newAudioMode) {
     } else if (newAudioMode == AudioMode::NORMAL && mAudioMode == AudioMode::IN_CALL) {
         // safe to stop now
         stopCall();
+    } else if (newAudioMode == AudioMode::RINGTONE && mSetUpdates.mIsCrsCall) {
+        if (!mSetUpdates.mIsCRSStarted) {
+            updateCrsDevice();
+            startCall();
+            mSetUpdates.mIsCRSStarted = true;
+            LOG(VERBOSE) << __func__ << "start CRS call";
+        }
     }
 
     mAudioMode = newAudioMode;
@@ -135,7 +144,8 @@ void Telephony::setMicMute(const bool muted) {
 }
 
 bool Telephony::isCrsCallSupported() {
-    return false;
+    std::scoped_lock lock{mLock};
+    return true;
 }
 
 void Telephony::setDevicesFromPatch(const std::vector<AudioDevice>& devices,
@@ -238,6 +248,19 @@ void Telephony::updateDevicesFromPrimaryPlayback() {
     updateDevices();
 }
 
+void Telephony::updateCrsDevice() {
+     LOG(VERBOSE) << __func__ << ": Enter";
+
+     if (mRxDevices.at(0).type.type == AudioDeviceType::OUT_SPEAKER_EARPIECE) {
+         mRxDevices = {kDefaultCRSRxDevice};
+         mTxDevices = getMatchingTxDevices(mRxDevices);
+         LOG(VERBOSE) << __func__ << "force to speaker for CRS call";
+         if (mRxDevices.size() != mTxDevices.size()) {
+             LOG(VERBOSE) << __func__ << ": no Tx found for" << mRxDevices;
+         }
+     }
+}
+
 std::vector<AudioDevice> Telephony::getMatchingTxDevices(
         const std::vector<AudioDevice>& rxDevices) {
     std::vector<AudioDevice> txDevices;
@@ -287,6 +310,25 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
                  << newUpdates.toString();
     // Todo Implement
     mPlatform.updateCallState((int)mSetUpdates.mCallState);
+
+    if (newUpdates.mIsCrsCall) {
+         if (!mSetUpdates.mIsCRSStarted && mAudioMode == AudioMode::RINGTONE) {
+             updateCrsDevice();
+             mSetUpdates = newUpdates;
+             startCall();
+             mSetUpdates.mIsCRSStarted  = true;
+             LOG(VERBOSE) << __func__ << ": start CRS call";
+             return;
+         }
+    } else {
+         if (mSetUpdates.mIsCRSStarted) {
+             stopCall();
+             mSetUpdates = newUpdates;
+             mSetUpdates.mIsCRSStarted  = false;
+             LOG(VERBOSE) << __func__ << ": stop CRS call";
+             return;
+         }
+     }
 
     if (mSetUpdates.mCallState != CallState::ACTIVE && newUpdates.mCallState == CallState::ACTIVE) {
         // this is a clear sign that to start a call
@@ -412,11 +454,32 @@ void Telephony::configureDeviceMute() {
     }
 }
 
+void Telephony::setCRSVolumeFromIndex(const int index) {
+    std::scoped_lock lock{mLock};
+    if (index > 0 && index < 4)
+       mSetUpdates.mCRSVolume = 0.2;
+    else if (index == 4)
+       mSetUpdates.mCRSVolume = 0.3;
+    else if (index == 5)
+       mSetUpdates.mCRSVolume = 0.4;
+    else if (index == 6)
+       mSetUpdates.mCRSVolume = 0.5;
+    else if (index >= 7)
+       mSetUpdates.mCRSVolume = 0.6;
+    else
+       mSetUpdates.mCRSVolume = 0.0;
+}
+
 void Telephony::updateVoiceVolume() {
     if (mPalHandle == nullptr) {
         return;
     }
-    float volumeFloat = mTelecomConfig.voiceVolume ? mTelecomConfig.voiceVolume.value().value : 1.0;
+    float volumeFloat = 0.0f;
+    if (mSetUpdates.mIsCrsCall) {
+        volumeFloat = mSetUpdates.mCRSVolume;
+    } else {
+        volumeFloat = mTelecomConfig.voiceVolume ? mTelecomConfig.voiceVolume.value().value : 1.0;
+    }
     if (int32_t ret = mPlatform.setVolume(mPalHandle, {volumeFloat}); ret) {
         LOG(ERROR) << __func__ << ": pal stream set volume failed !!" << ret;
         return;

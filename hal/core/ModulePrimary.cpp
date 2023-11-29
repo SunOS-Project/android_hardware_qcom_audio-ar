@@ -437,6 +437,8 @@ void ModulePrimary::onSetTelephonyParameters(const std::vector<VendorParameter>&
             isSetUpdate = true;
         } else if (Parameters::kVoiceCRSCall == p.id) {
             setUpdates.mIsCrsCall = paramValue == "true" ? true : false;
+        } else if (Parameters::kVoiceCRSVolume == p.id) {
+            mTelephony->setCRSVolumeFromIndex(getInt64FromString(paramValue));
         } else if (Parameters::kVolumeBoost == p.id) {
             const bool enable = paramValue == "on" ? true : false;
             mTelephony->updateVolumeBoost(enable);
@@ -536,6 +538,7 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
                                  {Parameters::kVoiceCallType, Feature::TELEPHONY},
                                  {Parameters::kVoiceVSID, Feature::TELEPHONY},
                                  {Parameters::kVoiceCRSCall, Feature::TELEPHONY},
+                                 {Parameters::kVoiceCRSVolume, Feature::TELEPHONY},
                                  {Parameters::kVolumeBoost, Feature::TELEPHONY},
                                  {Parameters::kVoiceSlowTalk, Feature::TELEPHONY},
                                  {Parameters::kVoiceHDVoice, Feature::TELEPHONY},
