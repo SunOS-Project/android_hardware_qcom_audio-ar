@@ -92,17 +92,16 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
     mWorker->setIsConnected(!devices.empty());
     mConnectedDevices = devices;
 
-    if (mTag == Usecase::PRIMARY_PLAYBACK) {
-        mPlatform.setPrimaryPlaybackDevices(mConnectedDevices);
-        LOG(VERBOSE) << __func__ << ": primary playback devices updated " << mConnectedDevices;
+    if (mConnectedDevices.empty()) {
+        LOG(VERBOSE) << __func__ << ": stream is not connected";
+        return ndk::ScopedAStatus::ok();
     }
+
+    // update the primary playabck devices for any stream out devices
+    mPlatform.setPrimaryPlaybackDevices(mConnectedDevices);
 
     if (!mPalHandle) {
         LOG(WARNING) << __func__ << ": stream not configured";
-        return ndk::ScopedAStatus::ok();
-    }
-    if (mConnectedDevices.empty()) {
-        LOG(VERBOSE) << __func__ << ": stream is not connected";
         return ndk::ScopedAStatus::ok();
     }
 
@@ -127,13 +126,7 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
-    auto devicesString = [](std::string& prev, const auto& device) {
-        return std::move(prev.append(" | ").append(device.toString()));
-    };
-
-    LOG(VERBOSE) << __func__ << ": " << mTagName << " connected to "
-                 << std::accumulate(mConnectedDevices.cbegin(), mConnectedDevices.cend(),
-                                    std::string(""), devicesString);
+    LOG(VERBOSE) << __func__ << ": " << mTagName << " connected to " << mConnectedDevices;
 
     return ndk::ScopedAStatus::ok();
 }
@@ -319,7 +312,8 @@ void StreamOutPrimary::resume() {
         configure();
         if (!mPalHandle) {
             LOG(ERROR) << __func__ << ": failed to configure " << mTagName;
-            return ::android::UNEXPECTED_NULL;
+            *actualFrameCount = frameCount;
+            return onWriteError(frameCount);
         }
     }
 
@@ -333,13 +327,17 @@ void StreamOutPrimary::resume() {
         // resume comes with 0 frameCount
         return ::android::OK;
     }
-    ssize_t bytesWritten = ::pal_stream_write(mPalHandle, &palBuffer);
+
+    const ssize_t bytesWritten = ::pal_stream_write(mPalHandle, &palBuffer);
     if (bytesWritten < 0) {
         LOG(ERROR) << __func__ << " write failed, ret:" << bytesWritten;
-        return ::android::FAILED_TRANSACTION;
+        *actualFrameCount = frameCount;
+        return onWriteError(frameCount);
     }
-    LOG(DEBUG) << __func__ << ": byteswritten:" << bytesWritten;
+
     *actualFrameCount = static_cast<size_t>(bytesWritten / mFrameSizeBytes);
+    LOG(VERBOSE) << __func__ << ": byteswritten:" << bytesWritten;
+
     // Todo findout write latency
     *latencyMs = Module::kLatencyMs;
     return ::android::OK;
@@ -672,6 +670,22 @@ size_t StreamOutPrimary::getPeriodCount() const noexcept {
 
 size_t StreamOutPrimary::getPlatformDelay() const noexcept {
     return 0;
+}
+
+::android::status_t StreamOutPrimary::onWriteError(const size_t sleepFrameCount) {
+    shutdown();
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        LOG(ERROR) << __func__ << " " << mTagName << ": cannot afford write failure";
+        return ::android::UNEXPECTED_NULL;
+    }
+    auto& sampleRate = mMixPortConfig.sampleRate.value().value;
+    if (sampleRate == 0) {
+        LOG(ERROR) << __func__ << " " << mTagName << ": cannot afford write failure, sampleRate is zero";
+        return ::android::UNEXPECTED_NULL;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds((sleepFrameCount * 1000) / sampleRate));
+    LOG(WARNING) << __func__ << " " << mTagName << ": ignoring this write";
+    return ::android::OK;
 }
 
 void StreamOutPrimary::configure() {
