@@ -113,13 +113,6 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
-    if (!connectedPalDevices.empty() && connectedPalDevices[0].id == PAL_DEVICE_OUT_BLUETOOTH_SCO) {
-        if (!mPlatform.isA2dpSuspended()) {
-            LOG(ERROR) << __func__ << " Cannot route stream to SCO if A2dp is not suspended";
-            return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
-        }
-    }
-
     if (int32_t ret = ::pal_stream_set_device(mPalHandle, connectedPalDevices.size(),
                                               connectedPalDevices.data());
         ret) {
