@@ -15,6 +15,7 @@ LOCAL_C_INCLUDES    :=  $(LOCAL_PATH)/include \
 #LOCAL_CPPFLAGS += -frtti
 LOCAL_CFLAGS += -DPAL_HIDL_ENABLED
 LOCAL_CFLAGS += -DAGM_HIDL_ENABLED
+LOCAL_CFLAGS += -DBACKEND_NDK
 
 LOCAL_VINTF_FRAGMENTS   := \
     ../../configs/common/manifest_non_qmaa.xml
@@ -68,6 +69,7 @@ LOCAL_SHARED_LIBRARIES := \
     libbase \
     libbinder_ndk \
     libcutils \
+    liblog \
     libdl \
     libhidlbase \
     libhardware \

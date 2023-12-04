@@ -10,6 +10,8 @@
 #include <android/binder_ibinder_platform.h>
 #include <android/binder_manager.h>
 #include <android/binder_process.h>
+#include <core-impl/AudioPolicyConfigXmlConverter.h>
+#include <core-impl/ChildInterface.h>
 #include <core-impl/Config.h>
 #include <core-impl/ModuleUsb.h>
 #include <qti-audio-core/Module.h>
@@ -19,51 +21,58 @@
 #include <cstdlib>
 #include <ctime>
 
-auto registerBinderAsService = [](auto&& binder, const std::string& serviceName) {
+using aidl::android::hardware::audio::core::ChildInterface;
+
+using aidl::android::hardware::audio::core::internal::AudioPolicyConfigXmlConverter;
+AudioPolicyConfigXmlConverter gAudioPolicyConverter{
+        ::android::audio_get_audio_policy_config_file()};
+
+using AospModule = ::aidl::android::hardware::audio::core::Module;
+using AospModuleConfig = ::aidl::android::hardware::audio::core::Module::Configuration;
+using AospModuleConfigurationPair = std::pair<std::string, std::unique_ptr<AospModuleConfig>>;
+using AospModuleConfigs = std::vector<AospModuleConfigurationPair>;
+std::unique_ptr<AospModuleConfigs> gModuleConfigs;
+std::vector<ChildInterface<AospModule>> gModuleInstances;
+std::shared_ptr<::aidl::android::hardware::audio::core::Config> gConfigDefaultAosp;
+std::shared_ptr<::qti::audio::core::ModulePrimary> gModuleDefaultQti;
+
+namespace {
+
+ChildInterface<AospModule> createModule(const std::string &name,
+                                        std::unique_ptr<AospModuleConfig> &&config) {
+    LOG(DEBUG) << __func__ << "  " << name;
+    ChildInterface<AospModule> result;
+    {
+        auto moduleType = AospModule::typeFromString(name);
+        if (!moduleType.has_value()) {
+            LOG(ERROR) << __func__ << ": module type \"" << name << "\" is not supported";
+            return result;
+        }
+        auto module = AospModule::createInstance(*moduleType, std::move(config));
+        if (module == nullptr) return result;
+        result = std::move(module);
+    }
+    const std::string moduleName =
+            std::string().append(AospModule::descriptor).append("/").append(name);
+    AIBinder_setMinSchedulerPolicy(result.getBinder(), SCHED_NORMAL, ANDROID_PRIORITY_AUDIO);
+    binder_status_t status = AServiceManager_addService(result.getBinder(), moduleName.c_str());
+    if (status != STATUS_OK) {
+        LOG(ERROR) << __func__ << ": failed to register service for \"" << moduleName << "\"";
+        return ChildInterface<AospModule>();
+    }
+    return result;
+};
+
+} // namespace
+
+auto registerBinderAsService = [](auto &&binder, const std::string &serviceName) {
     AIBinder_setMinSchedulerPolicy(binder.get(), SCHED_NORMAL, ANDROID_PRIORITY_AUDIO);
     binder_exception_t status = AServiceManager_addService(binder.get(), serviceName.c_str());
     if (status != EX_NONE) {
         LOG(ERROR) << __func__ << " failed to register " << serviceName << " ret:" << status;
-        // CHECK_EQ(1, 0);
     }
 };
 
-std::shared_ptr<::aidl::android::hardware::audio::core::Module> gModuleDefaultAosp;
-void registerIModuleDefaultAosp() {
-    gModuleDefaultAosp = ::aidl::android::hardware::audio::core::Module::createInstance(
-            ::aidl::android::hardware::audio::core::Module::Type::DEFAULT);
-    const std::string kServiceName =
-            std::string(gModuleDefaultAosp->descriptor).append("/").append("default");
-    registerBinderAsService(gModuleDefaultAosp->asBinder(), kServiceName);
-}
-
-std::shared_ptr<::aidl::android::hardware::audio::core::Module> gModuleRSubmixAosp;
-void registerIModuleRSubmixAosp() {
-    gModuleRSubmixAosp = ::aidl::android::hardware::audio::core::Module::createInstance(
-            ::aidl::android::hardware::audio::core::Module::Type::R_SUBMIX);
-    const std::string kServiceName =
-            std::string(gModuleRSubmixAosp->descriptor).append("/").append("r_submix");
-    registerBinderAsService(gModuleRSubmixAosp->asBinder(), kServiceName);
-}
-
-std::shared_ptr<::aidl::android::hardware::audio::core::Module> gModuleUsbAosp;
-void registerIModuleUsbAosp() {
-    gModuleUsbAosp = ::aidl::android::hardware::audio::core::Module::createInstance(
-            ::aidl::android::hardware::audio::core::Module::Type::USB);
-    const std::string kServiceName =
-            std::string(gModuleUsbAosp->descriptor).append("/").append("usb");
-    registerBinderAsService(gModuleUsbAosp->asBinder(), kServiceName);
-}
-
-std::shared_ptr<::aidl::android::hardware::audio::core::Config> gConfigDefaultAosp;
-void registerIConfigAosp() {
-    gConfigDefaultAosp = ndk::SharedRefBase::make<::aidl::android::hardware::audio::core::Config>();
-    const std::string kServiceName =
-            std::string(gConfigDefaultAosp->descriptor).append("/").append("default");
-    registerBinderAsService(gConfigDefaultAosp->asBinder(), kServiceName);
-}
-
-std::shared_ptr<::qti::audio::core::ModulePrimary> gModuleDefaultQti;
 void registerIModuleDefaultQti() {
     gModuleDefaultQti = ndk::SharedRefBase::make<::qti::audio::core::ModulePrimary>();
     const std::string kServiceName =
@@ -72,24 +81,27 @@ void registerIModuleDefaultQti() {
 }
 
 extern "C" __attribute__((visibility("default"))) int32_t registerServices() {
-    const std::string& kDefaultConfigProp{"vendor.audio.core_hal_IConfig_default"};
-    const auto& kDefaultConfig = ::android::base::GetProperty(kDefaultConfigProp, "aosp");
-    if (kDefaultConfig == "qti") {
-        // Todo QTI Config
-    } else {
-        ::registerIConfigAosp();
+    gConfigDefaultAosp = ndk::SharedRefBase::make<::aidl::android::hardware::audio::core::Config>(
+            gAudioPolicyConverter);
+    const std::string configIntfName =
+            std::string().append(gConfigDefaultAosp->descriptor).append("/default");
+    binder_status_t status = AServiceManager_addService(gConfigDefaultAosp->asBinder().get(),
+                                                        configIntfName.c_str());
+    if (status != STATUS_OK) {
+        LOG(ERROR) << "failed to register service for \"" << configIntfName << "\"";
     }
 
-    const std::string& kDefaultModuleProp{"vendor.audio.core_hal_IModule_default"};
-    const auto& kDefaultModule = ::android::base::GetProperty(kDefaultModuleProp, "qti");
+    gModuleConfigs = gAudioPolicyConverter.releaseModuleConfigs();
 
-    if (kDefaultModule == "aosp") {
-        ::registerIModuleDefaultAosp();
-    } else {
-        ::registerIModuleDefaultQti();
+    registerIModuleDefaultQti();
+
+    // get the modules listed in audio_policy_configuration and register the
+    // interfaces except primary
+    for (AospModuleConfigurationPair &configPair : *gModuleConfigs) {
+        std::string name = configPair.first;
+        if (auto instance = createModule(name, std::move(configPair.second)); instance) {
+            gModuleInstances.push_back(std::move(instance));
+        }
     }
-
-    ::registerIModuleRSubmixAosp();
-    ::registerIModuleUsbAosp();
     return STATUS_OK;
 }
