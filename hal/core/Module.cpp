@@ -906,6 +906,7 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
     auto& patches = getConfig().patches;
     auto existing = patches.end();
     std::optional<decltype(mPatches)> patchesBackup;
+    AudioPatch oldPatch{};
     if (in_requested.id != 0) {
         existing = findById<AudioPatch>(patches, in_requested.id);
         if (existing != patches.end()) {
@@ -914,6 +915,19 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
         } else {
             LOG(ERROR) << __func__ << ": not found existing patch id " << in_requested.id;
             return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+        }
+    }
+    else {
+        //check if current portconfig exists in any other patches
+        //if its there, then update to new patch and remove it from list
+        for (auto & element : patches)
+        {
+             if (element.sourcePortConfigIds == in_requested.sourcePortConfigIds) {
+                 LOG(ERROR) << __func__ << " found same mixport config in patch id: " << element.id;
+                 oldPatch = element;
+                 cleanUpPatch(element.id);
+                 break;
+             }
         }
     }
     // Validate the requested patch.
@@ -929,7 +943,6 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
     }
 
     *_aidl_return = in_requested;
-    AudioPatch oldPatch{};
     if (existing == patches.end()) {
         // this suggests to create a new patch.
         _aidl_return->id = getConfig().nextPatchId++;

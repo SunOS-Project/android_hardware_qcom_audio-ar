@@ -88,6 +88,7 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     size_t getPeriodSize() const noexcept;
     size_t getPeriodCount() const noexcept;
     size_t getPlatformDelay() const noexcept;
+    ::android::status_t onWriteError(const size_t sleepFrameCount);
 
     // This API calls startEffect/stopEffect only on offload/pcm offload
     // outputs.
