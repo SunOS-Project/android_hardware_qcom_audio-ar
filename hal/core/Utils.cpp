@@ -112,4 +112,15 @@ bool setParameter(const VString& parcel, VendorParameter& parameter) noexcept {
     return true;
 }
 
+VendorParameter makeVendorParameter(const std::string& id, const std::string& value) {
+    VString parcel;
+    parcel.value = value;
+    VendorParameter param;
+    param.id = id;
+    if (param.ext.setParcelable(parcel) != android::OK) {
+        LOG(ERROR) << __func__ << ": failed to set parcel for " << param.id;
+    }
+    return param;
+}
+
 } // namespace qti::audio::core
