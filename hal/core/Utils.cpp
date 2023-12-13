@@ -57,7 +57,7 @@ bool hasBluetoothDevice(const std::vector<AudioDevice>& devices) noexcept {
     return itr != devices.cend();
 }
 
-bool isInputMMap(const AudioIoFlags& ioFlags) noexcept {
+bool hasInputMMapFlag(const AudioIoFlags& ioFlags) noexcept {
     if (ioFlags.getTag() == AudioIoFlags::Tag::input) {
         constexpr auto inputMMapFlag = static_cast<int32_t>(
             1 << static_cast<int32_t>(AudioInputFlags::MMAP_NOIRQ));
@@ -66,7 +66,7 @@ bool isInputMMap(const AudioIoFlags& ioFlags) noexcept {
     return false;
 }
 
-bool isOutputMMap(const AudioIoFlags& ioFlags) noexcept {
+bool hasOutputMMapFlag(const AudioIoFlags& ioFlags) noexcept {
     if (ioFlags.getTag() == AudioIoFlags::Tag::output) {
         constexpr auto outputMMapFlag = static_cast<int32_t>(
             1 << static_cast<int32_t>(AudioOutputFlags::MMAP_NOIRQ));
@@ -76,8 +76,8 @@ bool isOutputMMap(const AudioIoFlags& ioFlags) noexcept {
     return false;
 }
 
-bool isMMap(const AudioIoFlags& ioFlags) noexcept {
-    return (isInputMMap(ioFlags) || isOutputMMap(ioFlags));
+bool hasMMapFlagsEnabled(const AudioIoFlags& ioFlags) noexcept {
+    return (hasInputMMapFlag(ioFlags) || hasOutputMMapFlag(ioFlags));
 }
 
 bool isInputAFEProxyDevice(const AudioDevice& device) noexcept {

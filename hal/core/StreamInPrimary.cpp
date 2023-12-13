@@ -301,7 +301,7 @@ void StreamInPrimary::resume() {
 ::android::status_t StreamInPrimary::refinePosition(
         ::aidl::android::hardware::audio::core::StreamDescriptor::Reply* reply) {
     if (!mPalHandle) {
-        LOG(WARNING) << __func__ << ": stream not configured " << mTagName;
+        LOG(WARNING) << __func__ << ": stream not configured for " << mTagName;
         return ::android::OK;
     }
     if (mTag == Usecase::COMPRESS_CAPTURE) {

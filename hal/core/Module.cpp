@@ -755,7 +755,7 @@ ndk::ScopedAStatus Module::openInputStream(const OpenInputStreamArguments& in_ar
                 streamWrapper.setConnectedDevices(findConnectedDevices(in_args.portConfigId)));
     }
 
-    if (isInputMMap(port->flags)) {
+    if (hasInputMMapFlag(port->flags)) {
         int32_t fd, mmapFlags, bufferSizeFrames;
         int64_t burstSizeFrames;
         RETURN_STATUS_IF_ERROR(streamWrapper.configureMMapStream(
@@ -816,7 +816,7 @@ ndk::ScopedAStatus Module::openOutputStream(const OpenOutputStreamArguments& in_
                 streamWrapper.setConnectedDevices(findConnectedDevices(in_args.portConfigId)));
     }
 
-    if (isOutputMMap(port->flags)) {
+    if (hasOutputMMapFlag(port->flags)) {
         int32_t fd, mmapFlags, bufferSizeFrames;
         int64_t burstSizeFrames;
         RETURN_STATUS_IF_ERROR(streamWrapper.configureMMapStream(
