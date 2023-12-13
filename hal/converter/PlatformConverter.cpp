@@ -4,7 +4,7 @@
  */
 
 #define LOG_NDEBUG 0
-#define LOG_TAG "AHAL_PlatformConverter"
+#define LOG_TAG "AHAL_PlatformConverter_QTI"
 
 #include <android-base/logging.h>
 #include <media/stagefright/foundation/MediaDefs.h>

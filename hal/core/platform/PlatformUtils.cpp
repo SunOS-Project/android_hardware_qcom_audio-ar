@@ -4,7 +4,7 @@
  */
 
 #define LOG_NDEBUG 0
-#define LOG_TAG "AHAL_Platform"
+#define LOG_TAG "AHAL_PlatformUtils_QTI"
 
 #include <Utils.h>
 #include <android-base/logging.h>

@@ -5,7 +5,7 @@
 
 #include <cmath>
 
-#define LOG_TAG "AHAL_QStreamOut"
+#define LOG_TAG "AHAL_StreamOut_QTI"
 
 #include <android-base/logging.h>
 #include <audio_utils/clock.h>

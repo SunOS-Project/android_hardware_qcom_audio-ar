@@ -20,7 +20,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL_QTele"
+#define LOG_TAG "AHAL_Telephony_QTI"
 #include <Utils.h>
 #include <android-base/logging.h>
 #include <android/binder_to_string.h>

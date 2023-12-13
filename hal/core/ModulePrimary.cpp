@@ -22,7 +22,7 @@
 
 #include <vector>
 
-#define LOG_TAG "AHAL_QModulePri"
+#define LOG_TAG "AHAL_ModulePrimary_QTI"
 #include <Utils.h>
 #include <android-base/logging.h>
 #include <cutils/str_parms.h>

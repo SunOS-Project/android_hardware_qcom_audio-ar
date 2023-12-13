@@ -31,7 +31,7 @@
 * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
-#define LOG_TAG "audio_hw::BatteryListener"
+#define LOG_TAG "AHAL_BatteryListener_QTI"
 #include "extensions/battery_listener.h"
 #include <aidl/android/hardware/health/BnHealthInfoCallback.h>
 #include <aidl/android/hardware/health/IHealth.h>

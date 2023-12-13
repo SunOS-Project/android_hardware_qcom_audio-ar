@@ -4,7 +4,7 @@
  */
 
 #define LOG_NDEBUG 0
-#define LOG_TAG "AHAL_QService"
+#define LOG_TAG "AHAL_Service_QTI"
 
 #include <dlfcn.h>
 #include <cstdlib>

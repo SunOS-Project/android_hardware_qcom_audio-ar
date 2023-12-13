@@ -2,7 +2,7 @@
  * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
-#define LOG_TAG "AHAL_Usecase"
+#define LOG_TAG "AHAL_Usecase_QTI"
 
 #include <Utils.h>
 #include <aidl/qti/audio/core/VString.h>

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL_HalOffloadEffects"
+#define LOG_TAG "AHAL_HalOffloadEffects_QTI"
 
 #include <android-base/logging.h>
 #include <dlfcn.h>

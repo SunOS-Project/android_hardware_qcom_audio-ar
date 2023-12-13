@@ -23,7 +23,7 @@
 #include <algorithm>
 #include <set>
 
-#define LOG_TAG "AHAL_QModule"
+#define LOG_TAG "AHAL_Module_QTI"
 
 #include <Utils.h>
 #include <aidl/android/media/audio/common/AudioInputFlags.h>

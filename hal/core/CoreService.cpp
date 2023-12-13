@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL_CoreService"
+#define LOG_TAG "AHAL_CoreService_QTI"
 
 #include <android-base/logging.h>
 #include <android-base/properties.h>

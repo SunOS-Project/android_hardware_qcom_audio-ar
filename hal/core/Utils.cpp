@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL_QUtils"
+#define LOG_TAG "AHAL_Utils_QTI"
 
 #include <android-base/logging.h>
 #include <qti-audio-core/Utils.h>

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL_QStreamIn"
+#define LOG_TAG "AHAL_StreamIn_QTI"
 
 #include <cmath>
 
