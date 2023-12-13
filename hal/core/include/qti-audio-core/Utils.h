@@ -192,4 +192,9 @@ auto findKeyOrDefault(const M& m, const K& key, K defaultValue) {
     return it == m.end() ? defaultValue : key;
 }
 
+/*
+* create a VendorParameter from a id and value, primarly used with getVendorParameters.
+*/
+::aidl::android::hardware::audio::core::VendorParameter makeVendorParameter(const std::string& id,
+                                                                            const std::string& value);
 } // namespace qti::audio::core

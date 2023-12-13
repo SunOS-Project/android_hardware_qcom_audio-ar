@@ -31,7 +31,7 @@ namespace qti::audio::core {
 
 class ModulePrimary final : public Module {
   public:
-    ModulePrimary() : Module(Type::DEFAULT) {}
+    ModulePrimary();
 
     // #################### start of overriding APIs from IModule ####################
     binder_status_t dump(int fd, const char** args, uint32_t numArgs) override;
@@ -60,6 +60,8 @@ class ModulePrimary final : public Module {
     ndk::ScopedAStatus updateScreenState(bool in_isTurnedOn) override;
     ndk::ScopedAStatus updateScreenRotation(
             ::aidl::android::hardware::audio::core::IModule::ScreenRotation in_rotation) override;
+    ndk::ScopedAStatus getSupportedPlaybackRateFactors(
+            SupportedPlaybackRateFactors* _aidl_return) override;
     // #################### end of overriding APIs from IModule ####################
 
     // Mutex for stream lists protection
@@ -69,7 +71,7 @@ class ModulePrimary final : public Module {
     static std::vector<std::weak_ptr<StreamOut>>& getOutStreams() { return mStreamsOut; }
     static std::vector<std::weak_ptr<StreamIn>>& getInStreams() { return mStreamsIn; }
 
- protected:
+  protected:
     // #################### start of overriding APIs from Module ####################
     std::string toStringInternal() override;
     void dumpInternal(const std::string& identifier = "no_id") override;
@@ -194,6 +196,8 @@ class ModulePrimary final : public Module {
             const std::vector<std::string>&);
     std::vector<::aidl::android::hardware::audio::core::VendorParameter> onGetBluetoothParams(
             const std::vector<std::string>&);
+    std::vector<::aidl::android::hardware::audio::core::VendorParameter> onGetGenericParams(
+            const std::vector<std::string>&);
     // end of module parameters handling
 
   protected:
@@ -207,6 +211,9 @@ class ModulePrimary final : public Module {
     ChildInterface<::aidl::android::hardware::audio::core::IBluetoothLe> mBluetoothLe;
     Platform& mPlatform{Platform::getInstance()};
     AudioExtension& mAudExt{AudioExtension::getInstance()};
+
+  private:
+    bool mOffloadSpeedSupported;
 };
 
 } // namespace qti::audio::core

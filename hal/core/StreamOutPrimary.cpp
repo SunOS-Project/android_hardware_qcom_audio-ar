@@ -50,7 +50,8 @@ StreamOutPrimary::StreamOutPrimary(StreamContext&& context, const SourceMetadata
       mTag(getUsecaseTag(getContext().getMixPortConfig())),
       mTagName(getName(mTag)),
       mFrameSizeBytes(getContext().getFrameSize()),
-      mMixPortConfig(getContext().getMixPortConfig()) {
+      mMixPortConfig(getContext().getMixPortConfig()),
+      mPlaybackRate(sDefaultPlaybackRate) {
     if (mTag == Usecase::PRIMARY_PLAYBACK) {
         mExt.emplace<PrimaryPlayback>();
     } else if (mTag == Usecase::DEEP_BUFFER_PLAYBACK) {
@@ -458,8 +459,32 @@ ndk::ScopedAStatus StreamOutPrimary::setHwVolume(const std::vector<float>& in_ch
 
     mVolumes = in_channelVolumes;
 
-    LOG(VERBOSE) << __func__ << ": stream volume updated";
+    LOG(DEBUG) << __func__ << "  " << ::android::internal::ToString(mVolumes);
     return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus StreamOutPrimary::getPlaybackRateParameters(AudioPlaybackRate* _aidl_return) {
+    if (!mPlatform.usecaseSupportsOffloadSpeed(mTag)) {
+        return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+    }
+
+    LOG(DEBUG) << __func__ << mPlaybackRate.toString();
+    *_aidl_return = mPlaybackRate;
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus StreamOutPrimary::setPlaybackRateParameters(
+        const AudioPlaybackRate& in_playbackRate) {
+    auto ret = mPlatform.setPlaybackRate(mPalHandle, mTag, in_playbackRate);
+    if (PlaybackRateStatus::SUCCESS == ret) {
+        mPlaybackRate = in_playbackRate;
+        LOG(DEBUG) << __func__ << mPlaybackRate.toString();
+        return ndk::ScopedAStatus::ok();
+    } else if (PlaybackRateStatus::UNSUPPORTED == ret) {
+        return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+    }
+
+    return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
 }
 
 // end of IStreamOut Methods
@@ -795,17 +820,16 @@ void StreamOutPrimary::configure() {
     // configure mExt
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         std::get<CompressPlayback>(mExt).setPalHandle(mPalHandle);
+        setHwVolume(mVolumes);
+    }
+
+    if (mPlaybackRate != sDefaultPlaybackRate) {
+        LOG(DEBUG) << __func__ << ": using playspeed " << mPlaybackRate.speed;
+        mPlatform.setPlaybackRate(mPalHandle, mTag, mPlaybackRate);
     }
 
     LOG(INFO) << __func__ << ": stream is configured for " << mTagName;
     enableOffloadEffects(true);
-
-    // after configuration operations
-
-    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        // if any cached volume update
-        mVolumes.size() > 0 ? (void)setHwVolume(mVolumes) : (void)0;
-    }
 }
 
 void StreamOutPrimary::enableOffloadEffects(const bool enable) {

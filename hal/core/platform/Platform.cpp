@@ -939,6 +939,36 @@ bool Platform::isA2dpSuspended() {
     }
     return true;
 }
+
+PlaybackRateStatus Platform::setPlaybackRate(
+        pal_stream_handle_t* handle, const Usecase& tag,
+        const ::aidl::android::media::audio::common::AudioPlaybackRate& playbackRate) {
+    if (!usecaseSupportsOffloadSpeed(tag) || !isValidPlaybackRate(playbackRate)) {
+        return PlaybackRateStatus::UNSUPPORTED;
+    }
+
+    if (!handle) {
+        LOG(DEBUG) << __func__ << " stream inactive ";
+        return PlaybackRateStatus::SUCCESS;
+    }
+
+    auto allocSize = sizeof(pal_param_payload) + sizeof(pal_param_playback_rate_t);
+    auto payload = VALUE_OR_EXIT(allocate<pal_param_payload>(allocSize),
+                                 PlaybackRateStatus::ILLEGAL_ARGUMENT);
+    pal_param_payload* payloadPtr = payload.get();
+    payloadPtr->payload_size = sizeof(pal_param_playback_rate_t);
+
+    auto palPlaybackRatePtr = reinterpret_cast<pal_param_playback_rate_t*>(payloadPtr->payload);
+    palPlaybackRatePtr->speed = playbackRate.speed;
+    palPlaybackRatePtr->pitch = playbackRate.pitch;
+
+    if (auto ret = pal_stream_set_param(handle, PAL_PARAM_ID_TIMESTRETCH_PARAMS, payloadPtr); ret) {
+        LOG(ERROR) << __func__ << " failed to set " << playbackRate.toString();
+        return PlaybackRateStatus::ILLEGAL_ARGUMENT;
+    }
+    return PlaybackRateStatus::SUCCESS;
+}
+
 // start of private
 bool Platform::getBtConfig(pal_param_bta2dp_t* bTConfig) {
     if (bTConfig == nullptr) {
@@ -1001,6 +1031,7 @@ Platform::Platform() {
     }
     mSndCardStatus = CARD_STATUS_ONLINE;
     LOG(VERBOSE) << __func__ << " pal register global callback successful";
+    mOffloadSpeedSupported = property_get_bool("vendor.audio.offload.playspeed", true);
 }
 
 // static

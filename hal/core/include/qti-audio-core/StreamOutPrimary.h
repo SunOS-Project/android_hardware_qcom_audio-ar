@@ -66,6 +66,11 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     ndk::ScopedAStatus getHwVolume(std::vector<float>* _aidl_return) override;
     ndk::ScopedAStatus setHwVolume(const std::vector<float>& in_channelVolumes) override;
 
+    ndk::ScopedAStatus getPlaybackRateParameters(
+            ::aidl::android::media::audio::common::AudioPlaybackRate* _aidl_return) override;
+    ndk::ScopedAStatus setPlaybackRateParameters(
+            const ::aidl::android::media::audio::common::AudioPlaybackRate& in_playbackRate)
+            override;
     // Methods called IModule
     ndk::ScopedAStatus setConnectedDevices(
             const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices)
@@ -80,8 +85,7 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
 
   protected:
     /*
-     * This API opens, configures and starts pal stream.
-     * also responsible for validity of pal handle.
+     * opens, configures and starts pal stream, also validates the pal handle.
      */
     void configure();
     void resume();
@@ -90,19 +94,21 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     size_t getPlatformDelay() const noexcept;
     ::android::status_t onWriteError(const size_t sleepFrameCount);
 
-    // This API calls startEffect/stopEffect only on offload/pcm offload
-    // outputs.
+    // This API calls startEffect/stopEffect only on offload/pcm offload outputs.
     void enableOffloadEffects(const bool enable);
 
-  protected:
     const Usecase mTag;
     const std::string mTagName;
     const size_t mFrameSizeBytes;
     bool mIsPaused{false};
     std::vector<float> mVolumes{};
 
-    // All the public must check the validity of this resource, if using
+    // check validaty of mPalHandle before use
     pal_stream_handle_t* mPalHandle{nullptr};
+    static constexpr ::aidl::android::media::audio::common::AudioPlaybackRate sDefaultPlaybackRate =
+            {.speed = 1.0f, .pitch = 1.0f};
+
+    ::aidl::android::media::audio::common::AudioPlaybackRate mPlaybackRate;
 
     std::variant<std::monostate, PrimaryPlayback, DeepBufferPlayback, CompressPlayback,
                  PcmOffloadPlayback, VoipPlayback, SpatialPlayback, MMapPlayback, UllPlayback,

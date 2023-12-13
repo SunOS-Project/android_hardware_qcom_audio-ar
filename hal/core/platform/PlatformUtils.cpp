@@ -21,6 +21,7 @@ using ::aidl::android::media::audio::common::AudioFormatDescription;
 using ::aidl::android::media::audio::common::AudioFormatType;
 using ::aidl::android::media::audio::common::AudioProfile;
 using ::aidl::android::media::audio::common::PcmType;
+using ::aidl::android::media::audio::common::AudioPlaybackRate;
 
 namespace qti::audio::core {
 
@@ -175,6 +176,43 @@ std::vector<AudioProfile> getSupportedAudioProfiles(pal_param_device_capability_
         supportedProfiles.push_back(std::move(audioProfile));
     }
     return supportedProfiles;
+}
+
+bool isValidPlaybackRate(
+        const ::aidl::android::media::audio::common::AudioPlaybackRate& playbackRate) {
+    if (playbackRate.speed < 0.1f || playbackRate.speed > 2.0f) {
+        LOG(ERROR) << __func__ << ": unsupported speed " << playbackRate.toString();
+        return false;
+    }
+
+    if (playbackRate.pitch != 1.0f) {
+        LOG(ERROR) << __func__ << ": unsupported pitch " << playbackRate.toString();
+        return false;
+    }
+
+    auto isValidStretchMode = [=](const auto& stretchMode) {
+        return (stretchMode == AudioPlaybackRate::TimestretchMode::DEFAULT ||
+                stretchMode == AudioPlaybackRate::TimestretchMode::VOICE);
+    };
+
+    if (!isValidStretchMode(playbackRate.timestretchMode)) {
+        LOG(ERROR) << __func__ << ": unsupported timstrecth mode " << playbackRate.toString();
+        return false;
+    }
+
+    auto isValidFallbackMode = [=](const auto& fallMode) {
+        return (fallMode == AudioPlaybackRate::TimestretchFallbackMode::SYS_RESERVED_DEFAULT ||
+                fallMode == AudioPlaybackRate::TimestretchFallbackMode::SYS_RESERVED_CUT_REPEAT ||
+                fallMode == AudioPlaybackRate::TimestretchFallbackMode::MUTE ||
+                fallMode == AudioPlaybackRate::TimestretchFallbackMode::FAIL);
+    };
+
+    if (!isValidFallbackMode(playbackRate.fallbackMode)) {
+        LOG(ERROR) << __func__ << ": unsupported fallback mode " << playbackRate.toString();
+        return false;
+    }
+
+    return true;
 }
 
 } // namespace qti::audio::core

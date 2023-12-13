@@ -8,13 +8,18 @@
 #include <aidl/android/hardware/audio/core/VendorParameter.h>
 #include <aidl/android/media/audio/common/AudioDevice.h>
 #include <aidl/android/media/audio/common/AudioFormatDescription.h>
+#include <aidl/android/media/audio/common/AudioPlaybackRate.h>
 #include <aidl/android/media/audio/common/AudioPort.h>
 #include <aidl/android/media/audio/common/AudioPortConfig.h>
 #include <extensions/AudioExtension.h>
 
 #include <PalApi.h>
+#include <qti-audio-core/AudioUsecase.h>
 
 namespace qti::audio::core {
+
+enum class PlaybackRateStatus { SUCCESS, UNSUPPORTED, ILLEGAL_ARGUMENT };
+
 class Platform {
   private:
     explicit Platform();
@@ -84,6 +89,19 @@ class Platform {
     bool updateScreenState(const bool isTurnedOn) noexcept;
     bool isScreenTurnedOn() const noexcept;
 
+    /*
+    * @brief creates a pal payload for a speed factor and sets to PAL
+    * @param handle : pal stream handle
+    * @param tag usecase tag
+    * @param playbackRate  playback rate to be set
+    * return PlaybackRateStatus::SUCCESS on success, or if stream handle is not set.
+    * return PlaybackRateStatus::UNSUPPORTED operation, usecase does not support speed operations
+    * or speed parameters are not in the range
+    * return PlaybackRateStatus::ILLEGAL_ARGUMENT in case of any other failure
+    */
+    PlaybackRateStatus setPlaybackRate(
+            pal_stream_handle_t* handle, const Usecase& tag,
+            const ::aidl::android::media::audio::common::AudioPlaybackRate& playbackRate);
     std::vector<::aidl::android::media::audio::common::AudioDevice> getPrimaryPlaybackDevices()
             const {
         return mPrimaryPlaybackDevices;
@@ -120,6 +138,13 @@ class Platform {
     ::aidl::android::hardware::audio::core::IModule::ScreenRotation getCurrentScreenRotation() const
             noexcept;
 
+    bool platformSupportsOffloadSpeed() { return mOffloadSpeedSupported; }
+    bool usecaseSupportsOffloadSpeed(const Usecase& tag) {
+        return platformSupportsOffloadSpeed() && isOffload(tag);
+    }
+
+    bool isOffload(const Usecase& tag) { return tag == Usecase::COMPRESS_OFFLOAD_PLAYBACK; }
+
   private:
     bool getBtConfig(pal_param_bta2dp_t* bTConfig);
     std::vector<::aidl::android::media::audio::common::AudioProfile> getUsbProfiles(
@@ -141,5 +166,6 @@ class Platform {
     bool mIsUHQAEnabled{false};
     ::aidl::android::hardware::audio::core::IModule::ScreenRotation mCurrentScreenRotation{
             ::aidl::android::hardware::audio::core::IModule::ScreenRotation::DEG_0};
+    bool mOffloadSpeedSupported = false;
 };
 } // namespace qti::audio::core

@@ -45,6 +45,7 @@ const static std::string kWfdChannelMap{"wfd_channel_cap"};
 // Generic
 const static std::string kInCallMusic{"icmd_playback"};
 const static std::string kUHQA{"UHQA"};
+const static std::string kOffloadPlaySpeedSupported{"offloadVariableRateSupported"};
 
 // FTM
 const static std::string kFbspCfgWaitTime{"fbsp_cfg_wait_time"};

@@ -133,6 +133,10 @@ binder_status_t ModulePrimary::dump(int fd, const char** args, uint32_t numArgs)
     return 0;
 }
 
+ModulePrimary::ModulePrimary() : Module(Type::DEFAULT) {
+    mOffloadSpeedSupported = mPlatform.platformSupportsOffloadSpeed();
+}
+
 ndk::ScopedAStatus ModulePrimary::getMicMute(bool* _aidl_return) {
     *_aidl_return = mMicMute;
     LOG(VERBOSE) << __func__ << ": returning " << *_aidl_return;
@@ -299,6 +303,11 @@ void ModulePrimary::onExternalDeviceConnectionChanged(
     }
 }
 
+ndk::ScopedAStatus ModulePrimary::getSupportedPlaybackRateFactors(
+        SupportedPlaybackRateFactors* _aidl_return) {
+    // TODO, based on mOffloadSpeedSupported
+    return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+}
 // start of module parameters handling
 
 ndk::ScopedAStatus ModulePrimary::setVendorParameters(
@@ -579,15 +588,17 @@ ndk::ScopedAStatus ModulePrimary::getVendorParameters(
 std::vector<VendorParameter> ModulePrimary::processGetVendorParameters(
         const std::vector<std::string>& ids) {
     FeatureToStringMap pendingActions{};
+    // only group of features are mapped to Feature, rest are kept as generic.
+    // If the key is found in feature map, use the feature otherwise call GENERIC feature.
     for (const auto& id : ids) {
         auto search = mGetParameterToFeatureMap.find(id);
-        if (search == mGetParameterToFeatureMap.cend()) {
-            LOG(ERROR) << __func__ << ": not configured " << id;
-            continue;
+        Feature mappedFeature = Feature::GENERIC;
+        if (search != mGetParameterToFeatureMap.cend()) {
+            mappedFeature = search->second;
         }
-        auto itr = pendingActions.find(search->second);
+        auto itr = pendingActions.find(mappedFeature);
         if (itr == pendingActions.cend()) {
-            pendingActions[search->second] = std::vector<std::string>({id});
+            pendingActions[mappedFeature] = std::vector<std::string>({id});
             continue;
         }
         itr->second.push_back(id);
@@ -626,6 +637,20 @@ std::vector<VendorParameter> ModulePrimary::onGetAudioExtnParams(
             VString parcel;
             parcel.value = "1";
             setParameter(parcel, param);
+            results.push_back(param);
+        }
+    }
+    return results;
+}
+
+std::vector<VendorParameter> ModulePrimary::onGetGenericParams(
+        const std::vector<std::string>& ids) {
+    std::vector<VendorParameter> results{};
+    for (const auto& id : ids) {
+        if (id == Parameters::kOffloadPlaySpeedSupported) {
+            LOG(DEBUG) << __func__ << " " << id << " supported " << mOffloadSpeedSupported;
+            std::string value = (mOffloadSpeedSupported ? "true" : "false");
+            auto param = makeVendorParameter(id, value);
             results.push_back(param);
         }
     }
@@ -742,7 +767,8 @@ ModulePrimary::FeatureToGetHandlerMap ModulePrimary::fillFeatureToGetHandlerMap(
                                {Feature::BLUETOOTH, &ModulePrimary::onGetBluetoothParams},
                                {Feature::WFD, &ModulePrimary::onGetWFDParameters},
                                {Feature::FTM, &ModulePrimary::onGetFTMParameters},
-                               {Feature::AUDIOEXTENSION, &ModulePrimary::onGetAudioExtnParams}};
+                               {Feature::AUDIOEXTENSION, &ModulePrimary::onGetAudioExtnParams},
+                               {Feature::GENERIC, &ModulePrimary::onGetGenericParams}};
     return map;
 }
 
