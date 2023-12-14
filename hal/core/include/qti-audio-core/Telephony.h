@@ -44,7 +44,6 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     };
     friend std::ostream& operator<<(std::ostream& os, const CallState& state);
     enum class VSID : int64_t {
-        INVALID = 0,
         VSID_1 = 0x11C05000,
         VSID_2 = 0x11DC5000,
     };
@@ -61,7 +60,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
         bool mIsCrsCall{false};
         float mCRSVolume = 0.0f;
         bool mIsCRSStarted{false};
-        VSID mVSID{VSID::INVALID};
+        VSID mVSID{VSID::VSID_1};
         std::string toString() const {
             std::ostringstream os;
             os << "{ mCallState:" << mCallState << ", mVSID:" << mVSID
@@ -73,6 +72,14 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     constexpr static size_t KCodecBackendDefaultBitWidth = 16;
     const static ::aidl::android::media::audio::common::AudioDevice kDefaultRxDevice;
     const static ::aidl::android::media::audio::common::AudioDevice kDefaultCRSRxDevice;
+    static constexpr int32_t VSID1_VOICE_SESSION = 0;
+    static constexpr int32_t VSID2_VOICE_SESSION = 1;
+    static constexpr int32_t MAX_VOICE_SESSIONS = 2;
+    struct SetUpdateSession {
+        SetUpdates session[MAX_VOICE_SESSIONS];
+    };
+
+    SetUpdateSession mVoiceSession;
 
     /* All the public APIs are guarded by mLock, Hence never call a public
      * API from anther public API */

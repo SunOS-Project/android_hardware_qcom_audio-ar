@@ -48,6 +48,13 @@ const AudioDevice Telephony::kDefaultCRSRxDevice =
         AudioDevice{.type.type = AudioDeviceType::OUT_SPEAKER};
 
 Telephony::Telephony() {
+    for (int i = 0; i < MAX_VOICE_SESSIONS; i++) {
+        mVoiceSession.session[i].mCallState = CallState::INVALID;
+        mVoiceSession.session[i].mCallType = {""};
+        mVoiceSession.session[i].mIsCrsCall = false;
+    }
+    mVoiceSession.session[VSID1_VOICE_SESSION].mVSID = VSID::VSID_1;
+    mVoiceSession.session[VSID2_VOICE_SESSION].mVSID = VSID::VSID_2;
     mTelecomConfig.voiceVolume = Float{TelecomConfig::VOICE_VOLUME_MAX};
     mTelecomConfig.ttyMode = TelecomConfig::TtyMode::OFF;
     mTelecomConfig.isHacEnabled = Boolean{false};
@@ -328,22 +335,32 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
              LOG(VERBOSE) << __func__ << ": stop CRS call";
              return;
          }
-     }
+    }
 
-    if (mSetUpdates.mCallState != CallState::ACTIVE && newUpdates.mCallState == CallState::ACTIVE) {
+    SetUpdates *UpdateSession = NULL;
+    for (int i = 0; i < MAX_VOICE_SESSIONS; i++) {
+         if (newUpdates.mVSID == mVoiceSession.session[i].mVSID) {
+             UpdateSession = &mVoiceSession.session[i];
+             break;
+         }
+    }
+
+    if (UpdateSession->mCallState != CallState::ACTIVE && newUpdates.mCallState == CallState::ACTIVE) {
         // this is a clear sign that to start a call
         // other parameters value are needed
-        LOG(VERBOSE) << __func__ << "INACTIVE -> ACTIVE";
+        LOG(VERBOSE) << __func__ << " INACTIVE -> ACTIVE";
         mSetUpdates = newUpdates;
         updateVoiceMetadataForBT(true);
         startCall();
+        *UpdateSession = mSetUpdates;
         return;
     }
-    if (newUpdates.mCallState == CallState::IN_ACTIVE && mSetUpdates.mCallState == CallState::ACTIVE) {
+    if (newUpdates.mCallState == CallState::IN_ACTIVE && UpdateSession->mCallState == CallState::ACTIVE) {
         // this is a sign to stop the call no matter what
-        LOG(VERBOSE) << __func__ << "ACTIVE -> INACTIVE";
+        LOG(VERBOSE) << __func__ << " ACTIVE -> INACTIVE";
         mSetUpdates = newUpdates;
         stopCall();
+        *UpdateSession = mSetUpdates;
         return;
     }
 }
@@ -630,9 +647,6 @@ std::ostream& operator<<(std::ostream& os, const Telephony::CallState& state) {
 
 std::ostream& operator<<(std::ostream& os, const Telephony::VSID& vsid) {
     switch (vsid) {
-        case Telephony::VSID::INVALID:
-            os << "INVALID";
-            break;
         case Telephony::VSID::VSID_1:
             os << "VSID_1";
             break;
