@@ -180,14 +180,17 @@ std::vector<AudioProfile> getSupportedAudioProfiles(pal_param_device_capability_
 
 bool isValidPlaybackRate(
         const ::aidl::android::media::audio::common::AudioPlaybackRate& playbackRate) {
-    if (playbackRate.speed < 0.1f || playbackRate.speed > 2.0f) {
-        LOG(ERROR) << __func__ << ": unsupported speed " << playbackRate.toString();
-        return false;
-    }
+    // For fallback mode MUTE, out of range values should not be rejected.
+    if (playbackRate.fallbackMode != AudioPlaybackRate::TimestretchFallbackMode::MUTE) {
+        if (playbackRate.speed < 0.1f || playbackRate.speed > 2.0f) {
+            LOG(ERROR) << __func__ << ": unsupported speed " << playbackRate.toString();
+            return false;
+        }
 
-    if (playbackRate.pitch != 1.0f) {
-        LOG(ERROR) << __func__ << ": unsupported pitch " << playbackRate.toString();
-        return false;
+        if (playbackRate.pitch != 1.0f) {
+            LOG(ERROR) << __func__ << ": unsupported pitch " << playbackRate.toString();
+            return false;
+        }
     }
 
     auto isValidStretchMode = [=](const auto& stretchMode) {
@@ -201,9 +204,7 @@ bool isValidPlaybackRate(
     }
 
     auto isValidFallbackMode = [=](const auto& fallMode) {
-        return (fallMode == AudioPlaybackRate::TimestretchFallbackMode::SYS_RESERVED_DEFAULT ||
-                fallMode == AudioPlaybackRate::TimestretchFallbackMode::SYS_RESERVED_CUT_REPEAT ||
-                fallMode == AudioPlaybackRate::TimestretchFallbackMode::MUTE ||
+        return (fallMode == AudioPlaybackRate::TimestretchFallbackMode::MUTE ||
                 fallMode == AudioPlaybackRate::TimestretchFallbackMode::FAIL);
     };
 
