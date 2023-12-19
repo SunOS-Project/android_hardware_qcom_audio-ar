@@ -22,6 +22,8 @@ using ::aidl::android::media::audio::common::AudioFormatType;
 using ::aidl::android::media::audio::common::AudioProfile;
 using ::aidl::android::media::audio::common::PcmType;
 using ::aidl::android::media::audio::common::AudioPlaybackRate;
+using ::aidl::android::hardware::audio::core::VendorParameter;
+using ::aidl::qti::audio::core::VString;
 
 namespace qti::audio::core {
 
@@ -214,6 +216,17 @@ bool isValidPlaybackRate(
     }
 
     return true;
+}
+
+VendorParameter constructVendorParameter(const std::string& id, const std::string& value) noexcept {
+    VString parcel;
+    parcel.value = value;
+    VendorParameter param;
+    param.id = id;
+    if (param.ext.setParcelable(parcel) != android::OK) {
+        LOG(ERROR) << __func__ << ": failed to set parcel for " << param.id;
+    }
+    return std::move(param);
 }
 
 } // namespace qti::audio::core

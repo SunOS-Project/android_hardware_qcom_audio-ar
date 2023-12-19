@@ -26,6 +26,7 @@ using ::aidl::android::hardware::audio::common::getPcmSampleSizeInBytes;
 using ::aidl::android::media::audio::common::AudioPortConfig;
 using ::aidl::android::media::audio::common::AudioPortExt;
 using ::aidl::android::media::audio::common::AudioPortMixExtUseCase;
+using ::aidl::android::hardware::audio::core::VendorParameter;
 
 namespace qti::audio::core {
 
@@ -676,8 +677,18 @@ ndk::ScopedAStatus CompressCapture::setVendorParameters(
 }
 
 ndk::ScopedAStatus CompressCapture::getVendorParameters(
-        const std::vector<std::string>& in_ids,
-        std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return) {
+        const std::vector<std::string>& in_ids, std::vector<VendorParameter>* _aidl_return) {
+    std::vector<VendorParameter> result;
+    for (const auto& id : in_ids) {
+        if (id == Aac::kDSPAacBitRate) {
+            result.emplace_back(
+                    constructVendorParameter(id, std::to_string(mPalSndEnc.aac_enc.aac_bit_rate)));
+        } else if (id == Aac::kDSPAacGlobalCutoffFrequency) {
+            result.emplace_back(constructVendorParameter(
+                    id, std::to_string(mPalSndEnc.aac_enc.global_cutoff_freq)));
+        }
+    }
+    *_aidl_return = result;
     return ndk::ScopedAStatus::ok();
 }
 
