@@ -346,14 +346,14 @@ void StreamOutPrimary::resume() {
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         std::get<CompressPlayback>(mExt).getPositionInFrames(&(reply->observable.frames));
         LOG(VERBOSE) << __func__ << " " << mTagName
-                     << ": dspFrames consumed:" << reply->observable.frames;
+                     << " dspFrames consumed " << reply->observable.frames;
     } else if (mTag == Usecase::MMAP_PLAYBACK) {
         if (int32_t ret = std::get<MMapPlayback>(mExt).getMMapPosition(&(reply->hardware.frames),
                                                                        &(reply->hardware.timeNs));
             ret) {
             return ::android::BAD_VALUE;
         }
-        LOG(VERBOSE) << __func__ << " " << mTagName << ": frames " << reply->hardware.frames
+        LOG(VERBOSE) << __func__ << " " << mTagName << " frames " << reply->hardware.frames
                      << " timeNs " << reply->hardware.timeNs;
     }
 
@@ -419,7 +419,7 @@ ndk::ScopedAStatus StreamOutPrimary::updateOffloadMetadata(
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
     if (mTag != Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        LOG(WARNING) << __func__ << ": expected COMPRESS_OFFLOAD_PLAYBACK instead of " << mTagName;
+        LOG(WARNING) << __func__ << ": expected CompressOffloadPlayback instead of " << mTagName;
         return ndk::ScopedAStatus::ok();
     }
 

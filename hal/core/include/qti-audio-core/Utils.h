@@ -48,11 +48,11 @@ bool isBluetoothDevice(const ::aidl::android::media::audio::common::AudioDevice&
 
 bool hasBluetoothDevice(const std::vector<::aidl::android::media::audio::common::AudioDevice>&) noexcept;
 
-bool isInputMMap(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
+bool hasInputMMapFlag(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
 
-bool isOutputMMap(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
+bool hasOutputMMapFlag(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
 
-bool isMMap(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
+bool hasMMapFlagsEnabled(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
 
 bool isInputAFEProxyDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
 
