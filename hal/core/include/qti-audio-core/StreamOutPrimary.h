@@ -106,7 +106,10 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     // check validaty of mPalHandle before use
     pal_stream_handle_t* mPalHandle{nullptr};
     static constexpr ::aidl::android::media::audio::common::AudioPlaybackRate sDefaultPlaybackRate =
-            {.speed = 1.0f, .pitch = 1.0f};
+            {.speed = 1.0f,
+             .pitch = 1.0f,
+             .fallbackMode = ::aidl::android::media::audio::common::AudioPlaybackRate::
+                     TimestretchFallbackMode::FAIL};
 
     ::aidl::android::media::audio::common::AudioPlaybackRate mPlaybackRate;
 

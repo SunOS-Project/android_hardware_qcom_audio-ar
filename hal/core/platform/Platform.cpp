@@ -453,8 +453,7 @@ void Platform::setFTMSpeakerProtectionMode(uint32_t const heatUpTime, uint32_t c
                                            bool const isFactoryTest, bool const isValidationMode,
                                            bool const isDynamicCalibration) const noexcept {
     pal_spkr_prot_payload spPayload{
-            .spkrHeatupTime = heatUpTime,
-            .operationModeRunTime = runTime,
+            .spkrHeatupTime = heatUpTime, .operationModeRunTime = runTime,
     };
 
     if (isFactoryTest)
@@ -943,7 +942,11 @@ bool Platform::isA2dpSuspended() {
 PlaybackRateStatus Platform::setPlaybackRate(
         pal_stream_handle_t* handle, const Usecase& tag,
         const ::aidl::android::media::audio::common::AudioPlaybackRate& playbackRate) {
-    if (!usecaseSupportsOffloadSpeed(tag) || !isValidPlaybackRate(playbackRate)) {
+    if (!isValidPlaybackRate(playbackRate)) {
+        return PlaybackRateStatus::ILLEGAL_ARGUMENT;
+    }
+
+    if (!usecaseSupportsOffloadSpeed(tag)) {
         return PlaybackRateStatus::UNSUPPORTED;
     }
 
@@ -953,8 +956,8 @@ PlaybackRateStatus Platform::setPlaybackRate(
     }
 
     auto allocSize = sizeof(pal_param_payload) + sizeof(pal_param_playback_rate_t);
-    auto payload = VALUE_OR_EXIT(allocate<pal_param_payload>(allocSize),
-                                 PlaybackRateStatus::ILLEGAL_ARGUMENT);
+    auto payload =
+            VALUE_OR_EXIT(allocate<pal_param_payload>(allocSize), PlaybackRateStatus::UNSUPPORTED);
     pal_param_payload* payloadPtr = payload.get();
     payloadPtr->payload_size = sizeof(pal_param_playback_rate_t);
 
@@ -964,7 +967,7 @@ PlaybackRateStatus Platform::setPlaybackRate(
 
     if (auto ret = pal_stream_set_param(handle, PAL_PARAM_ID_TIMESTRETCH_PARAMS, payloadPtr); ret) {
         LOG(ERROR) << __func__ << " failed to set " << playbackRate.toString();
-        return PlaybackRateStatus::ILLEGAL_ARGUMENT;
+        return PlaybackRateStatus::UNSUPPORTED;
     }
     return PlaybackRateStatus::SUCCESS;
 }

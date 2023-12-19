@@ -217,7 +217,7 @@ ndk::ScopedAStatus ModulePrimary::createInputStream(StreamContext&& context,
     createStreamInstance<StreamInPrimary>(result, std::move(context), sinkMetadata, microphones);
     ModulePrimary::inListMutex.lock();
     ModulePrimary::updateStreamInList(*result);
-    if (!mTelephony) mTelephony->mStreamInPrimary = *result;
+    if (mTelephony) mTelephony->mStreamInPrimary = *result;
     ModulePrimary::inListMutex.unlock();
     return ndk::ScopedAStatus::ok();
 }
@@ -229,7 +229,7 @@ ndk::ScopedAStatus ModulePrimary::createOutputStream(
     ModulePrimary::outListMutex.lock();
     ModulePrimary::updateStreamOutList(*result);
     // save primary out stream weak ptr, as some other modules need it.
-    if (!mTelephony) mTelephony->mStreamOutPrimary = *result;
+    if (mTelephony) mTelephony->mStreamOutPrimary = *result;
     ModulePrimary::outListMutex.unlock();
     return ndk::ScopedAStatus::ok();
 }
@@ -290,7 +290,7 @@ void ModulePrimary::updateTelephonyPatch(const std::vector<AudioPortConfig*>& so
     }
 
     // Todo uncomment below ,upon device to device patch works for telephony
-    //mTelephony->setDevicesFromPatch(devices, updateRx);
+    // mTelephony->setDevicesFromPatch(devices, updateRx);
     LOG(VERBOSE) << __func__ << ": device to device patch, " << patch.toString();
     return;
 }
@@ -305,7 +305,14 @@ void ModulePrimary::onExternalDeviceConnectionChanged(
 
 ndk::ScopedAStatus ModulePrimary::getSupportedPlaybackRateFactors(
         SupportedPlaybackRateFactors* _aidl_return) {
-    // TODO, based on mOffloadSpeedSupported
+    LOG(DEBUG) << __func__ << " speed supported " << mOffloadSpeedSupported;
+    if (mOffloadSpeedSupported) {
+        _aidl_return->minSpeed = 0.1f;
+        _aidl_return->maxSpeed = 2.0f;
+        _aidl_return->minPitch = 1.0f;
+        _aidl_return->maxPitch = 1.0f;
+        return ndk::ScopedAStatus::ok();
+    }
     return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
 }
 // start of module parameters handling
@@ -499,7 +506,7 @@ void ModulePrimary::onSetFTMParameters(const std::vector<VendorParameter>& param
         mPlatform.setFTMSpeakerProtectionMode(static_cast<uint32_t>(getInt64FromString(heatTime)),
                                               static_cast<uint32_t>(getInt64FromString(runTime)),
                                               true, false, false);
-    } else if(itrForValiWaitTime != parameters.cend() && itrForValiValiTime != parameters.cend()){
+    } else if (itrForValiWaitTime != parameters.cend() && itrForValiValiTime != parameters.cend()) {
         std::string heatTime{}, runTime{};
         if ((!extractParameter<VString>(*itrForValiWaitTime, &heatTime)) ||
             (!extractParameter<VString>(*itrForValiValiTime, &runTime))) {
