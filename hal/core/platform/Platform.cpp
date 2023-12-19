@@ -234,7 +234,7 @@ std::vector<pal_device> Platform::getPalDevices(const std::vector<AudioDevice>& 
             }
             const auto& deviceAddressAlsa = deviceAddress.get<AudioDeviceAddress::Tag::alsa>();
             palDevices[i].address.card_id = deviceAddressAlsa[0];
-            palDevices[i].address.device_num = deviceAddressAlsa[0];
+            palDevices[i].address.device_num = deviceAddressAlsa[1];
         }
         i++;
     }
