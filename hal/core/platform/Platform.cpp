@@ -241,25 +241,25 @@ std::vector<pal_device> Platform::getPalDevices(const std::vector<AudioDevice>& 
     return palDevices;
 }
 
-std::vector<uint8_t> Platform::getPalVolumeData(const std::vector<float>& in_channelVolumes) const {
-    const auto volumeSizes = in_channelVolumes.size();
-    if (volumeSizes == 0 || volumeSizes > 2) {
-        LOG(ERROR) << __func__ << "length channel volumes is" << std::to_string(volumeSizes);
-        return {};
+int Platform::setVolume(pal_stream_handle_t* handle, const std::vector<float>& volumes) const {
+    const auto volumeSizes = volumes.size();
+    if (volumes.empty()) {
+        LOG(ERROR) << __func__ << "unexpected volume pairs " << std::to_string(volumeSizes);
+        return -1;
     }
     const auto dataLength = sizeof(pal_volume_data) + sizeof(pal_channel_vol_kv) * volumeSizes;
     auto data = std::vector<uint8_t>(dataLength);
     auto palVolumeData = reinterpret_cast<pal_volume_data*>(data.data());
     palVolumeData->no_of_volpair = volumeSizes;
 
-    size_t i = 0;
-    for (auto& f : in_channelVolumes) {
-        palVolumeData->volume_pair[i].channel_mask = 0x1 << i;
-        palVolumeData->volume_pair[i].vol = f;
-        i++;
+    size_t index = 0;
+    for (const auto& volume : volumes) {
+        palVolumeData->volume_pair[index].channel_mask = 0x1 << index;
+        palVolumeData->volume_pair[index].vol = volume;
+        index++;
     }
 
-    return data;
+    return ::pal_stream_set_volume(handle, palVolumeData);
 }
 
 std::unique_ptr<pal_buffer_config_t> Platform::getPalBufferConfig(const size_t bufferSize,

@@ -70,7 +70,15 @@ class Platform {
     std::vector<pal_device> getPalDevices(
             const std::vector<::aidl::android::media::audio::common::AudioDevice>& setDevices)
             const;
-    std::vector<uint8_t> getPalVolumeData(const std::vector<float>& in_channelVolumes) const;
+
+    /*
+    * @brief creates a pal payload for a pal volume and sets to PAL
+    * @param handle : valid pal stream handle
+    * @param volumes vector of volumes in floats
+    * return 0 in success, error code otherwise
+    */
+    int setVolume(pal_stream_handle_t* handle, const std::vector<float>& volumes) const;
+
     std::unique_ptr<pal_buffer_config_t> getPalBufferConfig(const size_t bufferSize,
                                                             const size_t bufferCount) const;
     std::vector<::aidl::android::media::audio::common::AudioProfile> getDynamicProfiles(

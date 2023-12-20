@@ -72,6 +72,10 @@ StreamOutPrimary::StreamOutPrimary(StreamContext&& context, const SourceMetadata
         mExt.emplace<InCallMusic>();
     }
 
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK || mTag == Usecase::PCM_OFFLOAD_PLAYBACK ||
+        mTag == Usecase::MMAP_PLAYBACK) {
+        mHwVolumeSupported = true;
+    }
     LOG(VERBOSE) << __func__ << ": " << *this;
 }
 
@@ -195,7 +199,9 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
     }
     LOG(INFO) << __func__ << ": stream is configured for " << mTagName;
 
-    mVolumes.size() > 0 ? (void)setHwVolume(mVolumes) : (void)0;
+    if (!mVolumes.empty()) {
+        setHwVolume(mVolumes);
+    }
 
     return ndk::ScopedAStatus::ok();
 }
@@ -437,29 +443,45 @@ ndk::ScopedAStatus StreamOutPrimary::getHwVolume(std::vector<float>* _aidl_retur
 }
 
 ndk::ScopedAStatus StreamOutPrimary::setHwVolume(const std::vector<float>& in_channelVolumes) {
+    if (!mHwVolumeSupported) {
+        return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+    }
+
+    // TODO, check API expectations
+    // if (int portChannels = getChannelCount(mMixPortConfig.channelMask.value()); portChannels !=
+    // in_channelVolumes.size()) {
+    //     LOG(ERROR) << __func__ << mTagName << " channel count mismatch with port, expected " <<
+    //     portChannels << " got " << in_channelVolumes.size();
+    //     return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    // }
+
+    auto isVolumeInRange = [](const std::vector<float>& volumes) {
+        return std::all_of(volumes.begin(), volumes.end(),
+                           [](float vol) { return (vol >= 0.0f && vol <= 1.0f); });
+    };
+
+    if (!isVolumeInRange(in_channelVolumes)) {
+        LOG(ERROR) << __func__ << " " << mTagName << " out of range volume "
+                   << ::android::internal::ToString(in_channelVolumes);
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+
     if (!mPalHandle) {
         mVolumes = in_channelVolumes;
+        LOG(DEBUG) << __func__ << " " << mTagName << " cache volume for "
+                   << ::android::internal::ToString(in_channelVolumes);
         return ndk::ScopedAStatus::ok();
     }
 
-    auto palVolumes = mPlatform.getPalVolumeData(in_channelVolumes);
-    if (palVolumes.size() == 0) {
+    if (int32_t ret = mPlatform.setVolume(mPalHandle, in_channelVolumes); ret) {
+        LOG(ERROR) << __func__ << " " << mTagName << " failed to set volume";
         mVolumes = {};
-        LOG(ERROR) << __func__ << ": unable to fetch volumes";
-        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
-    }
-
-    if (int32_t ret = ::pal_stream_set_volume(
-                mPalHandle, reinterpret_cast<pal_volume_data*>(palVolumes.data()));
-        ret) {
-        mVolumes = {};
-        LOG(ERROR) << __func__ << ": pal_stream_set_volume failed!!!";
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
     mVolumes = in_channelVolumes;
 
-    LOG(DEBUG) << __func__ << "  " << ::android::internal::ToString(mVolumes);
+    LOG(DEBUG) << __func__ << "  " << mTagName << " " << ::android::internal::ToString(mVolumes);
     return ndk::ScopedAStatus::ok();
 }
 
@@ -820,6 +842,9 @@ void StreamOutPrimary::configure() {
     // configure mExt
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         std::get<CompressPlayback>(mExt).setPalHandle(mPalHandle);
+    }
+
+    if (!mVolumes.empty()) {
         setHwVolume(mVolumes);
     }
 

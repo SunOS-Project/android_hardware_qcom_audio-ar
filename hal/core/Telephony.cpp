@@ -417,10 +417,7 @@ void Telephony::updateVoiceVolume() {
         return;
     }
     float volumeFloat = mTelecomConfig.voiceVolume ? mTelecomConfig.voiceVolume.value().value : 1.0;
-    auto palVolumes = mPlatform.getPalVolumeData({volumeFloat});
-    if (int32_t ret = ::pal_stream_set_volume(
-                mPalHandle, reinterpret_cast<pal_volume_data*>(palVolumes.data()));
-        ret) {
+    if (int32_t ret = mPlatform.setVolume(mPalHandle, {volumeFloat}); ret) {
         LOG(ERROR) << __func__ << ": pal stream set volume failed !!" << ret;
         return;
     }

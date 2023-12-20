@@ -102,7 +102,7 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     const size_t mFrameSizeBytes;
     bool mIsPaused{false};
     std::vector<float> mVolumes{};
-
+    bool mHwVolumeSupported = false;
     // check validaty of mPalHandle before use
     pal_stream_handle_t* mPalHandle{nullptr};
     static constexpr ::aidl::android::media::audio::common::AudioPlaybackRate sDefaultPlaybackRate =
