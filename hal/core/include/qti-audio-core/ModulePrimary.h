@@ -128,6 +128,7 @@ class ModulePrimary final : public Module {
         WFD,
         FTM, // Factory Test Mode
         AUDIOEXTENSION,
+        HAPTICS,
     };
 
     // For set parameters
@@ -179,6 +180,9 @@ class ModulePrimary final : public Module {
             const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&);
     // SetHandler For FTM
     void onSetFTMParameters(
+            const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&);
+    // SetHandler For Haptics
+    void onSetHapticsParameters(
             const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&);
 
     std::vector<::aidl::android::hardware::audio::core::VendorParameter> processGetVendorParameters(

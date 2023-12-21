@@ -242,22 +242,12 @@ std::vector<pal_device> Platform::getPalDevices(const std::vector<AudioDevice>& 
 }
 
 int Platform::setVolume(pal_stream_handle_t* handle, const std::vector<float>& volumes) const {
-    const auto volumeSizes = volumes.size();
-    if (volumes.empty()) {
-        LOG(ERROR) << __func__ << "unexpected volume pairs " << std::to_string(volumeSizes);
+    auto data = makePalVolumes(volumes);
+    if (data.empty()) {
+        LOG(ERROR) << __func__ << ": failed to configure volume";
         return -1;
     }
-    const auto dataLength = sizeof(pal_volume_data) + sizeof(pal_channel_vol_kv) * volumeSizes;
-    auto data = std::vector<uint8_t>(dataLength);
     auto palVolumeData = reinterpret_cast<pal_volume_data*>(data.data());
-    palVolumeData->no_of_volpair = volumeSizes;
-
-    size_t index = 0;
-    for (const auto& volume : volumes) {
-        palVolumeData->volume_pair[index].channel_mask = 0x1 << index;
-        palVolumeData->volume_pair[index].vol = volume;
-        index++;
-    }
 
     return ::pal_stream_set_volume(handle, palVolumeData);
 }
@@ -527,6 +517,29 @@ void Platform::updateScreenRotation(const IModule::ScreenRotation in_rotation) n
 
 IModule::ScreenRotation Platform::getCurrentScreenRotation() const noexcept {
     return mCurrentScreenRotation;
+}
+
+void Platform::setHapticsVolume(const float hapticsVolume) const noexcept {
+    auto data = makePalVolumes({hapticsVolume});
+    if (data.empty()) {
+        LOG(ERROR) << __func__ << ": failed to configure haptics volume";
+        return;
+    }
+    auto payloadPtr = reinterpret_cast<pal_volume_data*>(data.data());
+    if (int32_t ret = ::pal_set_param(PAL_PARAM_ID_HAPTICS_VOLUME, payloadPtr, data.size()); ret) {
+        LOG(ERROR) << __func__ << ": PAL_PARAM_ID_HAPTICS_VOLUME failed: " << ret;
+        return;
+    }
+}
+
+void Platform::setHapticsIntensity(const int hapticsIntensity) const noexcept {
+    pal_param_haptics_intensity_t paramHapticsIntensity{.intensity = hapticsIntensity};
+    if (int32_t ret = ::pal_set_param(PAL_PARAM_ID_HAPTICS_INTENSITY, &paramHapticsIntensity,
+                                      sizeof(pal_param_haptics_intensity_t));
+        ret) {
+        LOG(ERROR) << __func__ << ": PAL_PARAM_ID_HAPTICS_INTENSITY failed: " << ret;
+        return;
+    }
 }
 
 bool Platform::setVendorParameters(

@@ -100,6 +100,11 @@ int64_t getInt64FromString(const std::string& s) noexcept {
     return static_cast<int64_t>(strtol(s.c_str(), nullptr, 10));
 }
 
+float getFloatFromString(const std::string& s) noexcept {
+    // Todo handle actual value 0
+    return strtof(s.c_str(), nullptr);
+}
+
 bool getBoolFromString(const std::string& s) noexcept {
     return (s == "true");
 }
