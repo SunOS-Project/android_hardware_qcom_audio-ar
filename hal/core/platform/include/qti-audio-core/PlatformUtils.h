@@ -61,6 +61,9 @@ std::vector<int> getSampleRatesFromProfile(pal_param_device_capability_t* capabi
 AudioChannelLayout getChannelIndexMaskFromChannelCount(unsigned int channelCount);
 AudioChannelLayout getChannelLayoutMaskFromChannelCount(unsigned int channelCount, int isInput);
 
+::aidl::android::hardware::audio::core::VendorParameter constructVendorParameter(
+        const std::string& id, const std::string& value) noexcept;
+
 /*
 * validates if the playback rate parameters are valid
 */
