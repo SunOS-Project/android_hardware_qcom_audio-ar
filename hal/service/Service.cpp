@@ -100,11 +100,9 @@ void registerAvailableInterfaces() {
 }
 
 void setLogSeverity() {
-    const std::string kDefaultAudioHALLogLevel{"vendor.audio.hal.loglevel"};
-    auto logLevel = ::android::base::GetIntProperty<int8_t>(kDefaultAudioHALLogLevel, 0);
-    logLevel = 0;
-
-    // system/libbase/include/android-base/logging.h
+    // by default use DEBUG logging enabled
+    auto logLevel = ::android::base::GetIntProperty<int8_t>("vendor.audio.hal.loglevel", 1);
+    // system/libbase/include/android-base/logging.h, check LogSeverity for types
     android::base::SetMinimumLogSeverity(static_cast<::android::base::LogSeverity>(logLevel));
 }
 
