@@ -846,6 +846,7 @@ void StreamOutPrimary::configure() {
     // configure mExt
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         std::get<CompressPlayback>(mExt).setPalHandle(mPalHandle);
+        std::get<CompressPlayback>(mExt).configureGapLessMetadata();
     }
 
     if (!mVolumes.empty()) {

@@ -116,6 +116,8 @@ class CompressPlayback final {
     static constexpr size_t kPeriodSize = 32 * 1024;
     static constexpr size_t kPeriodCount = 4;
     inline const static std::string kAvgBitRate{"music_offload_avg_bit_rate"};
+    inline const static std::string kDelaySamples{"delay_samples"};
+    inline const static std::string kPaddingSamples{"padding_samples"};
     class Flac final {
       public:
         static constexpr size_t kPeriodSize = 256 * 1024;
@@ -195,6 +197,7 @@ class CompressPlayback final {
             const ::aidl::android::media::audio::common::AudioOffloadInfo& offloadInfo,
             std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> asyncCallback);
     void configureDefault();
+    void configureGapLessMetadata() const;
     void setPalHandle(pal_stream_handle_t* handle);
     ndk::ScopedAStatus getVendorParameters(
             const std::vector<std::string>& in_ids,
@@ -223,6 +226,7 @@ class CompressPlayback final {
     bool mIsCodecConfigured{false};
     pal_stream_handle_t* mCompressPlaybackHandle{nullptr};
     pal_snd_dec_t mPalSndDec{};
+    pal_compr_gapless_mdata mGapLessMetadata{0, 0};
     int32_t mSampleRate;
     ::aidl::android::media::audio::common::AudioFormatDescription mCompressFormat;
     ::aidl::android::media::audio::common::AudioChannelLayout mChannelLayout;
