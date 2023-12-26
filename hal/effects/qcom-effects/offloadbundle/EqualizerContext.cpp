@@ -80,7 +80,7 @@ RetCode EqualizerContext::start(pal_stream_handle_t* palHandle) {
 RetCode EqualizerContext::stop() {
     std::lock_guard lg(mMutex);
     LOG(DEBUG) << __func__ << " ioHandle " << getIoHandle();
-    struct EqualizerParams eqParam; // by default enable bit is 0
+    struct EqualizerParams eqParam = {0}; // by default enable bit is 0
     setOffloadParameters(&eqParam, EQ_ENABLE_FLAG);
     mPalHandle = nullptr;
     return RetCode::SUCCESS;
