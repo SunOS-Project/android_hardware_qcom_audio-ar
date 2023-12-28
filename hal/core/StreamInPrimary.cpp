@@ -1,4 +1,5 @@
 /*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
  * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
@@ -16,6 +17,7 @@
 #include <qti-audio-core/ModulePrimary.h>
 #include <qti-audio-core/StreamInPrimary.h>
 #include <system/audio.h>
+#include <extensions/PerfLock.h>
 
 using aidl::android::hardware::audio::common::AudioOffloadMetadata;
 using aidl::android::hardware::audio::common::getChannelCount;
@@ -142,6 +144,7 @@ void StreamInPrimary::setStreamMicMute(const bool muted) {
 
 ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd, int64_t* burstSizeFrames,
                                                         int32_t* flags, int32_t* bufferSizeFrames) {
+    PerfLock perfLock;
     if (mTag != Usecase::MMAP_RECORD) {
         LOG(ERROR) << __func__ << *this << " cannot call on non-MMAP stream types";
         return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
@@ -161,17 +164,15 @@ ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd, int64_t* bu
     uint64_t cookie = reinterpret_cast<uint64_t>(this);
     pal_stream_callback palFn = nullptr;
     attr->flags = static_cast<pal_stream_flags_t>(PAL_STREAM_FLAG_MMAP_NO_IRQ);
-    {
-        PerfLockExtension perfLock;
-        if (int32_t ret = ::pal_stream_open(attr.get(), palDevices.size(), palDevices.data(), 0,
-                                            nullptr, palFn, cookie, &(this->mPalHandle));
-            ret) {
-            LOG(ERROR) << __func__ << *this
-                       << " pal_stream_open failed, ret:" << std::to_string(ret);
-            mPalHandle = nullptr;
-            return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
-        }
+
+    if (int32_t ret = ::pal_stream_open(attr.get(), palDevices.size(), palDevices.data(), 0,
+                                        nullptr, palFn, cookie, &(this->mPalHandle));
+        ret) {
+        LOG(ERROR) << __func__ << *this << " pal_stream_open failed, ret:" << std::to_string(ret);
+        mPalHandle = nullptr;
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
+
     const size_t ringBufSizeInBytes = getPeriodSize();
     const size_t ringBufCount = getPeriodCount();
     auto palBufferConfig = mPlatform.getPalBufferConfig(ringBufSizeInBytes, ringBufCount);
@@ -200,16 +201,14 @@ ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd, int64_t* bu
         mPalHandle = nullptr;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
-    {
-        PerfLockExtension perfLock;
-        if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
-            LOG(ERROR) << __func__ << *this
-                       << " pal_stream_start failed!! ret:" << std::to_string(ret);
-            ::pal_stream_close(mPalHandle);
-            mPalHandle = nullptr;
-            return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
-        }
+
+    if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
+        LOG(ERROR) << __func__ << *this << " pal_stream_start failed!! ret:" << std::to_string(ret);
+        ::pal_stream_close(mPalHandle);
+        mPalHandle = nullptr;
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
+
     LOG(INFO) << __func__ << *this << " stream is configured";
 
     return ndk::ScopedAStatus::ok();
@@ -264,6 +263,7 @@ void StreamInPrimary::resume() {
 ::android::status_t StreamInPrimary::transfer(void* buffer, size_t frameCount,
                                               size_t* actualFrameCount, int32_t* latencyMs) {
     if (!mPalHandle) {
+        PerfLock perfLock;
         configure();
         if (!mPalHandle) {
             LOG(ERROR) << __func__ << *this << ": failed to configure";
@@ -617,15 +617,13 @@ void StreamInPrimary::configure() {
 
     uint64_t cookie = reinterpret_cast<uint64_t>(this);
     pal_stream_callback palFn = nullptr;
-    {
-        PerfLockExtension perfLock;
-        if (int32_t ret = ::pal_stream_open(attr.get(), palDevices.size(), palDevices.data(), 0,
-                                            nullptr, palFn, cookie, &(mPalHandle));
-            ret) {
-            LOG(ERROR) << __func__ << *this << " pal_stream_open failed!!! ret:" << ret;
-            mPalHandle = nullptr;
-            return;
-        }
+
+    if (int32_t ret = ::pal_stream_open(attr.get(), palDevices.size(), palDevices.data(), 0,
+                                        nullptr, palFn, cookie, &(mPalHandle));
+        ret) {
+        LOG(ERROR) << __func__ << *this << " pal_stream_open failed!!! ret:" << ret;
+        mPalHandle = nullptr;
+        return;
     }
 
     const size_t ringBufSizeInBytes = getPeriodSize();
@@ -653,15 +651,14 @@ void StreamInPrimary::configure() {
             return;
         }
     }
-    {
-        PerfLockExtension perfLock;
-        if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
-            LOG(ERROR) << __func__ << *this << " pal_stream_start failed!! ret:" << ret;
-            ::pal_stream_close(mPalHandle);
-            mPalHandle = nullptr;
-            return;
-        }
+
+    if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
+        LOG(ERROR) << __func__ << *this << " pal_stream_start failed!! ret:" << ret;
+        ::pal_stream_close(mPalHandle);
+        mPalHandle = nullptr;
+        return;
     }
+
     LOG(VERBOSE) << __func__ << *this << " pal_stream_start successful";
 
     // configure mExt

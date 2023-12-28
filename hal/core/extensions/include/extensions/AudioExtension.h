@@ -1,4 +1,5 @@
 /*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
  * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
@@ -47,12 +48,10 @@ static std::string kBatteryListenerLibrary = std::string("libbatterylistener.so"
 static std::string kHfpLibrary = "libhfp_pal.so";
 static std::string kFmLibrary = "libfmpal.so";
 static std::string kKarokeLibrary = "dummy.so"; // TODO
-static std::string kPerfLockLibrary = "libqti-perfd-client.so";
 static std::string kGefLibrary = "libqtigefar.so";
 
 static std::string kBatteryListenerProperty = "vendor.audio.feature.battery_listener.enable";
 static std::string kHfpProperty = "vendor.audio.feature.hfp.enable";
-static std::string kPerfLockProperty = "vendor.audio.feature.kpi_optimize.enable";
 static std::string kBluetoothProperty = "vendor.audio.feature.a2dp_offload.enable";
 
 const std::map<tSESSION_TYPE, pal_device_id_t> SessionTypePalDevMap{
@@ -133,32 +132,6 @@ class BatteryListenerExtension : public AudioExtensionBase {
     batt_listener_init_t batt_listener_init;
     batt_listener_deinit_t batt_listener_deinit;
     batt_prop_is_charging_t batt_prop_is_charging;
-    bool battery_listener_enabled;
-};
-
-class PerfLockExtension : public AudioExtensionBase {
-  public:
-    PerfLockExtension();
-    ~PerfLockExtension();
-
-    // function mapping for dlsym
-    using AcquirePerfLock = int (*)(int, int, int*, int);
-    using ReleasePerfLock = int (*)(int);
-
-    AcquirePerfLock mAcquirePerfLock = nullptr;
-    ReleasePerfLock mReleasePerfLock = nullptr;
-    static int perf_lock_acquire_cnt;
-
-    int perf_lock_init();
-    void perf_lock_acquire();
-    void perf_lock_release();
-
-   private:
-    std::mutex perf_lock_mutex;
-    bool mInit = false;
-    int perf_lock_handle;
-    int perf_lock_opts[20];
-    int perf_lock_opts_size;
 };
 
 class A2dpExtension : public AudioExtensionBase {
@@ -251,7 +224,6 @@ class AudioExtension {
     std::unique_ptr<HfpExtension> mHfpExtension = std::make_unique<HfpExtension>();
     std::unique_ptr<FmExtension> mFmExtension = std::make_unique<FmExtension>();
     std::unique_ptr<KarokeExtension> mKarokeExtension = std::make_unique<KarokeExtension>();
-    std::unique_ptr<PerfLockExtension> mPerfLockExtension = std::make_unique<PerfLockExtension>();
     std::unique_ptr<GefExtension> mGefExtension = std::make_unique<GefExtension>();
     static std::mutex reconfig_wait_mutex_;
 };

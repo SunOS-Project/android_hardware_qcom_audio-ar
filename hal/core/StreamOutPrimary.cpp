@@ -1,4 +1,5 @@
 /*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
  * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
@@ -14,6 +15,7 @@
 #include <qti-audio-core/ModulePrimary.h>
 #include <qti-audio-core/StreamOutPrimary.h>
 #include <system/audio.h>
+#include <extensions/PerfLock.h>
 
 using aidl::android::hardware::audio::common::AudioOffloadMetadata;
 using aidl::android::hardware::audio::common::getFrameSizeInBytes;
@@ -130,6 +132,7 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
 ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* burstSizeFrames,
                                                          int32_t* flags,
                                                          int32_t* bufferSizeFrames) {
+    PerfLock perfLock;
     if (mTag != Usecase::MMAP_PLAYBACK) {
         LOG(ERROR) << __func__ << *this << " cannot call on non-MMAP stream types";
         return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
@@ -149,17 +152,14 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
     uint64_t cookie = reinterpret_cast<uint64_t>(this);
     pal_stream_callback palFn = nullptr;
     attr->flags = static_cast<pal_stream_flags_t>(PAL_STREAM_FLAG_MMAP_NO_IRQ);
-    {
-        PerfLockExtension perfLock;
-        if (int32_t ret = ::pal_stream_open(attr.get(), palDevices.size(), palDevices.data(), 0,
-                                            nullptr, palFn, cookie, &(this->mPalHandle));
-            ret) {
-            LOG(ERROR) << __func__ << *this
-                       << " pal stream open failed, ret:" << std::to_string(ret);
-            mPalHandle = nullptr;
-            return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
-        }
+    if (int32_t ret = ::pal_stream_open(attr.get(), palDevices.size(), palDevices.data(), 0,
+                                        nullptr, palFn, cookie, &(this->mPalHandle));
+        ret) {
+        LOG(ERROR) << __func__ << *this << " pal stream open failed, ret:" << std::to_string(ret);
+        mPalHandle = nullptr;
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
+
     const size_t ringBufSizeInBytes = getPeriodSize();
     const size_t ringBufCount = getPeriodCount();
     auto palBufferConfig = mPlatform.getPalBufferConfig(ringBufSizeInBytes, ringBufCount);
@@ -188,15 +188,12 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
         mPalHandle = nullptr;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
-    {
-        PerfLockExtension perfLock;
-        if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
-            LOG(ERROR) << __func__ << *this
-                       << " pal stream start failed, ret:" << std::to_string(ret);
-            ::pal_stream_close(mPalHandle);
-            mPalHandle = nullptr;
-            return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
-        }
+
+    if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
+        LOG(ERROR) << __func__ << *this << " pal stream start failed, ret:" << std::to_string(ret);
+        ::pal_stream_close(mPalHandle);
+        mPalHandle = nullptr;
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
     LOG(INFO) << __func__ << *this << ": stream configured";
 
@@ -312,6 +309,7 @@ void StreamOutPrimary::resume() {
                                                size_t* actualFrameCount, int32_t* latencyMs) {
     if (!mPalHandle) {
         // configure on first transfer or after stand by
+        PerfLock perfLock;
         configure();
         if (!mPalHandle) {
             LOG(ERROR) << __func__ << *this << ": failed to configure";
@@ -784,15 +782,13 @@ void StreamOutPrimary::configure() {
     if (mTag == Usecase::ULL_PLAYBACK) {
         attr->flags = static_cast<pal_stream_flags_t>(PAL_STREAM_FLAG_MMAP);
     }
-    {
-        PerfLockExtension perfLock;
-        if (int32_t ret = ::pal_stream_open(attr.get(), palDevices.size(), palDevices.data(), 0,
-                                            nullptr, palFn, cookie, &(this->mPalHandle));
-            ret) {
-            LOG(ERROR) << __func__ << *this << " pal stream open failed!!! ret:" << ret;
-            mPalHandle = nullptr;
-            return;
-        }
+
+    if (int32_t ret = ::pal_stream_open(attr.get(), palDevices.size(), palDevices.data(), 0,
+                                        nullptr, palFn, cookie, &(this->mPalHandle));
+        ret) {
+        LOG(ERROR) << __func__ << *this << " pal stream open failed!!! ret:" << ret;
+        mPalHandle = nullptr;
+        return;
     }
     if (karaoke) {
         int size = palDevices.size();
@@ -829,14 +825,12 @@ void StreamOutPrimary::configure() {
         LOG(VERBOSE) << __func__ << *this << " pal_stream_set_param: "
                                              "PAL_PARAM_ID_CODEC_CONFIGURATION successful";
     }
-    {
-        PerfLockExtension perfLock;
-        if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
-            LOG(ERROR) << __func__ << *this << " pal_stream_start failed, ret:" << ret;
-            ::pal_stream_close(mPalHandle);
-            mPalHandle = nullptr;
-            return;
-        }
+
+    if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
+        LOG(ERROR) << __func__ << *this << " pal_stream_start failed, ret:" << ret;
+        ::pal_stream_close(mPalHandle);
+        mPalHandle = nullptr;
+        return;
     }
 
     if (karaoke) mAudExt.mKarokeExtension->karaoke_start();
