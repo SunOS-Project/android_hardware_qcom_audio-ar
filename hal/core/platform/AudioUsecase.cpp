@@ -543,8 +543,35 @@ ndk::ScopedAStatus CompressPlayback::setVendorParameters(
             mPalSndDec.opus_dec.channel_map[7] = value.value();
         }
         mPalSndDec.opus_dec.sample_rate = mSampleRate;
+    } else {
+        if (auto value = getIntValueFromVString(in_parameters, kDelaySamples); value) {
+            mGapLessMetadata.encoderDelay = value.value();
+        }
+        if (auto value = getIntValueFromVString(in_parameters, kPaddingSamples); value) {
+            mGapLessMetadata.encoderPadding = value.value();
+        }
     }
     return ndk::ScopedAStatus::ok();
+}
+
+void CompressPlayback::configureGapLessMetadata() const {
+    if (mCompressPlaybackHandle == nullptr) {
+        return;
+    }
+    const auto payloadSize = sizeof(pal_param_payload);
+    const auto kGapLessSize = sizeof(pal_compr_gapless_mdata);
+    auto dataPtr = std::make_unique<uint8_t[]>(payloadSize + kGapLessSize);
+    auto payloadPtr = reinterpret_cast<pal_param_payload*>(dataPtr.get());
+    payloadPtr->payload_size = kGapLessSize;
+    auto gapLessPtr = reinterpret_cast<pal_compr_gapless_mdata*>(dataPtr.get() + payloadSize);
+    *gapLessPtr = mGapLessMetadata;
+
+    if (int32_t ret = ::pal_stream_set_param(mCompressPlaybackHandle, PAL_PARAM_ID_GAPLESS_MDATA,
+                                             payloadPtr);
+        ret) {
+        LOG(ERROR) << __func__ << ": failed PAL_PARAM_ID_GAPLESS_MDATA!! ret:" << ret;
+        return;
+    }
 }
 
 void CompressPlayback::updateOffloadMetadata(
