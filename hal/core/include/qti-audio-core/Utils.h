@@ -79,6 +79,8 @@ bool operator==(const std::vector<T>& left, const std::vector<T>& right) noexcep
 
 int64_t getInt64FromString(const std::string& s) noexcept;
 
+float getFloatFromString(const std::string& s) noexcept;
+
 bool getBoolFromString(const std::string& s) noexcept;
 
 bool setParameter(const ::aidl::qti::audio::core::VString& parcel,

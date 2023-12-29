@@ -133,6 +133,9 @@ class Platform {
     void setWFDProxyChannels(const uint32_t numProxyChannels) noexcept;
     uint32_t getWFDProxyChannels() const noexcept;
 
+    void setHapticsVolume(const float hapticsVolume) const noexcept;
+    void setHapticsIntensity(const int hapticsIntensity) const noexcept;
+
     void updateUHQA(const bool enable) noexcept;
     bool isUHQAEnabled() const noexcept;
     void setFTMSpeakerProtectionMode(uint32_t const heatUpTime, uint32_t const runTime,

@@ -525,6 +525,24 @@ void ModulePrimary::onSetFTMParameters(const std::vector<VendorParameter>& param
     return;
 }
 
+void ModulePrimary::onSetHapticsParameters(const std::vector<VendorParameter>& parameters) {
+    for (const auto& param : parameters) {
+        std::string paramValue{};
+        if (!extractParameter<VString>(param, &paramValue)) {
+            LOG(ERROR) << ": extraction failed for " << param.id;
+            continue;
+        }
+        if (Parameters::kHapticsVolume == param.id) {
+            const float hapticsVolume = getFloatFromString(paramValue);
+            mPlatform.setHapticsVolume(hapticsVolume);
+        } else if (Parameters::kHapticsIntensity == param.id) {
+            const int hapticsIntensity = getInt64FromString(paramValue);
+            mPlatform.setHapticsIntensity(hapticsIntensity);
+        }
+    }
+    return;
+}
+
 // static
 ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeatureMap() {
     SetParameterToFeatureMap map{{Parameters::kHdrRecord, Feature::HDR},
@@ -551,7 +569,9 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
                                  {Parameters::kFbspValiWaitTime, Feature::FTM},
                                  {Parameters::kFbspValiValiTime, Feature::FTM},
                                  {Parameters::kTriggerSpeakerCall, Feature::FTM},
-                                 {Parameters::kWfdChannelMap, Feature::WFD}};
+                                 {Parameters::kWfdChannelMap, Feature::WFD},
+                                 {Parameters::kHapticsVolume, Feature::HAPTICS},
+                                 {Parameters::kHapticsIntensity, Feature::HAPTICS}};
     return map;
 }
 
@@ -563,6 +583,7 @@ ModulePrimary::FeatureToSetHandlerMap ModulePrimary::fillFeatureToSetHandlerMap(
             {Feature::TELEPHONY, &ModulePrimary::onSetTelephonyParameters},
             {Feature::WFD, &ModulePrimary::onSetWFDParameters},
             {Feature::FTM, &ModulePrimary::onSetFTMParameters},
+            {Feature::HAPTICS, &ModulePrimary::onSetHapticsParameters},
     };
     return map;
 }

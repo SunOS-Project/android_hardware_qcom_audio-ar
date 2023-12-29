@@ -229,4 +229,22 @@ VendorParameter constructVendorParameter(const std::string& id, const std::strin
     return std::move(param);
 }
 
+std::vector<uint8_t> makePalVolumes(std::vector<float> const& volumes) noexcept {
+    if (volumes.empty()) {
+        return {};
+    }
+    const auto dataLength = sizeof(pal_volume_data) + sizeof(pal_channel_vol_kv) * volumes.size();
+    auto data = std::vector<uint8_t>(dataLength);
+    auto palVolumeData = reinterpret_cast<pal_volume_data*>(data.data());
+    palVolumeData->no_of_volpair = volumes.size();
+
+    size_t index = 0;
+    for (const auto& volume : volumes) {
+        palVolumeData->volume_pair[index].channel_mask = 0x1 << index;
+        palVolumeData->volume_pair[index].vol = volume;
+        index++;
+    }
+    return data;
+}
+
 } // namespace qti::audio::core
