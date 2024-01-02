@@ -507,7 +507,7 @@ void Telephony::startCall() {
     LOG(VERBOSE) << __func__ << ": Enter";
     auto attributes = mPlatform.getDefaultTelephonyAttributes();
 
-    auto palDevices = mPlatform.getPalDevices({mRxDevices.at(0), mTxDevices.at(0)});
+    auto palDevices = mPlatform.convertToPalDevices({mRxDevices.at(0), mTxDevices.at(0)});
 
     attributes->info.voice_call_info.VSID = static_cast<uint32_t>(mSetUpdates.mVSID);
     {
@@ -545,7 +545,7 @@ void Telephony::stopCall() {
 }
 
 void Telephony::updateDevices() {
-    auto palDevices = mPlatform.getPalDevices({mRxDevices.at(0), mTxDevices.at(0)});
+    auto palDevices = mPlatform.convertToPalDevices({mRxDevices.at(0), mTxDevices.at(0)});
 
     pal_param_bta2dp_t* param_bt_a2dp_ptr = nullptr;
     bool a2dp_capture_suspended = false;

@@ -218,6 +218,10 @@ bool isValidPlaybackRate(
     return true;
 }
 
+void setPalDeviceCustomKey(pal_device& palDevice, const std::string& customKey) noexcept {
+    strlcpy(palDevice.custom_config.custom_key, customKey.c_str(), PAL_MAX_CUSTOM_KEY_SIZE);
+}
+
 VendorParameter constructVendorParameter(const std::string& id, const std::string& value) noexcept {
     VString parcel;
     parcel.value = value;

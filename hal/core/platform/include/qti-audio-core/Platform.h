@@ -67,7 +67,12 @@ class Platform {
     std::unique_ptr<pal_stream_attributes> getPalStreamAttributes(
             const ::aidl::android::media::audio::common::AudioPortConfig& portConfig,
             const bool isInput) const;
-    std::vector<pal_device> getPalDevices(
+    std::vector<pal_device> convertToPalDevices(
+            const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices)
+            const noexcept;
+    std::vector<pal_device> configureAndFetchPalDevices(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
+            const Usecase& tag,
             const std::vector<::aidl::android::media::audio::common::AudioDevice>& setDevices)
             const;
 
@@ -91,7 +96,7 @@ class Platform {
                     bluetoothDevices);
     std::unique_ptr<pal_stream_attributes> getDefaultTelephonyAttributes() const;
     void configurePalDevicesCustomKey(std::vector<pal_device>& palDevices,
-                                      const std::string& key) const;
+                                      const std::string& customKey) const;
 
     bool setStreamMicMute(pal_stream_handle_t* streamHandlePtr, const bool muted);
     bool updateScreenState(const bool isTurnedOn) noexcept;
@@ -157,6 +162,10 @@ class Platform {
     bool isOffload(const Usecase& tag) { return tag == Usecase::COMPRESS_OFFLOAD_PLAYBACK; }
 
   private:
+    void customizePalDevices(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
+            const Usecase& tag, std::vector<pal_device>& palDevices) const noexcept;
+    void configurePalDevicesForHIFIPCMFilter(std::vector<pal_device>&) const noexcept;
     bool getBtConfig(pal_param_bta2dp_t* bTConfig);
     std::vector<::aidl::android::media::audio::common::AudioProfile> getUsbProfiles(
             const ::aidl::android::media::audio::common::AudioPort& port) const;

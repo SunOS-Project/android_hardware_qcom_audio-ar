@@ -177,11 +177,10 @@ std::unique_ptr<pal_stream_attributes> Platform::getDefaultTelephonyAttributes()
 }
 
 void Platform::configurePalDevicesCustomKey(std::vector<pal_device>& palDevices,
-                                            const std::string& key) const {
+                                            const std::string& customKey) const {
     for (auto& palDevice : palDevices) {
-        strlcpy(palDevice.custom_config.custom_key, key.c_str(), key.size());
+        setPalDeviceCustomKey(palDevice, customKey);
     }
-    return;
 }
 
 bool Platform::setStreamMicMute(pal_stream_handle_t* streamHandlePtr, const bool muted) {
@@ -207,15 +206,60 @@ bool Platform::isScreenTurnedOn() const noexcept {
     return mIsScreenTurnedOn;
 }
 
-std::vector<pal_device> Platform::getPalDevices(const std::vector<AudioDevice>& setDevices) const {
-    if (setDevices.size() == 0) {
+void Platform::configurePalDevicesForHIFIPCMFilter(
+        std::vector<pal_device>& palDevices) const noexcept {
+    if (palDevices.size() == 0) {
+        return;
+    }
+
+    bool isEnabled = false;
+
+    auto getStatus = [&]() -> bool {
+        bool status = false;
+        bool* payLoad = &status;
+        size_t payLoadSize = 0;
+        if (int32_t ret =
+                    ::pal_get_param(PAL_PARAM_ID_HIFI_PCM_FILTER,
+                                    reinterpret_cast<void**>(&payLoad), &payLoadSize, nullptr);
+            ret) {
+            LOG(ERROR) << ": failed to get PAL_PARAM_ID_HIFI_PCM_FILTER status";
+            return false;
+        }
+        return status;
+    };
+
+    for (auto& palDevice : palDevices) {
+        if ((palDevice.id == PAL_DEVICE_OUT_WIRED_HEADSET ||
+             palDevice.id == PAL_DEVICE_OUT_WIRED_HEADPHONE)) {
+            if (!isEnabled) {
+                isEnabled = getStatus();
+            }
+            if (isEnabled) {
+                setPalDeviceCustomKey(palDevice, "hifi-filter_custom_key");
+            }
+        }
+    }
+}
+
+void Platform::customizePalDevices(const AudioPortConfig& mixPortConfig, const Usecase& tag,
+                                   std::vector<pal_device>& palDevices) const noexcept {
+    const auto& sampleRate = mixPortConfig.sampleRate.value().value;
+    if (sampleRate != 384000 && sampleRate != 352800) {
+        configurePalDevicesForHIFIPCMFilter(palDevices);
+    }
+}
+
+std::vector<pal_device> Platform::convertToPalDevices(
+        const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices)
+        const noexcept {
+    if (devices.size() == 0) {
         LOG(ERROR) << __func__ << " the set devices is empty";
         return {};
     }
-    std::vector<pal_device> palDevices{setDevices.size()};
+    std::vector<pal_device> palDevices{devices.size()};
 
     size_t i = 0;
-    for (auto& device : setDevices) {
+    for (auto& device : devices) {
         const auto palDeviceId = PlatformConverter::getPalDeviceId(device.type);
         if (palDeviceId == PAL_DEVICE_OUT_MIN) {
             return {};
@@ -238,6 +282,20 @@ std::vector<pal_device> Platform::getPalDevices(const std::vector<AudioDevice>& 
         }
         i++;
     }
+    return palDevices;
+}
+
+std::vector<pal_device> Platform::configureAndFetchPalDevices(
+        const AudioPortConfig& mixPortConfig, const Usecase& tag,
+        const std::vector<AudioDevice>& devices) const {
+    if (devices.size() == 0) {
+        LOG(ERROR) << __func__ << " the set devices is empty";
+        return {};
+    }
+    auto palDevices = convertToPalDevices(devices);
+
+    customizePalDevices(mixPortConfig,tag,palDevices);
+
     return palDevices;
 }
 

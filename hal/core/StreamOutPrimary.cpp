@@ -110,7 +110,8 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
         return ndk::ScopedAStatus::ok();
     }
 
-    auto connectedPalDevices = mPlatform.getPalDevices(mConnectedDevices);
+    auto connectedPalDevices =
+            mPlatform.configureAndFetchPalDevices(mMixPortConfig, mTag, mConnectedDevices);
 
     if (connectedPalDevices.size() != mConnectedDevices.size()) {
         LOG(ERROR) << __func__ << *this << ": pal devices size != aidl devices size";
@@ -144,7 +145,8 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
     attr->type = PAL_STREAM_ULTRA_LOW_LATENCY;
-    auto palDevices = mPlatform.getPalDevices(getConnectedDevices());
+    auto palDevices =
+            mPlatform.configureAndFetchPalDevices(mMixPortConfig, mTag, mConnectedDevices);
     if (!palDevices.size()) {
         LOG(ERROR) << __func__ << *this << " no connected devices on stream";
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
@@ -760,7 +762,8 @@ void StreamOutPrimary::configure() {
 
     LOG(VERBOSE) << __func__ << *this << " assigned pal stream type:" << attr->type;
 
-    auto palDevices = mPlatform.getPalDevices(getConnectedDevices());
+    auto palDevices =
+            mPlatform.configureAndFetchPalDevices(mMixPortConfig, mTag, mConnectedDevices);
     if (!palDevices.size()) {
         LOG(ERROR) << __func__ << *this << " no connected devices on stream!!";
         return;
