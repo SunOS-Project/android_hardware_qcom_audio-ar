@@ -80,6 +80,11 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
 
     void onClose() override { defaultOnClose(); }
 
+    ndk::ScopedAStatus setLatencyMode(
+                           ::aidl::android::media::audio::common::AudioLatencyMode in_mode) override;
+    ndk::ScopedAStatus getRecommendedLatencyModes(
+        std::vector<::aidl::android::media::audio::common::AudioLatencyMode>* _aidl_return) override;
+
     bool isStreamOutPrimary() { return (mTag == Usecase::PRIMARY_PLAYBACK) ? true : false; }
     static std::mutex sourceMetadata_mutex_;
 

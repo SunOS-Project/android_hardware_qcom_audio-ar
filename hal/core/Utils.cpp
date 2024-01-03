@@ -57,6 +57,15 @@ bool hasBluetoothDevice(const std::vector<AudioDevice>& devices) noexcept {
     return itr != devices.cend();
 }
 
+bool isBluetoothA2dpDevice(const AudioDevice& device) noexcept {
+    return (device.type.connection == AudioDeviceDescription::CONNECTION_BT_A2DP);
+}
+
+bool hasBluetoothA2dpDevice(const std::vector<AudioDevice>& devices) noexcept {
+    auto itr = std::find_if(devices.cbegin(), devices.cend(), isBluetoothA2dpDevice);
+    return itr != devices.cend();
+}
+
 bool hasInputMMapFlag(const AudioIoFlags& ioFlags) noexcept {
     if (ioFlags.getTag() == AudioIoFlags::Tag::input) {
         constexpr auto inputMMapFlag = static_cast<int32_t>(
