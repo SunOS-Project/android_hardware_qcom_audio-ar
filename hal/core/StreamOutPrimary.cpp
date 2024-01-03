@@ -253,6 +253,11 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
         LOG(ERROR) << __func__ << *this << " failed to flush the stream, ret:" << ret;
         return ret;
     }
+
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        std::get<CompressPlayback>(mExt).reconfigureOnFlush();
+    }
+
     LOG(DEBUG) << __func__ << *this;
     return ::android::OK;
 }
@@ -305,13 +310,14 @@ void StreamOutPrimary::resume() {
         LOG(WARNING) << __func__ << *this << ": stream is not configured ";
         return ::android::OK;
     }
-    if (mTag == Usecase::MMAP_PLAYBACK)
-        return ::android::OK;
-    else {
-        shutdown();
-        LOG(DEBUG) << __func__ << *this;
+
+    if (mTag == Usecase::MMAP_PLAYBACK) {
         return ::android::OK;
     }
+
+    shutdown();
+    LOG(DEBUG) << __func__ << *this;
+    return ::android::OK;
 }
 
 ::android::status_t StreamOutPrimary::start() {
@@ -475,6 +481,11 @@ void StreamOutPrimary::shutdown() {
         }
         mHapticsBufSize = 0;
     }
+
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        std::get<CompressPlayback>(mExt).setAndConfigure(nullptr);
+    }
+
     if (karaoke) mAudExt.mKarokeExtension->karaoke_stop();
 
     mIsPaused = false;
@@ -523,8 +534,10 @@ ndk::ScopedAStatus StreamOutPrimary::updateOffloadMetadata(
     }
 
     mOffloadMetadata = in_offloadMetadata;
-    auto& compressPlayback = std::get<CompressPlayback>(mExt);
-    compressPlayback.updateOffloadMetadata(mOffloadMetadata.value());
+
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        std::get<CompressPlayback>(mExt).updateOffloadMetadata(mOffloadMetadata.value());
+    }
 
     return ndk::ScopedAStatus::ok();
 }
@@ -983,19 +996,8 @@ void StreamOutPrimary::configure() {
     }
 
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        auto& compressPlayback = std::get<CompressPlayback>(mExt);
-        auto palParamPayload = compressPlayback.getPayloadCodecInfo();
-        if (int32_t ret = ::pal_stream_set_param(
-                    this->mPalHandle, PAL_PARAM_ID_CODEC_CONFIGURATION,
-                    reinterpret_cast<pal_param_payload*>(palParamPayload.get()));
-            ret) {
-            LOG(ERROR) << __func__ << *this << " pal_stream_set_param failed, ret:" << ret;
-            ::pal_stream_close(mPalHandle);
-            mPalHandle = nullptr;
-            return;
-        }
-        LOG(VERBOSE) << __func__ << *this << " pal_stream_set_param: "
-                                             "PAL_PARAM_ID_CODEC_CONFIGURATION successful";
+        // Must be before pal stream start
+        std::get<CompressPlayback>(mExt).setAndConfigure(mPalHandle);
     }
 
     if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
@@ -1014,15 +1016,10 @@ void StreamOutPrimary::configure() {
         }
     }
 
+
     if (karaoke) mAudExt.mKarokeExtension->karaoke_start();
 
     LOG(VERBOSE) << __func__ << *this << " pal_stream_start successful";
-
-    // configure mExt
-    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        std::get<CompressPlayback>(mExt).setPalHandle(mPalHandle);
-        std::get<CompressPlayback>(mExt).configureGapLessMetadata();
-    }
 
     if (!mVolumes.empty()) {
         setHwVolume(mVolumes);

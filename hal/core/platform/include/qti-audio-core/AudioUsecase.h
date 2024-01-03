@@ -119,9 +119,6 @@ class CompressPlayback final {
   public:
     static constexpr size_t kPeriodSize = 32 * 1024;
     static constexpr size_t kPeriodCount = 4;
-    inline const static std::string kAvgBitRate{"music_offload_avg_bit_rate"};
-    inline const static std::string kDelaySamples{"delay_samples"};
-    inline const static std::string kPaddingSamples{"padding_samples"};
     class Flac final {
       public:
         static constexpr size_t kPeriodSize = 256 * 1024;
@@ -200,9 +197,10 @@ class CompressPlayback final {
     explicit CompressPlayback(
             const ::aidl::android::media::audio::common::AudioOffloadInfo& offloadInfo,
             std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> asyncCallback);
-    void configureDefault();
-    void configureGapLessMetadata() const;
-    void setPalHandle(pal_stream_handle_t* handle);
+    /* To reconfigure the codec, gapless info */
+    void setAndConfigure(pal_stream_handle_t* handle);
+    void reconfigureOnFlush() const;
+    void reconfigureOnPartialDrain() const;
     ndk::ScopedAStatus getVendorParameters(
             const std::vector<std::string>& in_ids,
             std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return);
@@ -215,22 +213,24 @@ class CompressPlayback final {
             const ::aidl::android::hardware::audio::common::AudioOffloadMetadata& offloadMetaData);
     void updateSourceMetadata(
             const ::aidl::android::hardware::audio::common::SourceMetadata& sourceMetaData);
-    std::unique_ptr<uint8_t[]> getPayloadCodecInfo();
-    bool isCodecConfigured() const { return mIsCodecConfigured; }
-    pal_snd_dec_t getPalSndDec();
 
-  private:
+  protected:
+    void configureDefault();
+    // configure the codec info which is cached already
+    bool configureCodecInfo() const;
+    // configure the gapless info which is cached already
+    bool configureGapLessMetadata() const;
+
+  protected:
     // dynamic compress info
-    const ::aidl::android::hardware::audio::common::AudioOffloadMetadata* mOffloadMetadata{nullptr};
+    ::aidl::android::hardware::audio::common::AudioOffloadMetadata mOffloadMetadata{};
     const ::aidl::android::hardware::audio::common::SourceMetadata* mSourceMetadata{nullptr};
     // this is static info at the stream creation, for dynamic info check AudioOffloadMetadata
     const ::aidl::android::media::audio::common::AudioOffloadInfo& mOffloadInfo;
     std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> mAsyncCallback;
     uint16_t mCompressBitWidth{0};
-    bool mIsCodecConfigured{false};
     pal_stream_handle_t* mCompressPlaybackHandle{nullptr};
     pal_snd_dec_t mPalSndDec{};
-    pal_compr_gapless_mdata mGapLessMetadata{0, 0};
     int32_t mSampleRate;
     ::aidl::android::media::audio::common::AudioFormatDescription mCompressFormat;
     ::aidl::android::media::audio::common::AudioChannelLayout mChannelLayout;
