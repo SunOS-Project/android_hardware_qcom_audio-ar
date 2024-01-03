@@ -8,6 +8,7 @@
 
 #include <Utils.h>
 #include <android-base/logging.h>
+#include <android-base/properties.h>
 #include <cutils/str_parms.h>
 #include <hardware/audio.h>
 #include <qti-audio-core/AudioUsecase.h>
@@ -250,8 +251,7 @@ void Platform::customizePalDevices(const AudioPortConfig& mixPortConfig, const U
 }
 
 std::vector<pal_device> Platform::convertToPalDevices(
-        const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices)
-        const noexcept {
+        const std::vector<AudioDevice>& devices) const noexcept {
     if (devices.size() == 0) {
         LOG(ERROR) << __func__ << " the set devices is empty";
         return {};
@@ -265,6 +265,20 @@ std::vector<pal_device> Platform::convertToPalDevices(
             return {};
         }
         palDevices[i].id = palDeviceId;
+
+        /* Todo map each AIDL device type to alteast one PAL device */
+        if (palDevices[i].id == PAL_DEVICE_OUT_SPEAKER &&
+            device.type.type == AudioDeviceType::OUT_SPEAKER_SAFE) {
+            setPalDeviceCustomKey(palDevices[i], "speaker-safe");
+        } else if (palDevices[i].id == PAL_DEVICE_OUT_SPEAKER &&
+                   device.type.type == AudioDeviceType::OUT_SPEAKER) {
+            const auto isMSPPEnabled =
+                    ::android::base::GetBoolProperty("vendor.audio.mspp.enable", false);
+            if (isMSPPEnabled) {
+                setPalDeviceCustomKey(palDevices[i], "mspp");
+            }
+        }
+
         palDevices[i].config.sample_rate = kDefaultOutputSampleRate;
         palDevices[i].config.bit_width = kDefaultPCMBidWidth;
         palDevices[i].config.aud_fmt_id = kDefaultPalPCMFormat;
