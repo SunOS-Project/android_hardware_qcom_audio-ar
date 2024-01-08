@@ -385,7 +385,7 @@ ndk::ScopedAStatus CompressPlayback::setVendorParameters(
             mPalSndDec.flac_dec.max_frame_size = value.value();
         }
         // exception
-        auto bitWidth = mCompressBitWidth == 32 ? 24 : mCompressBitWidth;
+        mPalSndDec.flac_dec.sample_size = (mBitWidth == 32) ? 24 : mBitWidth;
     } else if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_ALAC) {
         if (auto value = getIntValueFromVString(in_parameters, Alac::kFrameLength); value) {
             mPalSndDec.alac_dec.frame_length = value.value();
