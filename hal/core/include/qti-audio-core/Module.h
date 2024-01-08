@@ -60,6 +60,7 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
     ndk::ScopedAStatus getBluetoothLe(
             std::shared_ptr<::aidl::android::hardware::audio::core::IBluetoothLe>* _aidl_return)
             override;
+    ndk::ScopedAStatus prepareToDisconnectExternalDevice(int32_t in_portId) override;
     ndk::ScopedAStatus connectExternalDevice(
             const ::aidl::android::media::audio::common::AudioPort& in_templateIdAndAdditionalData,
             ::aidl::android::media::audio::common::AudioPort* _aidl_return) override;
@@ -197,6 +198,8 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
             ::aidl::android::hardware::audio::core::AudioPatch& newPatch);
+    virtual void onPrepareToDisconnectExternalDevice(
+            const ::aidl::android::media::audio::common::AudioPort& audioPort);
 
     virtual void updateTelephonyPatch(
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,

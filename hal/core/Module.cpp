@@ -478,6 +478,33 @@ std::vector<::aidl::android::media::audio::common::AudioProfile> Module::getDyna
     return {};
 }
 
+void Module::onPrepareToDisconnectExternalDevice(
+        const ::aidl::android::media::audio::common::AudioPort& audioPort __unused) {
+    LOG(DEBUG) << __func__ << ": do nothing and return";
+}
+
+ndk::ScopedAStatus Module::prepareToDisconnectExternalDevice(int32_t in_portId) {
+    auto& ports = getConfig().ports;
+    auto portIt = findById<AudioPort>(ports, in_portId);
+    if (portIt == ports.end()) {
+        LOG(ERROR) << __func__ << ": port id " << in_portId << " not found";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+    if (portIt->ext.getTag() != AudioPortExt::Tag::device) {
+        LOG(ERROR) << __func__ << ": port id " << in_portId << " is not a device port";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+    auto connectedPortsIt = mConnectedDevicePorts.find(in_portId);
+    if (connectedPortsIt == mConnectedDevicePorts.end()) {
+        LOG(ERROR) << __func__ << ": port id " << in_portId << " is not a connected device port";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+
+    onPrepareToDisconnectExternalDevice(*portIt);
+
+    return ndk::ScopedAStatus::ok();
+}
+
 ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdAndAdditionalData,
                                                  AudioPort* _aidl_return) {
     LOG(DEBUG) << __func__
