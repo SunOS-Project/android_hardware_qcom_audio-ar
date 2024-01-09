@@ -237,5 +237,5 @@ vendor.audio.feature.dmabuf.cma.memory.enable=false
 AUDIO_FEATURE_ENABLED_GKI := true
 BUILD_AUDIO_TECHPACK_SOURCE := true
 
-include vendor/qcom/opensource/audio-hal/primary-hal/configs/sun/audio_android_props.mk
+include vendor/qcom/opensource/audio-hal/primary-hal/configs/sun/audio-properties.mk
 
