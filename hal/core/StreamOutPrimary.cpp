@@ -238,8 +238,9 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
         LOG(WARNING) << __func__ << *this << ": stream is not configured ";
         return ::android::OK;
     }
-    if (mTag == Usecase::MMAP_PLAYBACK) {
-        LOG(WARNING) << __func__ << *this << " flushing of MMAP streams is unsupported";
+    if (mTag == Usecase::MMAP_PLAYBACK || mTag == Usecase::LOW_LATENCY_PLAYBACK ||
+        mTag == Usecase::ULL_PLAYBACK) {
+        LOG(VERBOSE) << __func__ << *this << " unsupported operation!!, Hence ignored";
         return ::android::OK;
     }
     if (int32_t ret = ::pal_stream_flush(mPalHandle); ret) {
@@ -255,6 +256,12 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
         LOG(WARNING) << __func__ << *this << ": stream is not configured ";
         return ::android::OK;
     }
+
+    if (mTag == Usecase::LOW_LATENCY_PLAYBACK || mTag == Usecase::ULL_PLAYBACK) {
+        LOG(VERBOSE) << __func__ << *this << " unsupported operation!!, Hence ignored";
+        return ::android::OK;
+    }
+
     if (mTag == Usecase::MMAP_PLAYBACK) {
         if (int32_t ret = pal_stream_stop(mPalHandle); ret) {
             LOG(ERROR) << __func__ << *this
