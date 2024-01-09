@@ -28,6 +28,7 @@ using aidl::android::media::audio::common::AudioOffloadInfo;
 using aidl::android::media::audio::common::AudioPlaybackRate;
 using aidl::android::media::audio::common::MicrophoneDynamicInfo;
 using aidl::android::media::audio::common::MicrophoneInfo;
+using aidl::android::media::audio::common::AudioLatencyMode;
 
 using ::aidl::android::hardware::audio::common::getFrameSizeInBytes;
 using ::aidl::android::hardware::audio::core::IStreamCallback;
@@ -118,7 +119,7 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
-    if (int32_t ret = ::pal_stream_set_device(mPalHandle, connectedPalDevices.size(),
+   if (int32_t ret = ::pal_stream_set_device(mPalHandle, connectedPalDevices.size(),
                                               connectedPalDevices.data());
         ret) {
         LOG(ERROR) << __func__ << *this << " failed to set devices on stream, ret:" << ret;
@@ -869,6 +870,36 @@ void StreamOutPrimary::enableOffloadEffects(const bool enable) {
             mHalEffects.stopEffect(ioHandle);
         }
     }
+}
+
+ndk::ScopedAStatus StreamOutPrimary::getRecommendedLatencyModes(
+        std::vector<::aidl::android::media::audio::common::AudioLatencyMode>* _aidl_return) {
+
+     int ret = 0;
+
+     if (!hasBluetoothA2dpDevice(mConnectedDevices)) {
+         return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+     }
+
+     ret = mPlatform.getRecommendedLatencyModes(_aidl_return);
+     if (ret) ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+     return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus StreamOutPrimary::setLatencyMode(
+            ::aidl::android::media::audio::common::AudioLatencyMode in_mode) {
+
+    LOG(DEBUG) << __func__ << *this << ": latency mode " << toString(in_mode);
+    int ret = 0;
+
+    if (!hasBluetoothA2dpDevice(mConnectedDevices)) {
+        return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+    }
+
+    ret = mPlatform.setLatencyMode((uint32_t)in_mode);
+    if (ret) ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+
+    return ndk::ScopedAStatus::ok();
 }
 
 } // namespace qti::audio::core

@@ -1057,6 +1057,57 @@ PlaybackRateStatus Platform::setPlaybackRate(
     return PlaybackRateStatus::SUCCESS;
 }
 
+int Platform::getRecommendedLatencyModes(
+          std::vector<::aidl::android::media::audio::common::AudioLatencyMode>* _aidl_return) {
+
+     size_t size;
+     int ret = 0;
+     auto palLatencyModeInfo = std::make_unique<pal_param_latency_mode_t>();
+     if (!palLatencyModeInfo) {
+         LOG(ERROR) << __func__ << ": allocation failed ";
+         return -ENOMEM;
+     }
+
+     palLatencyModeInfo->dev_id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
+     palLatencyModeInfo->num_modes = PAL_MAX_LATENCY_MODES;
+     void *palLatencyModeInfoPtr = palLatencyModeInfo.get();
+
+     ret = pal_get_param(PAL_PARAM_ID_LATENCY_MODE,
+                        (void **)&palLatencyModeInfoPtr, &size, nullptr);
+     if (ret) {
+         LOG(ERROR) << __func__ << " get param latency mode failed";
+         return ret;
+     }
+
+     LOG(VERBOSE) << __func__ << " actual modes returned: " << palLatencyModeInfo->num_modes;
+
+     for (int count = 0; count < palLatencyModeInfo->num_modes; count++)
+     {
+        _aidl_return->push_back(
+         (::aidl::android::media::audio::common::AudioLatencyMode)palLatencyModeInfo->modes[count]);
+     }
+
+     return ret;
+}
+
+int Platform::setLatencyMode(uint32_t mode) {
+
+     int ret = 0;
+     auto palLatencyModeInfo = std::make_unique<pal_param_latency_mode_t>();
+     if (!palLatencyModeInfo) {
+         LOG(ERROR) << __func__ << ": allocation failed ";
+         return -ENOMEM;
+     }
+
+     palLatencyModeInfo->dev_id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
+     palLatencyModeInfo->num_modes = 1;
+     palLatencyModeInfo->modes[0] = (uint32_t)mode;
+
+     ret = pal_set_param(PAL_PARAM_ID_LATENCY_MODE,
+              (void *)palLatencyModeInfo.get(), sizeof(pal_param_latency_mode_t));
+
+     return ret;
+}
 // start of private
 bool Platform::getBtConfig(pal_param_bta2dp_t* bTConfig) {
     if (bTConfig == nullptr) {

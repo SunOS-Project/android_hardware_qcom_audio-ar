@@ -1423,7 +1423,7 @@ ndk::ScopedAStatus Module::getMmapPolicyInfos(AudioMMapPolicyType mmapPolicyType
 
 ndk::ScopedAStatus Module::supportsVariableLatency(bool* _aidl_return) {
     LOG(DEBUG) << __func__;
-    *_aidl_return = false;
+    *_aidl_return = true;
     return ndk::ScopedAStatus::ok();
 }
 
