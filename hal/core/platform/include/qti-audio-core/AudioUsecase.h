@@ -201,6 +201,12 @@ class CompressPlayback final {
     void setAndConfigure(pal_stream_handle_t* handle);
     void reconfigureOnFlush() const;
     void reconfigureOnPartialDrain() const;
+    // if fetched, when status is set, it resets the status
+    bool fetchDrainReady();
+    void setDrainReady();
+    // if fetched, when status is set, it resets the status
+    bool fetchTransferReady();
+    void setTransferReady();
     ndk::ScopedAStatus getVendorParameters(
             const std::vector<std::string>& in_ids,
             std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return);
@@ -235,6 +241,8 @@ class CompressPlayback final {
     ::aidl::android::media::audio::common::AudioFormatDescription mCompressFormat;
     ::aidl::android::media::audio::common::AudioChannelLayout mChannelLayout;
     int32_t mBitWidth;
+    std::atomic<bool> mIsDrainReady{false};
+    std::atomic<bool> mIsTransferReady{false};
 };
 
 class CompressCapture final {

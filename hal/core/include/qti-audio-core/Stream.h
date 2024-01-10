@@ -221,6 +221,10 @@ struct DriverInterface {
             ::aidl::android::hardware::audio::core::StreamDescriptor::Reply* /*reply*/) {
         return ::android::OK;
     }
+    /* only for meant for Asynchronus StreamOut*/
+    virtual bool isDrainReady() { return false; }
+    /* only for meant for Asynchronus StreamOut*/
+    virtual bool isTransferReady() { return false; }
     // This function is only called once.
     // Implementers must provide implementation to shutdown the platform resources
     virtual void shutdown() { return;}

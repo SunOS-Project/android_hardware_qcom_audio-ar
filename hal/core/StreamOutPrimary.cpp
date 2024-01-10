@@ -494,6 +494,26 @@ void StreamOutPrimary::shutdown() {
     LOG(VERBOSE) << __func__ << *this;
 }
 
+bool StreamOutPrimary::isDrainReady() {
+    if (!mPalHandle) {
+        return false;
+    }
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        return std::get<CompressPlayback>(mExt).fetchDrainReady();
+    }
+    return false;
+}
+
+bool StreamOutPrimary::isTransferReady() {
+    if (!mPalHandle) {
+        return false;
+    }
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        return std::get<CompressPlayback>(mExt).fetchTransferReady();
+    }
+    return false;
+}
+
 // end of DriverInterface Methods
 
 // start of IStreamOut Methods

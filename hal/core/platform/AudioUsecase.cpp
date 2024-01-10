@@ -350,6 +350,22 @@ ndk::ScopedAStatus CompressPlayback::getVendorParameters(
     return ndk::ScopedAStatus::ok();
 }
 
+bool CompressPlayback::fetchDrainReady() {
+    return mIsDrainReady.exchange(false);
+}
+
+void CompressPlayback::setDrainReady() {
+    mIsDrainReady.store(true);
+}
+
+bool CompressPlayback::fetchTransferReady() {
+    return mIsTransferReady.exchange(false);
+}
+
+void CompressPlayback::setTransferReady() {
+    mIsTransferReady.store(true);
+}
+
 // static
 int32_t CompressPlayback::palCallback(pal_stream_handle_t* palHandle, uint32_t eventId,
                                       uint32_t* eventData, uint32_t eventSize, uint64_t cookie) {
@@ -358,16 +374,19 @@ int32_t CompressPlayback::palCallback(pal_stream_handle_t* palHandle, uint32_t e
     switch (eventId) {
         case PAL_STREAM_CBK_EVENT_WRITE_READY: {
             LOG(VERBOSE) << __func__ << " ready to write";
+            compressPlayback->setTransferReady();
             compressPlayback->mAsyncCallback->onTransferReady();
         } break;
 
         case PAL_STREAM_CBK_EVENT_DRAIN_READY: {
             LOG(VERBOSE) << __func__ << " drain ready";
+            compressPlayback->setDrainReady();
             compressPlayback->mAsyncCallback->onDrainReady();
         } break;
         case PAL_STREAM_CBK_EVENT_PARTIAL_DRAIN_READY: {
             LOG(VERBOSE) << __func__ << " partial drain ready";
             compressPlayback->reconfigureOnPartialDrain();
+            compressPlayback->setDrainReady();
             compressPlayback->mAsyncCallback->onDrainReady();
         } break;
         case PAL_STREAM_CBK_EVENT_ERROR:

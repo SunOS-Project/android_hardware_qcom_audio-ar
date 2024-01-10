@@ -37,6 +37,8 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     ::android::status_t refinePosition(
             ::aidl::android::hardware::audio::core::StreamDescriptor::Reply*
             /*reply*/) override;
+    bool isDrainReady() override;
+    bool isTransferReady() override;
     void shutdown() override;
 
     // methods of StreamCommonInterface

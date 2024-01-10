@@ -352,29 +352,11 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
                 // In blocking mode, mState can only be DRAINING.
                 mState = StreamDescriptor::State::IDLE;
             } else {
-                // In a real implementation, the driver should notify the HAL
-                // about drain or transfer completion. In the stub, we switch
-                // unconditionally.
-                if (mState == StreamDescriptor::State::DRAINING) {
+                if (mState == StreamDescriptor::State::DRAINING && mDriver->isDrainReady()) {
                     mState = StreamDescriptor::State::IDLE;
-                    /*
-                    ndk::ScopedAStatus status = asyncCallback->onDrainReady();
-                    if (!status.isOk()) {
-                        LOG(ERROR) << __func__
-                                   << ": error from onDrainReady: " << status;
-                    }
-                    */
-                } else {
+                } else if (mState == StreamDescriptor::State::TRANSFERRING &&
+                           mDriver->isTransferReady()) {
                     mState = StreamDescriptor::State::ACTIVE;
-                    /*
-                    ndk::ScopedAStatus status =
-                        asyncCallback->onTransferReady();
-                    if (!status.isOk()) {
-                        LOG(ERROR)
-                            << __func__
-                            << ": error from onTransferReady: " << status;
-                    }
-                    */
                 }
             }
             if (mTransientStateDelayMs.count() != 0) {
