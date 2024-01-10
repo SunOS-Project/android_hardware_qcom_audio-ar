@@ -27,7 +27,7 @@
 # IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-service vendor.audioadsprpcd_audiopd /vendor/bin/audioadsprpcd audiopd
+service vendor.audioadsprpcd_audiopd /vendor/bin/audioadsprpcd audiopd adsp
    class main
    user media
    group media
