@@ -180,11 +180,9 @@ AUDIO_MODULES += \
 # sound trigger aidl library
 AUDIO_MODULES += libsoundtriggerhal.qti
 
-# enable Listen Sound Model hidl 1.0
+# enable Listen Sound Model aidl 1.0
 AUDIO_MODULES += \
-    vendor.qti.hardware.ListenSoundModel@1.0 \
-    vendor.qti.hardware.ListenSoundModel@1.0-impl
-
+    liblistensoundmodelaidl
 
 # AIDL Audio modules
 
