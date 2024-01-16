@@ -161,4 +161,10 @@ EFFECTS_DEFAULTS_HEADERS_LIBRARIES := \
     libaudioeffectsaidlqti_headers \
     libaudio_system_headers \
     libsystem_headers
+
+# add modules for fuzzing
+ifneq ($(filter audio,$(QC_HWASAN))$(filter hwaddress,$(SANITIZE_TARGET)),)
+AUDIO_MODULES += fuzz-audio-hal
+endif
+
 endif
