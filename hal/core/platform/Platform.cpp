@@ -4,10 +4,11 @@
  */
 
 #define LOG_NDEBUG 0
-#define LOG_TAG "AHAL_Platform"
+#define LOG_TAG "AHAL_Platform_QTI"
 
 #include <Utils.h>
 #include <android-base/logging.h>
+#include <android-base/properties.h>
 #include <cutils/str_parms.h>
 #include <hardware/audio.h>
 #include <qti-audio-core/AudioUsecase.h>
@@ -177,11 +178,10 @@ std::unique_ptr<pal_stream_attributes> Platform::getDefaultTelephonyAttributes()
 }
 
 void Platform::configurePalDevicesCustomKey(std::vector<pal_device>& palDevices,
-                                            const std::string& key) const {
+                                            const std::string& customKey) const {
     for (auto& palDevice : palDevices) {
-        strlcpy(palDevice.custom_config.custom_key, key.c_str(), key.size());
+        setPalDeviceCustomKey(palDevice, customKey);
     }
-    return;
 }
 
 bool Platform::setStreamMicMute(pal_stream_handle_t* streamHandlePtr, const bool muted) {
@@ -207,20 +207,78 @@ bool Platform::isScreenTurnedOn() const noexcept {
     return mIsScreenTurnedOn;
 }
 
-std::vector<pal_device> Platform::getPalDevices(const std::vector<AudioDevice>& setDevices) const {
-    if (setDevices.size() == 0) {
+void Platform::configurePalDevicesForHIFIPCMFilter(
+        std::vector<pal_device>& palDevices) const noexcept {
+    if (palDevices.size() == 0) {
+        return;
+    }
+
+    bool isEnabled = false;
+
+    auto getStatus = [&]() -> bool {
+        bool status = false;
+        bool* payLoad = &status;
+        size_t payLoadSize = 0;
+        if (int32_t ret =
+                    ::pal_get_param(PAL_PARAM_ID_HIFI_PCM_FILTER,
+                                    reinterpret_cast<void**>(&payLoad), &payLoadSize, nullptr);
+            ret) {
+            LOG(ERROR) << ": failed to get PAL_PARAM_ID_HIFI_PCM_FILTER status";
+            return false;
+        }
+        return status;
+    };
+
+    for (auto& palDevice : palDevices) {
+        if ((palDevice.id == PAL_DEVICE_OUT_WIRED_HEADSET ||
+             palDevice.id == PAL_DEVICE_OUT_WIRED_HEADPHONE)) {
+            if (!isEnabled) {
+                isEnabled = getStatus();
+            }
+            if (isEnabled) {
+                setPalDeviceCustomKey(palDevice, "hifi-filter_custom_key");
+            }
+        }
+    }
+}
+
+void Platform::customizePalDevices(const AudioPortConfig& mixPortConfig, const Usecase& tag,
+                                   std::vector<pal_device>& palDevices) const noexcept {
+    const auto& sampleRate = mixPortConfig.sampleRate.value().value;
+    if (sampleRate != 384000 && sampleRate != 352800) {
+        configurePalDevicesForHIFIPCMFilter(palDevices);
+    }
+}
+
+std::vector<pal_device> Platform::convertToPalDevices(
+        const std::vector<AudioDevice>& devices) const noexcept {
+    if (devices.size() == 0) {
         LOG(ERROR) << __func__ << " the set devices is empty";
         return {};
     }
-    std::vector<pal_device> palDevices{setDevices.size()};
+    std::vector<pal_device> palDevices{devices.size()};
 
     size_t i = 0;
-    for (auto& device : setDevices) {
+    for (auto& device : devices) {
         const auto palDeviceId = PlatformConverter::getPalDeviceId(device.type);
         if (palDeviceId == PAL_DEVICE_OUT_MIN) {
             return {};
         }
         palDevices[i].id = palDeviceId;
+
+        /* Todo map each AIDL device type to alteast one PAL device */
+        if (palDevices[i].id == PAL_DEVICE_OUT_SPEAKER &&
+            device.type.type == AudioDeviceType::OUT_SPEAKER_SAFE) {
+            setPalDeviceCustomKey(palDevices[i], "speaker-safe");
+        } else if (palDevices[i].id == PAL_DEVICE_OUT_SPEAKER &&
+                   device.type.type == AudioDeviceType::OUT_SPEAKER) {
+            const auto isMSPPEnabled =
+                    ::android::base::GetBoolProperty("vendor.audio.mspp.enable", false);
+            if (isMSPPEnabled) {
+                setPalDeviceCustomKey(palDevices[i], "mspp");
+            }
+        }
+
         palDevices[i].config.sample_rate = kDefaultOutputSampleRate;
         palDevices[i].config.bit_width = kDefaultPCMBidWidth;
         palDevices[i].config.aud_fmt_id = kDefaultPalPCMFormat;
@@ -234,32 +292,36 @@ std::vector<pal_device> Platform::getPalDevices(const std::vector<AudioDevice>& 
             }
             const auto& deviceAddressAlsa = deviceAddress.get<AudioDeviceAddress::Tag::alsa>();
             palDevices[i].address.card_id = deviceAddressAlsa[0];
-            palDevices[i].address.device_num = deviceAddressAlsa[0];
+            palDevices[i].address.device_num = deviceAddressAlsa[1];
         }
         i++;
     }
     return palDevices;
 }
 
-std::vector<uint8_t> Platform::getPalVolumeData(const std::vector<float>& in_channelVolumes) const {
-    const auto volumeSizes = in_channelVolumes.size();
-    if (volumeSizes == 0 || volumeSizes > 2) {
-        LOG(ERROR) << __func__ << "length channel volumes is" << std::to_string(volumeSizes);
+std::vector<pal_device> Platform::configureAndFetchPalDevices(
+        const AudioPortConfig& mixPortConfig, const Usecase& tag,
+        const std::vector<AudioDevice>& devices) const {
+    if (devices.size() == 0) {
+        LOG(ERROR) << __func__ << " the set devices is empty";
         return {};
     }
-    const auto dataLength = sizeof(pal_volume_data) + sizeof(pal_channel_vol_kv) * volumeSizes;
-    auto data = std::vector<uint8_t>(dataLength);
-    auto palVolumeData = reinterpret_cast<pal_volume_data*>(data.data());
-    palVolumeData->no_of_volpair = volumeSizes;
+    auto palDevices = convertToPalDevices(devices);
 
-    size_t i = 0;
-    for (auto& f : in_channelVolumes) {
-        palVolumeData->volume_pair[i].channel_mask = 0x1 << i;
-        palVolumeData->volume_pair[i].vol = f;
-        i++;
+    customizePalDevices(mixPortConfig,tag,palDevices);
+
+    return palDevices;
+}
+
+int Platform::setVolume(pal_stream_handle_t* handle, const std::vector<float>& volumes) const {
+    auto data = makePalVolumes(volumes);
+    if (data.empty()) {
+        LOG(ERROR) << __func__ << ": failed to configure volume";
+        return -1;
     }
+    auto palVolumeData = reinterpret_cast<pal_volume_data*>(data.data());
 
-    return data;
+    return ::pal_stream_set_volume(handle, palVolumeData);
 }
 
 std::unique_ptr<pal_buffer_config_t> Platform::getPalBufferConfig(const size_t bufferSize,
@@ -453,8 +515,7 @@ void Platform::setFTMSpeakerProtectionMode(uint32_t const heatUpTime, uint32_t c
                                            bool const isFactoryTest, bool const isValidationMode,
                                            bool const isDynamicCalibration) const noexcept {
     pal_spkr_prot_payload spPayload{
-            .spkrHeatupTime = heatUpTime,
-            .operationModeRunTime = runTime,
+            .spkrHeatupTime = heatUpTime, .operationModeRunTime = runTime,
     };
 
     if (isFactoryTest)
@@ -528,6 +589,29 @@ void Platform::updateScreenRotation(const IModule::ScreenRotation in_rotation) n
 
 IModule::ScreenRotation Platform::getCurrentScreenRotation() const noexcept {
     return mCurrentScreenRotation;
+}
+
+void Platform::setHapticsVolume(const float hapticsVolume) const noexcept {
+    auto data = makePalVolumes({hapticsVolume});
+    if (data.empty()) {
+        LOG(ERROR) << __func__ << ": failed to configure haptics volume";
+        return;
+    }
+    auto payloadPtr = reinterpret_cast<pal_volume_data*>(data.data());
+    if (int32_t ret = ::pal_set_param(PAL_PARAM_ID_HAPTICS_VOLUME, payloadPtr, data.size()); ret) {
+        LOG(ERROR) << __func__ << ": PAL_PARAM_ID_HAPTICS_VOLUME failed: " << ret;
+        return;
+    }
+}
+
+void Platform::setHapticsIntensity(const int hapticsIntensity) const noexcept {
+    pal_param_haptics_intensity_t paramHapticsIntensity{.intensity = hapticsIntensity};
+    if (int32_t ret = ::pal_set_param(PAL_PARAM_ID_HAPTICS_INTENSITY, &paramHapticsIntensity,
+                                      sizeof(pal_param_haptics_intensity_t));
+        ret) {
+        LOG(ERROR) << __func__ << ": PAL_PARAM_ID_HAPTICS_INTENSITY failed: " << ret;
+        return;
+    }
 }
 
 bool Platform::setVendorParameters(
@@ -943,7 +1027,11 @@ bool Platform::isA2dpSuspended() {
 PlaybackRateStatus Platform::setPlaybackRate(
         pal_stream_handle_t* handle, const Usecase& tag,
         const ::aidl::android::media::audio::common::AudioPlaybackRate& playbackRate) {
-    if (!usecaseSupportsOffloadSpeed(tag) || !isValidPlaybackRate(playbackRate)) {
+    if (!isValidPlaybackRate(playbackRate)) {
+        return PlaybackRateStatus::ILLEGAL_ARGUMENT;
+    }
+
+    if (!usecaseSupportsOffloadSpeed(tag)) {
         return PlaybackRateStatus::UNSUPPORTED;
     }
 
@@ -953,8 +1041,8 @@ PlaybackRateStatus Platform::setPlaybackRate(
     }
 
     auto allocSize = sizeof(pal_param_payload) + sizeof(pal_param_playback_rate_t);
-    auto payload = VALUE_OR_EXIT(allocate<pal_param_payload>(allocSize),
-                                 PlaybackRateStatus::ILLEGAL_ARGUMENT);
+    auto payload =
+            VALUE_OR_EXIT(allocate<pal_param_payload>(allocSize), PlaybackRateStatus::UNSUPPORTED);
     pal_param_payload* payloadPtr = payload.get();
     payloadPtr->payload_size = sizeof(pal_param_playback_rate_t);
 
@@ -964,11 +1052,62 @@ PlaybackRateStatus Platform::setPlaybackRate(
 
     if (auto ret = pal_stream_set_param(handle, PAL_PARAM_ID_TIMESTRETCH_PARAMS, payloadPtr); ret) {
         LOG(ERROR) << __func__ << " failed to set " << playbackRate.toString();
-        return PlaybackRateStatus::ILLEGAL_ARGUMENT;
+        return PlaybackRateStatus::UNSUPPORTED;
     }
     return PlaybackRateStatus::SUCCESS;
 }
 
+int Platform::getRecommendedLatencyModes(
+          std::vector<::aidl::android::media::audio::common::AudioLatencyMode>* _aidl_return) {
+
+     size_t size;
+     int ret = 0;
+     auto palLatencyModeInfo = std::make_unique<pal_param_latency_mode_t>();
+     if (!palLatencyModeInfo) {
+         LOG(ERROR) << __func__ << ": allocation failed ";
+         return -ENOMEM;
+     }
+
+     palLatencyModeInfo->dev_id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
+     palLatencyModeInfo->num_modes = PAL_MAX_LATENCY_MODES;
+     void *palLatencyModeInfoPtr = palLatencyModeInfo.get();
+
+     ret = pal_get_param(PAL_PARAM_ID_LATENCY_MODE,
+                        (void **)&palLatencyModeInfoPtr, &size, nullptr);
+     if (ret) {
+         LOG(ERROR) << __func__ << " get param latency mode failed";
+         return ret;
+     }
+
+     LOG(VERBOSE) << __func__ << " actual modes returned: " << palLatencyModeInfo->num_modes;
+
+     for (int count = 0; count < palLatencyModeInfo->num_modes; count++)
+     {
+        _aidl_return->push_back(
+         (::aidl::android::media::audio::common::AudioLatencyMode)palLatencyModeInfo->modes[count]);
+     }
+
+     return ret;
+}
+
+int Platform::setLatencyMode(uint32_t mode) {
+
+     int ret = 0;
+     auto palLatencyModeInfo = std::make_unique<pal_param_latency_mode_t>();
+     if (!palLatencyModeInfo) {
+         LOG(ERROR) << __func__ << ": allocation failed ";
+         return -ENOMEM;
+     }
+
+     palLatencyModeInfo->dev_id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
+     palLatencyModeInfo->num_modes = 1;
+     palLatencyModeInfo->modes[0] = (uint32_t)mode;
+
+     ret = pal_set_param(PAL_PARAM_ID_LATENCY_MODE,
+              (void *)palLatencyModeInfo.get(), sizeof(pal_param_latency_mode_t));
+
+     return ret;
+}
 // start of private
 bool Platform::getBtConfig(pal_param_bta2dp_t* bTConfig) {
     if (bTConfig == nullptr) {

@@ -4,7 +4,7 @@
  */
 
 #define LOG_NDEBUG 0
-#define LOG_TAG "AHAL_Platform"
+#define LOG_TAG "AHAL_PlatformUtils_QTI"
 
 #include <Utils.h>
 #include <android-base/logging.h>
@@ -22,6 +22,8 @@ using ::aidl::android::media::audio::common::AudioFormatType;
 using ::aidl::android::media::audio::common::AudioProfile;
 using ::aidl::android::media::audio::common::PcmType;
 using ::aidl::android::media::audio::common::AudioPlaybackRate;
+using ::aidl::android::hardware::audio::core::VendorParameter;
+using ::aidl::qti::audio::core::VString;
 
 namespace qti::audio::core {
 
@@ -180,14 +182,17 @@ std::vector<AudioProfile> getSupportedAudioProfiles(pal_param_device_capability_
 
 bool isValidPlaybackRate(
         const ::aidl::android::media::audio::common::AudioPlaybackRate& playbackRate) {
-    if (playbackRate.speed < 0.1f || playbackRate.speed > 2.0f) {
-        LOG(ERROR) << __func__ << ": unsupported speed " << playbackRate.toString();
-        return false;
-    }
+    // For fallback mode MUTE, out of range values should not be rejected.
+    if (playbackRate.fallbackMode != AudioPlaybackRate::TimestretchFallbackMode::MUTE) {
+        if (playbackRate.speed < 0.1f || playbackRate.speed > 2.0f) {
+            LOG(ERROR) << __func__ << ": unsupported speed " << playbackRate.toString();
+            return false;
+        }
 
-    if (playbackRate.pitch != 1.0f) {
-        LOG(ERROR) << __func__ << ": unsupported pitch " << playbackRate.toString();
-        return false;
+        if (playbackRate.pitch != 1.0f) {
+            LOG(ERROR) << __func__ << ": unsupported pitch " << playbackRate.toString();
+            return false;
+        }
     }
 
     auto isValidStretchMode = [=](const auto& stretchMode) {
@@ -201,9 +206,7 @@ bool isValidPlaybackRate(
     }
 
     auto isValidFallbackMode = [=](const auto& fallMode) {
-        return (fallMode == AudioPlaybackRate::TimestretchFallbackMode::SYS_RESERVED_DEFAULT ||
-                fallMode == AudioPlaybackRate::TimestretchFallbackMode::SYS_RESERVED_CUT_REPEAT ||
-                fallMode == AudioPlaybackRate::TimestretchFallbackMode::MUTE ||
+        return (fallMode == AudioPlaybackRate::TimestretchFallbackMode::MUTE ||
                 fallMode == AudioPlaybackRate::TimestretchFallbackMode::FAIL);
     };
 
@@ -213,6 +216,39 @@ bool isValidPlaybackRate(
     }
 
     return true;
+}
+
+void setPalDeviceCustomKey(pal_device& palDevice, const std::string& customKey) noexcept {
+    strlcpy(palDevice.custom_config.custom_key, customKey.c_str(), PAL_MAX_CUSTOM_KEY_SIZE);
+}
+
+VendorParameter constructVendorParameter(const std::string& id, const std::string& value) noexcept {
+    VString parcel;
+    parcel.value = value;
+    VendorParameter param;
+    param.id = id;
+    if (param.ext.setParcelable(parcel) != android::OK) {
+        LOG(ERROR) << __func__ << ": failed to set parcel for " << param.id;
+    }
+    return std::move(param);
+}
+
+std::vector<uint8_t> makePalVolumes(std::vector<float> const& volumes) noexcept {
+    if (volumes.empty()) {
+        return {};
+    }
+    const auto dataLength = sizeof(pal_volume_data) + sizeof(pal_channel_vol_kv) * volumes.size();
+    auto data = std::vector<uint8_t>(dataLength);
+    auto palVolumeData = reinterpret_cast<pal_volume_data*>(data.data());
+    palVolumeData->no_of_volpair = volumes.size();
+
+    size_t index = 0;
+    for (const auto& volume : volumes) {
+        palVolumeData->volume_pair[index].channel_mask = 0x1 << index;
+        palVolumeData->volume_pair[index].vol = volume;
+        index++;
+    }
+    return data;
 }
 
 } // namespace qti::audio::core

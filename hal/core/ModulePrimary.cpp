@@ -22,7 +22,7 @@
 
 #include <vector>
 
-#define LOG_TAG "AHAL_QModulePri"
+#define LOG_TAG "AHAL_ModulePrimary_QTI"
 #include <Utils.h>
 #include <android-base/logging.h>
 #include <cutils/str_parms.h>
@@ -217,7 +217,7 @@ ndk::ScopedAStatus ModulePrimary::createInputStream(StreamContext&& context,
     createStreamInstance<StreamInPrimary>(result, std::move(context), sinkMetadata, microphones);
     ModulePrimary::inListMutex.lock();
     ModulePrimary::updateStreamInList(*result);
-    if (!mTelephony) mTelephony->mStreamInPrimary = *result;
+    if (mTelephony) mTelephony->mStreamInPrimary = *result;
     ModulePrimary::inListMutex.unlock();
     return ndk::ScopedAStatus::ok();
 }
@@ -229,7 +229,7 @@ ndk::ScopedAStatus ModulePrimary::createOutputStream(
     ModulePrimary::outListMutex.lock();
     ModulePrimary::updateStreamOutList(*result);
     // save primary out stream weak ptr, as some other modules need it.
-    if (!mTelephony) mTelephony->mStreamOutPrimary = *result;
+    if (mTelephony) mTelephony->mStreamOutPrimary = *result;
     ModulePrimary::outListMutex.unlock();
     return ndk::ScopedAStatus::ok();
 }
@@ -290,7 +290,7 @@ void ModulePrimary::updateTelephonyPatch(const std::vector<AudioPortConfig*>& so
     }
 
     // Todo uncomment below ,upon device to device patch works for telephony
-    //mTelephony->setDevicesFromPatch(devices, updateRx);
+    // mTelephony->setDevicesFromPatch(devices, updateRx);
     LOG(VERBOSE) << __func__ << ": device to device patch, " << patch.toString();
     return;
 }
@@ -305,7 +305,14 @@ void ModulePrimary::onExternalDeviceConnectionChanged(
 
 ndk::ScopedAStatus ModulePrimary::getSupportedPlaybackRateFactors(
         SupportedPlaybackRateFactors* _aidl_return) {
-    // TODO, based on mOffloadSpeedSupported
+    LOG(DEBUG) << __func__ << " speed supported " << mOffloadSpeedSupported;
+    if (mOffloadSpeedSupported) {
+        _aidl_return->minSpeed = 0.1f;
+        _aidl_return->maxSpeed = 2.0f;
+        _aidl_return->minPitch = 1.0f;
+        _aidl_return->maxPitch = 1.0f;
+        return ndk::ScopedAStatus::ok();
+    }
     return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
 }
 // start of module parameters handling
@@ -430,6 +437,8 @@ void ModulePrimary::onSetTelephonyParameters(const std::vector<VendorParameter>&
             isSetUpdate = true;
         } else if (Parameters::kVoiceCRSCall == p.id) {
             setUpdates.mIsCrsCall = paramValue == "true" ? true : false;
+        } else if (Parameters::kVoiceCRSVolume == p.id) {
+            mTelephony->setCRSVolumeFromIndex(getInt64FromString(paramValue));
         } else if (Parameters::kVolumeBoost == p.id) {
             const bool enable = paramValue == "on" ? true : false;
             mTelephony->updateVolumeBoost(enable);
@@ -499,7 +508,7 @@ void ModulePrimary::onSetFTMParameters(const std::vector<VendorParameter>& param
         mPlatform.setFTMSpeakerProtectionMode(static_cast<uint32_t>(getInt64FromString(heatTime)),
                                               static_cast<uint32_t>(getInt64FromString(runTime)),
                                               true, false, false);
-    } else if(itrForValiWaitTime != parameters.cend() && itrForValiValiTime != parameters.cend()){
+    } else if (itrForValiWaitTime != parameters.cend() && itrForValiValiTime != parameters.cend()) {
         std::string heatTime{}, runTime{};
         if ((!extractParameter<VString>(*itrForValiWaitTime, &heatTime)) ||
             (!extractParameter<VString>(*itrForValiValiTime, &runTime))) {
@@ -516,6 +525,24 @@ void ModulePrimary::onSetFTMParameters(const std::vector<VendorParameter>& param
     return;
 }
 
+void ModulePrimary::onSetHapticsParameters(const std::vector<VendorParameter>& parameters) {
+    for (const auto& param : parameters) {
+        std::string paramValue{};
+        if (!extractParameter<VString>(param, &paramValue)) {
+            LOG(ERROR) << ": extraction failed for " << param.id;
+            continue;
+        }
+        if (Parameters::kHapticsVolume == param.id) {
+            const float hapticsVolume = getFloatFromString(paramValue);
+            mPlatform.setHapticsVolume(hapticsVolume);
+        } else if (Parameters::kHapticsIntensity == param.id) {
+            const int hapticsIntensity = getInt64FromString(paramValue);
+            mPlatform.setHapticsIntensity(hapticsIntensity);
+        }
+    }
+    return;
+}
+
 // static
 ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeatureMap() {
     SetParameterToFeatureMap map{{Parameters::kHdrRecord, Feature::HDR},
@@ -529,6 +556,7 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
                                  {Parameters::kVoiceCallType, Feature::TELEPHONY},
                                  {Parameters::kVoiceVSID, Feature::TELEPHONY},
                                  {Parameters::kVoiceCRSCall, Feature::TELEPHONY},
+                                 {Parameters::kVoiceCRSVolume, Feature::TELEPHONY},
                                  {Parameters::kVolumeBoost, Feature::TELEPHONY},
                                  {Parameters::kVoiceSlowTalk, Feature::TELEPHONY},
                                  {Parameters::kVoiceHDVoice, Feature::TELEPHONY},
@@ -541,7 +569,9 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
                                  {Parameters::kFbspValiWaitTime, Feature::FTM},
                                  {Parameters::kFbspValiValiTime, Feature::FTM},
                                  {Parameters::kTriggerSpeakerCall, Feature::FTM},
-                                 {Parameters::kWfdChannelMap, Feature::WFD}};
+                                 {Parameters::kWfdChannelMap, Feature::WFD},
+                                 {Parameters::kHapticsVolume, Feature::HAPTICS},
+                                 {Parameters::kHapticsIntensity, Feature::HAPTICS}};
     return map;
 }
 
@@ -553,6 +583,7 @@ ModulePrimary::FeatureToSetHandlerMap ModulePrimary::fillFeatureToSetHandlerMap(
             {Feature::TELEPHONY, &ModulePrimary::onSetTelephonyParameters},
             {Feature::WFD, &ModulePrimary::onSetWFDParameters},
             {Feature::FTM, &ModulePrimary::onSetFTMParameters},
+            {Feature::HAPTICS, &ModulePrimary::onSetHapticsParameters},
     };
     return map;
 }

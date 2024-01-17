@@ -61,6 +61,13 @@ std::vector<int> getSampleRatesFromProfile(pal_param_device_capability_t* capabi
 AudioChannelLayout getChannelIndexMaskFromChannelCount(unsigned int channelCount);
 AudioChannelLayout getChannelLayoutMaskFromChannelCount(unsigned int channelCount, int isInput);
 
+void setPalDeviceCustomKey(pal_device& palDevice, const std::string& customKey) noexcept;
+
+::aidl::android::hardware::audio::core::VendorParameter constructVendorParameter(
+        const std::string& id, const std::string& value) noexcept;
+
+std::vector<uint8_t> makePalVolumes(std::vector<float> const& volumes) noexcept;
+
 /*
 * validates if the playback rate parameters are valid
 */

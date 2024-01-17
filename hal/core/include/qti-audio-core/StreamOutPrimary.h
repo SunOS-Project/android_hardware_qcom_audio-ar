@@ -80,6 +80,11 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
 
     void onClose() override { defaultOnClose(); }
 
+    ndk::ScopedAStatus setLatencyMode(
+                           ::aidl::android::media::audio::common::AudioLatencyMode in_mode) override;
+    ndk::ScopedAStatus getRecommendedLatencyModes(
+        std::vector<::aidl::android::media::audio::common::AudioLatencyMode>* _aidl_return) override;
+
     bool isStreamOutPrimary() { return (mTag == Usecase::PRIMARY_PLAYBACK) ? true : false; }
     static std::mutex sourceMetadata_mutex_;
 
@@ -102,11 +107,14 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     const size_t mFrameSizeBytes;
     bool mIsPaused{false};
     std::vector<float> mVolumes{};
-
+    bool mHwVolumeSupported = false;
     // check validaty of mPalHandle before use
     pal_stream_handle_t* mPalHandle{nullptr};
     static constexpr ::aidl::android::media::audio::common::AudioPlaybackRate sDefaultPlaybackRate =
-            {.speed = 1.0f, .pitch = 1.0f};
+            {.speed = 1.0f,
+             .pitch = 1.0f,
+             .fallbackMode = ::aidl::android::media::audio::common::AudioPlaybackRate::
+                     TimestretchFallbackMode::FAIL};
 
     ::aidl::android::media::audio::common::AudioPlaybackRate mPlaybackRate;
 

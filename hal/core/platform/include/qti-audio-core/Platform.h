@@ -67,10 +67,23 @@ class Platform {
     std::unique_ptr<pal_stream_attributes> getPalStreamAttributes(
             const ::aidl::android::media::audio::common::AudioPortConfig& portConfig,
             const bool isInput) const;
-    std::vector<pal_device> getPalDevices(
+    std::vector<pal_device> convertToPalDevices(
+            const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices)
+            const noexcept;
+    std::vector<pal_device> configureAndFetchPalDevices(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
+            const Usecase& tag,
             const std::vector<::aidl::android::media::audio::common::AudioDevice>& setDevices)
             const;
-    std::vector<uint8_t> getPalVolumeData(const std::vector<float>& in_channelVolumes) const;
+
+    /*
+    * @brief creates a pal payload for a pal volume and sets to PAL
+    * @param handle : valid pal stream handle
+    * @param volumes vector of volumes in floats
+    * return 0 in success, error code otherwise
+    */
+    int setVolume(pal_stream_handle_t* handle, const std::vector<float>& volumes) const;
+
     std::unique_ptr<pal_buffer_config_t> getPalBufferConfig(const size_t bufferSize,
                                                             const size_t bufferCount) const;
     std::vector<::aidl::android::media::audio::common::AudioProfile> getDynamicProfiles(
@@ -83,7 +96,7 @@ class Platform {
                     bluetoothDevices);
     std::unique_ptr<pal_stream_attributes> getDefaultTelephonyAttributes() const;
     void configurePalDevicesCustomKey(std::vector<pal_device>& palDevices,
-                                      const std::string& key) const;
+                                      const std::string& customKey) const;
 
     bool setStreamMicMute(pal_stream_handle_t* streamHandlePtr, const bool muted);
     bool updateScreenState(const bool isTurnedOn) noexcept;
@@ -125,6 +138,9 @@ class Platform {
     void setWFDProxyChannels(const uint32_t numProxyChannels) noexcept;
     uint32_t getWFDProxyChannels() const noexcept;
 
+    void setHapticsVolume(const float hapticsVolume) const noexcept;
+    void setHapticsIntensity(const int hapticsIntensity) const noexcept;
+
     void updateUHQA(const bool enable) noexcept;
     bool isUHQAEnabled() const noexcept;
     void setFTMSpeakerProtectionMode(uint32_t const heatUpTime, uint32_t const runTime,
@@ -144,8 +160,15 @@ class Platform {
     }
 
     bool isOffload(const Usecase& tag) { return tag == Usecase::COMPRESS_OFFLOAD_PLAYBACK; }
+    int setLatencyMode(uint32_t mode);
+    int getRecommendedLatencyModes(
+          std::vector<::aidl::android::media::audio::common::AudioLatencyMode>* _aidl_return);
 
   private:
+    void customizePalDevices(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
+            const Usecase& tag, std::vector<pal_device>& palDevices) const noexcept;
+    void configurePalDevicesForHIFIPCMFilter(std::vector<pal_device>&) const noexcept;
     bool getBtConfig(pal_param_bta2dp_t* bTConfig);
     std::vector<::aidl::android::media::audio::common::AudioProfile> getUsbProfiles(
             const ::aidl::android::media::audio::common::AudioPort& port) const;

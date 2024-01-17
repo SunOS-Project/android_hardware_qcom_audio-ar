@@ -20,7 +20,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL_Bluetooth"
+#define LOG_TAG "AHAL_Bluetooth_QTI"
 #include <android-base/logging.h>
 #include <cutils/properties.h>
 #include <qti-audio-core/Bluetooth.h>

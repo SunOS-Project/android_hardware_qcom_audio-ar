@@ -32,7 +32,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL: FM"
+#define LOG_TAG "AHAL_FM_QTI"
 #define LOG_NDDEBUG 0
 
 #include <android-base/logging.h>

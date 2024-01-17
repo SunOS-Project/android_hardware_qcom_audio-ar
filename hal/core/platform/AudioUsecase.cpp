@@ -2,7 +2,7 @@
  * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
-#define LOG_TAG "AHAL_Usecase"
+#define LOG_TAG "AHAL_Usecase_QTI"
 
 #include <Utils.h>
 #include <aidl/qti/audio/core/VString.h>
@@ -26,6 +26,7 @@ using ::aidl::android::hardware::audio::common::getPcmSampleSizeInBytes;
 using ::aidl::android::media::audio::common::AudioPortConfig;
 using ::aidl::android::media::audio::common::AudioPortExt;
 using ::aidl::android::media::audio::common::AudioPortMixExtUseCase;
+using ::aidl::android::hardware::audio::core::VendorParameter;
 
 namespace qti::audio::core {
 
@@ -138,7 +139,7 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
             tag = Usecase::HOTWORD_RECORD;
         }
     }
-    LOG(VERBOSE) << __func__ << " choosen tag:" << getName(tag) << " for mix port config "
+    LOG(VERBOSE) << __func__ << " choosen " << getName(tag) << " for mix port config "
                  << mixPortConfig.toString();
     return tag;
 }
@@ -148,41 +149,41 @@ std::string getName(const Usecase tag) {
         case Usecase::INVALID:
             return "INVALID";
         case Usecase::PRIMARY_PLAYBACK:
-            return "usecase(0:PRIMARY_PLAYBACK)";
+            return "PRIMARY_PLAYBACK";
         case Usecase::DEEP_BUFFER_PLAYBACK:
-            return "usecase(1:DEEP_BUFFER_PLAYBACK)";
+            return "DEEP_BUFFER_PLAYBACK";
         case Usecase::LOW_LATENCY_PLAYBACK:
-            return "usecase(2:LOW_LATENCY_PLAYBACK)";
+            return "LOW_LATENCY_PLAYBACK";
         case Usecase::PCM_RECORD:
-            return "usecase(3:PCM_RECORD)";
+            return "PCM_RECORD";
         case Usecase::COMPRESS_OFFLOAD_PLAYBACK:
-            return "usecase(4:COMPRESS_OFFLOAD_PLAYBACK)";
+            return "COMPRESS_OFFLOAD_PLAYBACK";
         case Usecase::COMPRESS_CAPTURE:
-            return "usecase(5:COMPRESS_CAPTURE)";
+            return "COMPRESS_CAPTURE";
         case Usecase::PCM_OFFLOAD_PLAYBACK:
-            return "usecase(6:PCM_OFFLOAD_PLAYBACK)";
+            return "PCM_OFFLOAD_PLAYBACK";
         case Usecase::VOIP_PLAYBACK:
-            return "usecase(7:VOIP_PLAYBACK)";
+            return "VOIP_PLAYBACK";
         case Usecase::SPATIAL_PLAYBACK:
-            return "usecase(8:SPATIAL_PLAYBACK)";
+            return "SPATIAL_PLAYBACK";
         case Usecase::VOIP_RECORD:
-            return "usecase(9:VOIP_RECORD)";
+            return "VOIP_RECORD";
         case Usecase::ULL_PLAYBACK:
-            return "usecase(10:ULL_PLAYBACK)";
+            return "ULL_PLAYBACK";
         case Usecase::MMAP_PLAYBACK:
-            return "usecase(11:MMAP_PLAYBACK)";
+            return "MMAP_PLAYBACK";
         case Usecase::MMAP_RECORD:
-            return "usecase(12:MMAP_RECORD)";
+            return "MMAP_RECORD";
         case Usecase::VOICE_CALL_RECORD:
-            return "usecase(13:VOICE_CALL_RECORD)";
+            return "VOICE_CALL_RECORD";
         case Usecase::IN_CALL_MUSIC:
-            return "usecase(14:IN_CALL_MUSIC)";
+            return "IN_CALL_MUSIC";
         case Usecase::FAST_RECORD:
-            return "usecase(15:FAST_RECORD)";
+            return "FAST_RECORD";
         case Usecase::ULTRA_FAST_RECORD:
-            return "usecase(16:ULTRA_FAST_RECORD)";
+            return "ULTRA_FAST_RECORD";
         case Usecase::HOTWORD_RECORD:
-            return "usecase(17:HOTWORD_RECORD)";
+            return "HOTWORD_RECORD";
         default:
             return std::to_string(static_cast<uint16_t>(tag));
     }
@@ -384,7 +385,7 @@ ndk::ScopedAStatus CompressPlayback::setVendorParameters(
             mPalSndDec.flac_dec.max_frame_size = value.value();
         }
         // exception
-        auto bitWidth = mCompressBitWidth == 32 ? 24 : mCompressBitWidth;
+        mPalSndDec.flac_dec.sample_size = (mBitWidth == 32) ? 24 : mBitWidth;
     } else if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_ALAC) {
         if (auto value = getIntValueFromVString(in_parameters, Alac::kFrameLength); value) {
             mPalSndDec.alac_dec.frame_length = value.value();
@@ -542,8 +543,35 @@ ndk::ScopedAStatus CompressPlayback::setVendorParameters(
             mPalSndDec.opus_dec.channel_map[7] = value.value();
         }
         mPalSndDec.opus_dec.sample_rate = mSampleRate;
+    } else {
+        if (auto value = getIntValueFromVString(in_parameters, kDelaySamples); value) {
+            mGapLessMetadata.encoderDelay = value.value();
+        }
+        if (auto value = getIntValueFromVString(in_parameters, kPaddingSamples); value) {
+            mGapLessMetadata.encoderPadding = value.value();
+        }
     }
     return ndk::ScopedAStatus::ok();
+}
+
+void CompressPlayback::configureGapLessMetadata() const {
+    if (mCompressPlaybackHandle == nullptr) {
+        return;
+    }
+    const auto payloadSize = sizeof(pal_param_payload);
+    const auto kGapLessSize = sizeof(pal_compr_gapless_mdata);
+    auto dataPtr = std::make_unique<uint8_t[]>(payloadSize + kGapLessSize);
+    auto payloadPtr = reinterpret_cast<pal_param_payload*>(dataPtr.get());
+    payloadPtr->payload_size = kGapLessSize;
+    auto gapLessPtr = reinterpret_cast<pal_compr_gapless_mdata*>(dataPtr.get() + payloadSize);
+    *gapLessPtr = mGapLessMetadata;
+
+    if (int32_t ret = ::pal_stream_set_param(mCompressPlaybackHandle, PAL_PARAM_ID_GAPLESS_MDATA,
+                                             payloadPtr);
+        ret) {
+        LOG(ERROR) << __func__ << ": failed PAL_PARAM_ID_GAPLESS_MDATA!! ret:" << ret;
+        return;
+    }
 }
 
 void CompressPlayback::updateOffloadMetadata(
@@ -676,8 +704,18 @@ ndk::ScopedAStatus CompressCapture::setVendorParameters(
 }
 
 ndk::ScopedAStatus CompressCapture::getVendorParameters(
-        const std::vector<std::string>& in_ids,
-        std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return) {
+        const std::vector<std::string>& in_ids, std::vector<VendorParameter>* _aidl_return) {
+    std::vector<VendorParameter> result;
+    for (const auto& id : in_ids) {
+        if (id == Aac::kDSPAacBitRate) {
+            result.emplace_back(
+                    constructVendorParameter(id, std::to_string(mPalSndEnc.aac_enc.aac_bit_rate)));
+        } else if (id == Aac::kDSPAacGlobalCutoffFrequency) {
+            result.emplace_back(constructVendorParameter(
+                    id, std::to_string(mPalSndEnc.aac_enc.global_cutoff_freq)));
+        }
+    }
+    *_aidl_return = result;
     return ndk::ScopedAStatus::ok();
 }
 

@@ -56,12 +56,13 @@ const static std::string kTriggerSpeakerCall{"trigger_spkr_cal"};
 const static std::string kFTMParam{"get_ftm_param"};
 const static std::string kFTMSPKRParam{"get_spkr_cal"};
 
-// others
-const static std::string kHapticsIntensity{"haptics_intensity"};
-
 // Audio Extn
 const static std::string kFMStatus{"fm_status"};
 
 // Bluetooth
 const static std::string kA2dpSuspended{"A2dpSuspended"};
+
+// Haptics
+const static std::string kHapticsVolume{"haptics_volume"};
+const static std::string kHapticsIntensity{"haptics_intensity"};
 }; // namespace qti::audio::core::Parameters

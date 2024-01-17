@@ -22,7 +22,7 @@
 
 #include <cmath>
 
-#define LOG_TAG "AHAL_QStreamStub"
+#define LOG_TAG "AHAL_StreamStub_QTI"
 
 #include <android-base/logging.h>
 #include <audio_utils/clock.h>

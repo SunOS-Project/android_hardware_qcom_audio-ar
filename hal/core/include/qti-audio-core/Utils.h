@@ -48,11 +48,15 @@ bool isBluetoothDevice(const ::aidl::android::media::audio::common::AudioDevice&
 
 bool hasBluetoothDevice(const std::vector<::aidl::android::media::audio::common::AudioDevice>&) noexcept;
 
-bool isInputMMap(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
+bool isBluetoothA2dpDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
 
-bool isOutputMMap(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
+bool hasBluetoothA2dpDevice(const std::vector<::aidl::android::media::audio::common::AudioDevice>&) noexcept;
 
-bool isMMap(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
+bool hasInputMMapFlag(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
+
+bool hasOutputMMapFlag(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
+
+bool hasMMapFlagsEnabled(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
 
 bool isInputAFEProxyDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
 
@@ -78,6 +82,8 @@ bool operator==(const std::vector<T>& left, const std::vector<T>& right) noexcep
 }
 
 int64_t getInt64FromString(const std::string& s) noexcept;
+
+float getFloatFromString(const std::string& s) noexcept;
 
 bool getBoolFromString(const std::string& s) noexcept;
 

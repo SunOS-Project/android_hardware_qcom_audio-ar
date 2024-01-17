@@ -20,7 +20,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL_QStream"
+#define LOG_TAG "AHAL_Stream_QTI"
 #include <Utils.h>
 
 #include <android-base/logging.h>

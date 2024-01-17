@@ -10,6 +10,8 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
             method="registerService" mandatory="true"/>
     <library name = "audiohal" libraryName="libaudiocorehal.qti.so"
             method="registerServices" mandatory="true"/>
+    <library name = "listenSoundModel" libraryName="liblistensoundmodelaidl.so"
+            method="registerService" mandatory="false"/>
     <library name = "audioeffecthal" libraryName="libaudioeffecthal.qti.so"
             method="registerService" mandatory="true"/>
     <library name = "sthal" libraryName="libsoundtriggerhal.qti.so"

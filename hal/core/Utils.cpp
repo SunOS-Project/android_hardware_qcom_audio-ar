@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#define LOG_TAG "AHAL_QUtils"
+#define LOG_TAG "AHAL_Utils_QTI"
 
 #include <android-base/logging.h>
 #include <qti-audio-core/Utils.h>
@@ -57,7 +57,16 @@ bool hasBluetoothDevice(const std::vector<AudioDevice>& devices) noexcept {
     return itr != devices.cend();
 }
 
-bool isInputMMap(const AudioIoFlags& ioFlags) noexcept {
+bool isBluetoothA2dpDevice(const AudioDevice& device) noexcept {
+    return (device.type.connection == AudioDeviceDescription::CONNECTION_BT_A2DP);
+}
+
+bool hasBluetoothA2dpDevice(const std::vector<AudioDevice>& devices) noexcept {
+    auto itr = std::find_if(devices.cbegin(), devices.cend(), isBluetoothA2dpDevice);
+    return itr != devices.cend();
+}
+
+bool hasInputMMapFlag(const AudioIoFlags& ioFlags) noexcept {
     if (ioFlags.getTag() == AudioIoFlags::Tag::input) {
         constexpr auto inputMMapFlag = static_cast<int32_t>(
             1 << static_cast<int32_t>(AudioInputFlags::MMAP_NOIRQ));
@@ -66,7 +75,7 @@ bool isInputMMap(const AudioIoFlags& ioFlags) noexcept {
     return false;
 }
 
-bool isOutputMMap(const AudioIoFlags& ioFlags) noexcept {
+bool hasOutputMMapFlag(const AudioIoFlags& ioFlags) noexcept {
     if (ioFlags.getTag() == AudioIoFlags::Tag::output) {
         constexpr auto outputMMapFlag = static_cast<int32_t>(
             1 << static_cast<int32_t>(AudioOutputFlags::MMAP_NOIRQ));
@@ -76,8 +85,8 @@ bool isOutputMMap(const AudioIoFlags& ioFlags) noexcept {
     return false;
 }
 
-bool isMMap(const AudioIoFlags& ioFlags) noexcept {
-    return (isInputMMap(ioFlags) || isOutputMMap(ioFlags));
+bool hasMMapFlagsEnabled(const AudioIoFlags& ioFlags) noexcept {
+    return (hasInputMMapFlag(ioFlags) || hasOutputMMapFlag(ioFlags));
 }
 
 bool isInputAFEProxyDevice(const AudioDevice& device) noexcept {
@@ -98,6 +107,11 @@ std::vector<int32_t> getActiveInputMixPortConfigIds(
 int64_t getInt64FromString(const std::string& s) noexcept {
     // Todo handle actual value 0
     return static_cast<int64_t>(strtol(s.c_str(), nullptr, 10));
+}
+
+float getFloatFromString(const std::string& s) noexcept {
+    // Todo handle actual value 0
+    return strtof(s.c_str(), nullptr);
 }
 
 bool getBoolFromString(const std::string& s) noexcept {

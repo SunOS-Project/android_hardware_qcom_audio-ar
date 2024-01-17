@@ -23,7 +23,7 @@
 #include <algorithm>
 #include <set>
 
-#define LOG_TAG "AHAL_QModule"
+#define LOG_TAG "AHAL_Module_QTI"
 
 #include <Utils.h>
 #include <aidl/android/media/audio/common/AudioInputFlags.h>
@@ -478,6 +478,33 @@ std::vector<::aidl::android::media::audio::common::AudioProfile> Module::getDyna
     return {};
 }
 
+void Module::onPrepareToDisconnectExternalDevice(
+        const ::aidl::android::media::audio::common::AudioPort& audioPort __unused) {
+    LOG(DEBUG) << __func__ << ": do nothing and return";
+}
+
+ndk::ScopedAStatus Module::prepareToDisconnectExternalDevice(int32_t in_portId) {
+    auto& ports = getConfig().ports;
+    auto portIt = findById<AudioPort>(ports, in_portId);
+    if (portIt == ports.end()) {
+        LOG(ERROR) << __func__ << ": port id " << in_portId << " not found";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+    if (portIt->ext.getTag() != AudioPortExt::Tag::device) {
+        LOG(ERROR) << __func__ << ": port id " << in_portId << " is not a device port";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+    auto connectedPortsIt = mConnectedDevicePorts.find(in_portId);
+    if (connectedPortsIt == mConnectedDevicePorts.end()) {
+        LOG(ERROR) << __func__ << ": port id " << in_portId << " is not a connected device port";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
+
+    onPrepareToDisconnectExternalDevice(*portIt);
+
+    return ndk::ScopedAStatus::ok();
+}
+
 ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdAndAdditionalData,
                                                  AudioPort* _aidl_return) {
     LOG(DEBUG) << __func__
@@ -755,13 +782,12 @@ ndk::ScopedAStatus Module::openInputStream(const OpenInputStreamArguments& in_ar
                 streamWrapper.setConnectedDevices(findConnectedDevices(in_args.portConfigId)));
     }
 
-    if (isInputMMap(port->flags)) {
+    if (hasInputMMapFlag(port->flags)) {
         int32_t fd, mmapFlags, bufferSizeFrames;
         int64_t burstSizeFrames;
-        RETURN_STATUS_IF_ERROR(streamWrapper.configureMMapStream(
-            &fd, &burstSizeFrames, &mmapFlags, &bufferSizeFrames));
-        _aidl_return->desc.audio
-            .set<StreamDescriptor::AudioBuffer::Tag::mmap>();
+        RETURN_STATUS_IF_ERROR(streamWrapper.configureMMapStream(&fd, &burstSizeFrames, &mmapFlags,
+                                                                 &bufferSizeFrames));
+        _aidl_return->desc.audio.set<StreamDescriptor::AudioBuffer::Tag::mmap>();
         auto& mmapRef = _aidl_return->desc.audio
                             .get<StreamDescriptor::AudioBuffer::Tag::mmap>();
         mmapRef.sharedMemory.fd = ndk::ScopedFileDescriptor{fd};
@@ -816,15 +842,14 @@ ndk::ScopedAStatus Module::openOutputStream(const OpenOutputStreamArguments& in_
                 streamWrapper.setConnectedDevices(findConnectedDevices(in_args.portConfigId)));
     }
 
-    if (isOutputMMap(port->flags)) {
+    if (hasOutputMMapFlag(port->flags)) {
         int32_t fd, mmapFlags, bufferSizeFrames;
         int64_t burstSizeFrames;
-        RETURN_STATUS_IF_ERROR(streamWrapper.configureMMapStream(
-            &fd, &burstSizeFrames, &mmapFlags, &bufferSizeFrames));
-        _aidl_return->desc.audio
-            .set<StreamDescriptor::AudioBuffer::Tag::mmap>();
+        RETURN_STATUS_IF_ERROR(streamWrapper.configureMMapStream(&fd, &burstSizeFrames, &mmapFlags,
+                                                                 &bufferSizeFrames));
+        _aidl_return->desc.audio.set<StreamDescriptor::AudioBuffer::Tag::mmap>();
         auto& mmapRef = _aidl_return->desc.audio
-                            .get<StreamDescriptor::AudioBuffer::Tag::mmap>();
+                                .get<StreamDescriptor::AudioBuffer::Tag::mmap>();
         mmapRef.sharedMemory.fd = ndk::ScopedFileDescriptor{fd};
         mmapRef.burstSizeFrames = burstSizeFrames;
         mmapRef.flags = mmapFlags;
@@ -1425,7 +1450,7 @@ ndk::ScopedAStatus Module::getMmapPolicyInfos(AudioMMapPolicyType mmapPolicyType
 
 ndk::ScopedAStatus Module::supportsVariableLatency(bool* _aidl_return) {
     LOG(DEBUG) << __func__;
-    *_aidl_return = false;
+    *_aidl_return = true;
     return ndk::ScopedAStatus::ok();
 }
 
