@@ -16,10 +16,8 @@ LOCAL_CFLAGS := -DBACKEND_NDK
 LOCAL_VINTF_FRAGMENTS   := \
     ../../configs/common/manifest_non_qmaa.xml
 
-ifeq ($(strip $(AUDIO_FEATURE_ENABLED_LSM_HIDL)),true)
 LOCAL_VINTF_FRAGMENTS += \
     ../../configs/common/manifest_non_qmaa_extn.xml
-endif
 
 LOCAL_SRC_FILES := \
     CoreService.cpp \
