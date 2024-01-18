@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #define LOG_TAG "AHAL_Usecase_QTI"
@@ -13,7 +13,6 @@
 #include <qti-audio-core/Platform.h>
 #include <qti-audio-core/PlatformUtils.h>
 
-using ::aidl::android::hardware::audio::common::getChannelCount;
 using ::aidl::android::media::audio::common::AudioIoFlags;
 using ::aidl::android::media::audio::common::AudioInputFlags;
 using ::aidl::android::media::audio::common::AudioOutputFlags;
@@ -822,9 +821,16 @@ size_t PcmOffloadPlayback::getPeriodSize(
     const auto frameSize =
             getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
     size_t periodSize =
-            mixPortConfig.sampleRate.value().value * (kPeriodDurationMs / 1000) * frameSize;
-    periodSize = getNearestMultiple(
-            periodSize, std::lcm(32, getPcmSampleSizeInBytes(mixPortConfig.format.value().pcm)));
+            (mixPortConfig.sampleRate.value().value * kPeriodDurationMs * frameSize) / 1000;
+
+    if (periodSize < kMinPeriodSize) {
+        periodSize = kMinPeriodSize;
+    } else if (periodSize > kMaxPeriodSize) {
+        periodSize = kMaxPeriodSize;
+    }
+
+    periodSize = ALIGN(periodSize, (frameSize * 32));
+
     return periodSize;
 }
 

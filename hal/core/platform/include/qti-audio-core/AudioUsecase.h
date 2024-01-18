@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -22,6 +22,9 @@
 
 #include <algorithm>
 #include <numeric>
+
+#define DIV_ROUND_UP(x, y) (((x) + (y) - 1) / (y))
+#define ALIGN(x, y) ((y) * DIV_ROUND_UP((x), (y)))
 
 namespace qti::audio::core {
 
@@ -310,6 +313,8 @@ class PcmOffloadPlayback final {
     constexpr static size_t kPeriodDurationMs = 80;
     constexpr static size_t kPeriodCount = 4;
     constexpr static size_t kPlatformDelayMs = 30;
+    constexpr static size_t kMinPeriodSize = 512;
+    constexpr static size_t kMaxPeriodSize = 240 * 1024;
     static size_t getPeriodSize(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
 
