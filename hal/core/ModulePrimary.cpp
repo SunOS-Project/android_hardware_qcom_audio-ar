@@ -15,8 +15,8 @@
  */
 
 /*
- * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -225,6 +225,12 @@ ndk::ScopedAStatus ModulePrimary::createInputStream(StreamContext&& context,
 ndk::ScopedAStatus ModulePrimary::createOutputStream(
         StreamContext&& context, const SourceMetadata& sourceMetadata,
         const std::optional<AudioOffloadInfo>& offloadInfo, std::shared_ptr<StreamOut>* result) {
+    if (mPlatform.isSoundCardDown() &&
+        (hasOutputDirectFlag(context.getMixPortConfig().flags.value()) ||
+         hasOutputCompressOffloadFlag(context.getMixPortConfig().flags.value()))) {
+        LOG(ERROR) << __func__ << ": avoid direct or compress streams as sound card is down";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
     createStreamInstance<StreamOutPrimary>(result, std::move(context), sourceMetadata, offloadInfo);
     ModulePrimary::outListMutex.lock();
     ModulePrimary::updateStreamOutList(*result);
