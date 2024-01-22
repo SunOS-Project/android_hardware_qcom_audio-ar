@@ -81,7 +81,7 @@ class PcmRecord {
   public:
     constexpr static uint32_t kCaptureDurationMs = 20;
     constexpr static uint32_t kPeriodCount = 4;
-    constexpr static size_t kFMQMinFrameSize = 256;
+    constexpr static size_t kFMQMinFrameSize = 160;
     static size_t getMinFrames(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
     enum class HdrMode : uint8_t {
