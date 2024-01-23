@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -94,6 +94,8 @@ size_t Platform::getIOBufferSizeInFrames(
         numFrames = SpatialPlayback::kPeriodSize;
     } else if (tag == Usecase::HOTWORD_RECORD) {
         numFrames = HotwordRecord::getMinFrames(mixPortConfig);
+    } else if (tag == Usecase::HAPTICS_PLAYBACK) {
+        numFrames = HapticsPlayback::kPeriodSize;
     }
     LOG(VERBOSE) << __func__ << " IOBufferSizeInFrames:" << std::to_string(numFrames) << " for "
                  << getName(tag);

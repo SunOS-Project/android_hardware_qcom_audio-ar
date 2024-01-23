@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #define LOG_TAG "AHAL_Usecase_QTI"
@@ -13,7 +13,6 @@
 #include <qti-audio-core/Platform.h>
 #include <qti-audio-core/PlatformUtils.h>
 
-using ::aidl::android::hardware::audio::common::getChannelCount;
 using ::aidl::android::media::audio::common::AudioIoFlags;
 using ::aidl::android::media::audio::common::AudioInputFlags;
 using ::aidl::android::media::audio::common::AudioOutputFlags;
@@ -27,6 +26,7 @@ using ::aidl::android::media::audio::common::AudioPortConfig;
 using ::aidl::android::media::audio::common::AudioPortExt;
 using ::aidl::android::media::audio::common::AudioPortMixExtUseCase;
 using ::aidl::android::hardware::audio::core::VendorParameter;
+using ::aidl::android::media::audio::common::AudioChannelLayout;
 
 namespace qti::audio::core {
 
@@ -50,6 +50,8 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
 
     const auto& flagsTag = mixPortConfig.flags.value().getTag();
     constexpr auto flagCastToint = [](auto flag) { return static_cast<int32_t>(flag); };
+
+    const auto& channelLayout = mixPortConfig.channelMask.value();
 
     constexpr int32_t noneFlags = 0;
     constexpr auto primaryPlaybackFlags =
@@ -110,6 +112,10 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
             tag = Usecase::MMAP_PLAYBACK;
         } else if (outFlags == inCallMusicFlags) {
             tag = Usecase::IN_CALL_MUSIC;
+        } else if (channelLayout.getTag() == AudioChannelLayout::Tag::layoutMask &&
+                   channelLayout.get<AudioChannelLayout::Tag::layoutMask>() ==
+                           AudioChannelLayout::LAYOUT_STEREO_HAPTIC_A) {
+            tag = Usecase::HAPTICS_PLAYBACK;
         }
     } else if (flagsTag == AudioIoFlags::Tag::input) {
         auto& inFlags = mixPortConfig.flags.value().get<AudioIoFlags::Tag::input>();
@@ -184,6 +190,8 @@ std::string getName(const Usecase tag) {
             return "ULTRA_FAST_RECORD";
         case Usecase::HOTWORD_RECORD:
             return "HOTWORD_RECORD";
+        case Usecase::HAPTICS_PLAYBACK:
+            return "HAPTICS_PLAYBACK";
         default:
             return std::to_string(static_cast<uint16_t>(tag));
     }
@@ -822,9 +830,16 @@ size_t PcmOffloadPlayback::getPeriodSize(
     const auto frameSize =
             getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
     size_t periodSize =
-            mixPortConfig.sampleRate.value().value * (kPeriodDurationMs / 1000) * frameSize;
-    periodSize = getNearestMultiple(
-            periodSize, std::lcm(32, getPcmSampleSizeInBytes(mixPortConfig.format.value().pcm)));
+            (mixPortConfig.sampleRate.value().value * kPeriodDurationMs * frameSize) / 1000;
+
+    if (periodSize < kMinPeriodSize) {
+        periodSize = kMinPeriodSize;
+    } else if (periodSize > kMaxPeriodSize) {
+        periodSize = kMaxPeriodSize;
+    }
+
+    periodSize = ALIGN(periodSize, (frameSize * 32));
+
     return periodSize;
 }
 
