@@ -16,7 +16,7 @@
 
 /*
  * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -309,7 +309,7 @@ std::vector<AudioDevice> Telephony::getMatchingTxDevices(
 
 void Telephony::reconfigure(const SetUpdates& newUpdates) {
     std::scoped_lock lock{mLock};
-
+    auto palDevices = mPlatform.convertToPalDevices({mRxDevices.at(0), mTxDevices.at(0)});
     LOG(VERBOSE) << __func__ << " current setUpdates" << mSetUpdates.toString() << " new setUpdates"
                  << newUpdates.toString();
     // Todo Implement
@@ -347,7 +347,10 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
         // other parameters value are needed
         LOG(VERBOSE) << __func__ << " INACTIVE -> ACTIVE";
         mSetUpdates = newUpdates;
-        updateVoiceMetadataForBT(true);
+        if ((palDevices[0].id == PAL_DEVICE_OUT_BLUETOOTH_BLE) &&
+            (palDevices[1].id == PAL_DEVICE_IN_BLUETOOTH_BLE)) {
+            updateVoiceMetadataForBT(true);
+        }
         startCall();
         *UpdateSession = mSetUpdates;
         return;
@@ -551,9 +554,13 @@ void Telephony::stopCall() {
     if (mPalHandle == nullptr) {
         return;
     }
+    auto palDevices = mPlatform.convertToPalDevices({mRxDevices.at(0), mTxDevices.at(0)});
     ::pal_stream_stop(mPalHandle);
     ::pal_stream_close(mPalHandle);
-    updateVoiceMetadataForBT(false);
+    if ((palDevices[0].id == PAL_DEVICE_OUT_BLUETOOTH_BLE) &&
+        (palDevices[1].id == PAL_DEVICE_IN_BLUETOOTH_BLE)) {
+        updateVoiceMetadataForBT(false);
+    }
     mPalHandle = nullptr;
     LOG(VERBOSE) << __func__ << ": EXIT";
 }
@@ -581,7 +588,6 @@ void Telephony::updateDevices() {
 
     // TODO configure pal devices with custom key if any
     if (mSetUpdates.mCallState == CallState::ACTIVE) {
-        updateVoiceMetadataForBT(true);
         /*In case of active LEA profile, if voice call accepted by an inactive legacy headset
          * over SCO profile. APM is not aware about SCO active profile until BT_SCO=ON
          * event triggers from BT. In meantime before BT_SCO=ON, when LEA is suspended via
@@ -593,6 +599,7 @@ void Telephony::updateDevices() {
        */
         if ((palDevices[0].id == PAL_DEVICE_OUT_BLUETOOTH_BLE) &&
             (palDevices[1].id == PAL_DEVICE_IN_BLUETOOTH_BLE)) {
+            updateVoiceMetadataForBT(true);
             pal_param_bta2dp_t param_bt_a2dp;
             do {
                 std::unique_lock<std::mutex> guard(AudioExtension::reconfig_wait_mutex_);
