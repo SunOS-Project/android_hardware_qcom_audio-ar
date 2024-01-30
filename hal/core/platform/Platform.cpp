@@ -295,6 +295,12 @@ std::vector<pal_device> Platform::convertToPalDevices(
             const auto& deviceAddressAlsa = deviceAddress.get<AudioDeviceAddress::Tag::alsa>();
             palDevices[i].address.card_id = deviceAddressAlsa[0];
             palDevices[i].address.device_num = deviceAddressAlsa[1];
+        } else if (isHdmiDevice(device)) {
+            if (auto result = getHdmiParameters(device)) {
+                palDevices[i].id = result->deviceId;
+            } else {
+                return {};
+            }
         }
         i++;
     }
@@ -410,6 +416,36 @@ std::vector<AudioProfile> Platform::getDynamicProfiles(
     return {};
 }
 
+std::optional<struct HdmiParameters> Platform::getHdmiParameters(
+        const ::aidl::android::media::audio::common::AudioDevice& device) const {
+    const auto& addressTag = device.address.getTag();
+    if (addressTag != AudioDeviceAddress::Tag::id ||
+        device.address.get<AudioDeviceAddress::Tag::id>().empty()) {
+        LOG(ERROR) << __func__ << ": no hdmi address controller/stream provided for the device"
+                   << device.toString();
+        return std::nullopt;
+    }
+    const auto hdmiAddress = device.address.get<AudioDeviceAddress::Tag::id>();
+    int controller = -1;
+    int stream = -1;
+
+    int status = std::sscanf(hdmiAddress.c_str(), "controller=%d;stream=%d", &controller, &stream);
+    if (status != 2) {
+        LOG(ERROR) << __func__ << ": failed to extract HDMI parameter from device"
+                   << device.toString();
+        return std::nullopt;
+    }
+    pal_device_id_t deviceId = PAL_DEVICE_OUT_AUX_DIGITAL;
+    LOG(DEBUG) << __func__ << " controller " << controller << " stream " << stream;
+    if (stream) {
+        deviceId = PAL_DEVICE_OUT_AUX_DIGITAL_1;
+        LOG(DEBUG) << __func__ << " override palDevice with PAL_DEVICE_OUT_AUX_DIGITAL_1";
+    }
+    struct HdmiParameters hdmiParam = {
+            .controller = controller, .stream = stream, .deviceId = deviceId};
+    return hdmiParam;
+}
+
 bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
                                             const bool isConnect) const {
     const auto& devicePortExt = deviceAudioPort.ext.get<AudioPortExt::Tag::device>();
@@ -445,27 +481,13 @@ bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
         deviceConnection->device_config.usb_addr.device_num = deviceId;
 
     } else if (isHdmiDevice(devicePortExt.device)) {
-        const auto& addressTag = devicePortExt.device.address.getTag();
-        if (addressTag != AudioDeviceAddress::Tag::id ||
-            devicePortExt.device.address.get<AudioDeviceAddress::Tag::id>().empty()) {
-            LOG(ERROR) << __func__
-                       << ": no hdmi address controller/stream provided for the AudioPort"
-                       << deviceAudioPort.toString();
+        if (auto result = getHdmiParameters(devicePortExt.device)) {
+            deviceConnection->device_config.dp_config.controller = result->controller;
+            deviceConnection->device_config.dp_config.stream = result->stream;
+            deviceConnection->id = result->deviceId;
+        } else {
             return false;
         }
-        const auto hdmiAddress = devicePortExt.device.address.get<AudioDeviceAddress::Tag::id>();
-        LOG(VERBOSE) << __func__ << " hdmi address " << hdmiAddress;
-        int controller = -1;
-        int stream = -1;
-        int status =
-                std::sscanf(hdmiAddress.c_str(), "controller=%d;stream=%d", &controller, &stream);
-        if (status != 2) {
-            LOG(ERROR) << __func__
-                       << ": failed to extract HDMI controller and stream from the device";
-            return false;
-        }
-        deviceConnection->device_config.dp_config.controller = controller;
-        deviceConnection->device_config.dp_config.stream = stream;
     }
 
     v = deviceConnection.get();
