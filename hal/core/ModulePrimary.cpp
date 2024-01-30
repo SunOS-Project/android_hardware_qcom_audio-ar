@@ -328,7 +328,6 @@ ndk::ScopedAStatus ModulePrimary::setVendorParameters(
         bool in_async) {
     LOG(DEBUG) << __func__ << ": parameter count " << in_parameters.size()
                << ", async: " << in_async;
-    bool allParametersKnown = true;
     for (const auto& p : in_parameters) {
         if (p.id == VendorDebug::kForceTransientBurstName) {
             if (!extractParameter<Boolean>(p, &mVendorDebug.forceTransientBurst)) {
@@ -347,13 +346,10 @@ ndk::ScopedAStatus ModulePrimary::setVendorParameters(
             }
 
             mPlatform.setVendorParameters(in_parameters, in_async);
-            allParametersKnown = false;
-            LOG(ERROR) << __func__ << ": unrecognized parameter \"" << p.id << "\"";
         }
     }
     processSetVendorParameters(in_parameters);
-    if (allParametersKnown) return ndk::ScopedAStatus::ok();
-    return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    return ndk::ScopedAStatus::ok();
 }
 
 bool ModulePrimary::processSetVendorParameters(const std::vector<VendorParameter>& parameters) {
@@ -361,7 +357,7 @@ bool ModulePrimary::processSetVendorParameters(const std::vector<VendorParameter
     for (const auto& p : parameters) {
         const auto searchId = mSetParameterToFeatureMap.find(p.id);
         if (searchId == mSetParameterToFeatureMap.cend()) {
-            LOG(ERROR) << __func__ << ": not configured " << p.id;
+            LOG(VERBOSE) << __func__ << ": not configured " << p.id;
             continue;
         }
 
@@ -376,8 +372,8 @@ bool ModulePrimary::processSetVendorParameters(const std::vector<VendorParameter
     for (const auto & [ key, value ] : pendingActions) {
         const auto search = mFeatureToSetHandlerMap.find(key);
         if (search == mFeatureToSetHandlerMap.cend()) {
-            LOG(ERROR) << __func__
-                       << ": no handler set on Feature:" << static_cast<int>(search->first);
+            LOG(VERBOSE) << __func__
+                         << ": no handler set on Feature:" << static_cast<int>(search->first);
             continue;
         }
         auto handler = std::bind(search->second, this, value);
@@ -598,7 +594,6 @@ ndk::ScopedAStatus ModulePrimary::getVendorParameters(
         const std::vector<std::string>& in_ids,
         std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return) {
     LOG(DEBUG) << __func__ << ": id count: " << in_ids.size();
-    bool allParametersKnown = true;
     for (const auto& id : in_ids) {
         if (id == VendorDebug::kForceTransientBurstName) {
             VendorParameter forceTransientBurst{.id = id};
@@ -609,17 +604,12 @@ ndk::ScopedAStatus ModulePrimary::getVendorParameters(
             forceSynchronousDrain.ext.setParcelable(Boolean{mVendorDebug.forceSynchronousDrain});
             _aidl_return->push_back(std::move(forceSynchronousDrain));
         }
-        // else {
-        //     allParametersKnown = false;
-        //     LOG(ERROR) << __func__ << ": unrecognized parameter \"" << id << "\"";
-        // }
     }
 
     auto results = processGetVendorParameters(in_ids);
     std::move(results.begin(), results.end(), std::back_inserter(*_aidl_return));
 
-    if (allParametersKnown) return ndk::ScopedAStatus::ok();
-    return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    return ndk::ScopedAStatus::ok();
 }
 
 std::vector<VendorParameter> ModulePrimary::processGetVendorParameters(

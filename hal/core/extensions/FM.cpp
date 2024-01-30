@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -226,8 +226,6 @@ void fm_set_parameters(struct str_parms *parms) {
     char value[32] = {0};
     float vol = 0.0;
 
-    LOG(DEBUG) << __func__ << " enter";
-
     ret = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_HANDLE_FM, value, sizeof(value));
     if (ret >= 0) {
         val = atoi(value);
@@ -281,7 +279,6 @@ void fm_set_parameters(struct str_parms *parms) {
         if (value[0] == '1') fm_set_volume(fm.volume);
     }
 
-    LOG(DEBUG) << __func__ << " exit";
 }
 
 #ifdef __cplusplus

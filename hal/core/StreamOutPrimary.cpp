@@ -42,6 +42,9 @@ using ::aidl::android::hardware::audio::core::VendorParameter;
 
 using aidl::android::media::audio::common::AudioPortExt;
 
+// uncomment this to enable logging of very verbose logs like burst commands.
+// #define VERY_VERBOSE_LOGGING 1
+
 static bool karaoke = false;
 
 namespace qti::audio::core {
@@ -105,7 +108,7 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
     mConnectedDevices = devices;
 
     if (mConnectedDevices.empty()) {
-        LOG(VERBOSE) << __func__ << *this << ": stream is not connected";
+        LOG(DEBUG) << __func__ << *this << ": stream is not connected";
         return ndk::ScopedAStatus::ok();
     }
 
@@ -132,7 +135,7 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
-    LOG(VERBOSE) << __func__ << *this << " connected to " << mConnectedDevices;
+    LOG(DEBUG) << __func__ << *this << " connected to " << mConnectedDevices;
 
     return ndk::ScopedAStatus::ok();
 }
@@ -363,7 +366,10 @@ void StreamOutPrimary::resume() {
     }
 
     *actualFrameCount = static_cast<size_t>(bytesWritten / mFrameSizeBytes);
-    LOG(VERBOSE) << __func__ << *this << ": byteswritten:" << bytesWritten;
+
+#ifdef VERY_VERBOSE_LOGGING
+    LOG(VERBOSE) << __func__ << *this << ": byteswritten: " << bytesWritten;
+#endif
 
     // Todo findout write latency
     *latencyMs = Module::kLatencyMs;
@@ -988,7 +994,7 @@ void StreamOutPrimary::configure() {
     const size_t ringBufSizeInBytes = getPeriodSize();
     const size_t ringBufCount = getPeriodCount();
     auto palBufferConfig = mPlatform.getPalBufferConfig(ringBufSizeInBytes, ringBufCount);
-    LOG(VERBOSE) << __func__ << *this << "set pal_stream_set_buffer_size to "
+    LOG(DEBUG) << __func__ << *this << "set pal_stream_set_buffer_size to "
                  << std::to_string(ringBufSizeInBytes) << " with count "
                  << std::to_string(ringBufCount);
     if (int32_t ret =
