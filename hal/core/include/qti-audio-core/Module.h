@@ -16,7 +16,7 @@
 
 /*
  * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -254,6 +254,11 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
     bool isMmapSupported();
     template <typename C>
     std::set<int32_t> portIdsFromPortConfigIds(C portConfigIds);
+
+    // helper functions to print human readable string for portconfig names and routes
+    std::string portNameFromPortConfigIds(int portConfigId);
+    std::string getPatchDetails(const ::aidl::android::hardware::audio::core::AudioPatch& patch);
+
     void registerPatch(const ::aidl::android::hardware::audio::core::AudioPatch& patch);
     ndk::ScopedAStatus updateStreamsConnectedState(
             const ::aidl::android::hardware::audio::core::AudioPatch& oldPatch,

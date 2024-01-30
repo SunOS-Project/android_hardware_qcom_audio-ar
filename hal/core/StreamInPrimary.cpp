@@ -42,6 +42,9 @@ using ::aidl::android::hardware::audio::core::VendorParameter;
 using ::aidl::android::hardware::audio::effect::getEffectTypeUuidAcousticEchoCanceler;
 using ::aidl::android::hardware::audio::effect::getEffectTypeUuidNoiseSuppression;
 
+// uncomment this to enable logging of very verbose logs like burst commands.
+// #define VERY_VERBOSE_LOGGING 1
+
 namespace qti::audio::core {
 
 std::mutex StreamInPrimary::sinkMetadata_mutex_;
@@ -126,7 +129,7 @@ ndk::ScopedAStatus StreamInPrimary::setConnectedDevices(
         return std::move(prev) + ';' + device.toString();
     };
 
-    LOG(VERBOSE) << __func__ << *this << " stream is connected to devices:"
+    LOG(DEBUG) << __func__ << *this << " stream is connected to devices:"
                  << std::accumulate(mConnectedDevices.cbegin(), mConnectedDevices.cend(),
                                     std::string(""), devicesString);
 
@@ -178,7 +181,7 @@ ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd, int64_t* bu
     const size_t ringBufSizeInBytes = getPeriodSize();
     const size_t ringBufCount = getPeriodCount();
     auto palBufferConfig = mPlatform.getPalBufferConfig(ringBufSizeInBytes, ringBufCount);
-    LOG(VERBOSE) << __func__ << *this << " set pal_stream_set_buffer_size to "
+    LOG(DEBUG) << __func__ << *this << " set pal_stream_set_buffer_size to "
                  << std::to_string(ringBufSizeInBytes) << " with count "
                  << std::to_string(ringBufCount);
     if (int32_t ret =
@@ -276,8 +279,10 @@ void StreamInPrimary::resume() {
     pal_buffer palBuffer{};
     palBuffer.buffer = static_cast<uint8_t*>(buffer);
     palBuffer.size = frameCount * mFrameSizeBytes;
+#ifdef VERY_VERBOSE_LOGGING
     LOG(VERBOSE) << __func__ << *this << ": framecount " << frameCount << " mFrameSizeBytes "
                  << mFrameSizeBytes;
+#endif
     int32_t bytesRead = ::pal_stream_read(mPalHandle, &palBuffer);
     if (bytesRead < 0) {
         LOG(ERROR) << __func__ << *this << " read failed, ret:" << std::to_string(bytesRead);
@@ -296,8 +301,10 @@ void StreamInPrimary::resume() {
     }
     *actualFrameCount = static_cast<size_t>(bytesRead) / mFrameSizeBytes;
 
+#ifdef VERY_VERBOSE_LOGGING
     LOG(VERBOSE) << __func__ << *this << ": bytes read " << bytesRead << ", return frame count "
                  << *actualFrameCount;
+#endif
 
     return ::android::OK;
 }
