@@ -232,9 +232,6 @@ void Telephony::updateVoiceMetadataForBT(bool call_active) {
 void Telephony::updateDevicesFromPrimaryPlayback() {
     std::scoped_lock lock{mLock};
 
-    if (mPalHandle == nullptr) {
-        return;
-    }
     auto primaryDevices = mPlatform.getPrimaryPlaybackDevices();
     if (primaryDevices.size() == 0) {
         // Todo check on none devices on primary playback stream
@@ -573,6 +570,15 @@ void Telephony::updateDevices() {
     const int retry_period_ms = 100;
     bool is_suspend_setparam = false;
 
+    /*If callstate is active, but no palHandle, that means pal stream open
+      failed, so start call again , we might get updated devices now which
+      helps in pal stream open successful, so call startCall here*/
+    if (mSetUpdates.mCallState == CallState::ACTIVE && mPalHandle == nullptr) {
+        LOG(DEBUG) << __func__ << ": starting call as palHandle is null and call state active";
+        startCall();
+        return;
+    }
+
     // TODO configure pal devices with custom key if any
     if (mSetUpdates.mCallState == CallState::ACTIVE) {
         updateVoiceMetadataForBT(true);
@@ -618,6 +624,9 @@ void Telephony::updateDevices() {
                       << "and a2dp_capture_suspended status: " << a2dp_capture_suspended;
         }
     }
+
+    if (mPalHandle == nullptr) return;
+
     if (int32_t ret = ::pal_stream_set_device(mPalHandle, 2,
                                               reinterpret_cast<pal_device*>(palDevices.data()));
         ret) {
