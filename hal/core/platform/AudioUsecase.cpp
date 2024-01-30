@@ -203,8 +203,8 @@ std::string getName(const Usecase tag) {
 size_t PcmRecord::getMinFrames(const AudioPortConfig& mixPortConfig) {
     size_t minFrames = kCaptureDurationMs * (mixPortConfig.sampleRate.value().value / 1000);
     minFrames = getNearestMultiple(minFrames,
-                                   getPcmSampleSizeInBytes(mixPortConfig.format.value().pcm));
-    // Adjusting to minFrames as atleast kFMQMinFrameSize (256).
+                std::lcm(32, getPcmSampleSizeInBytes(mixPortConfig.format.value().pcm)));
+    // Adjusting to minFrames as atleast kFMQMinFrameSize (160).
     // Todo check the sanity of this requirement in the VTS test.
     minFrames = std::max(minFrames, kFMQMinFrameSize);
     return minFrames;
