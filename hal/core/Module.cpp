@@ -947,11 +947,21 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
         //if its there, then update to new patch and remove it from list
         for (auto & element : patches)
         {
-             if (element.sourcePortConfigIds == in_requested.sourcePortConfigIds) {
-                 LOG(ERROR) << __func__ << " found same mixport config in patch id: " << element.id;
-                 oldPatch = element;
-                 cleanUpPatch(element.id);
-                 break;
+             if (isMixPortConfig(*(sources.at(0)))) {
+                 if (element.sourcePortConfigIds == in_requested.sourcePortConfigIds) {
+                     LOG(ERROR) << __func__ << " found same mixport config in patch id: " << element.id;
+                     oldPatch = element;
+                     cleanUpPatch(element.id);
+                     break;
+                 }
+             }
+             else {
+                 if (element.sinkPortConfigIds == in_requested.sinkPortConfigIds) {
+                     LOG(ERROR) << __func__ << " found same sink mixport config in patch id: " << element.id;
+                     oldPatch = element;
+                     cleanUpPatch(element.id);
+                     break;
+                 }
              }
         }
     }
