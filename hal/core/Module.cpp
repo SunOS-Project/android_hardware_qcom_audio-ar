@@ -1010,7 +1010,7 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
     auto status = updateStreamsConnectedState(oldPatch, *_aidl_return);
 
     // call this after streams devices got updated
-    updateTelephonyPatch(sources, sinks, *_aidl_return);
+    setAudioPatchTelephony(sources, sinks, *_aidl_return);
 
     if (!status.isOk()) {
         mPatches = std::move(*patchesBackup);
@@ -1074,7 +1074,8 @@ std::string Module::getPatchDetails(
     result += " ]";
     return result;
 }
-void Module::updateTelephonyPatch(
+
+void Module::setAudioPatchTelephony(
         const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
         const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
         const ::aidl::android::hardware::audio::core::AudioPatch& patch) {

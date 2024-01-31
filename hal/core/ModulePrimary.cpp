@@ -266,16 +266,14 @@ void ModulePrimary::onNewPatchCreation(const std::vector<AudioPortConfig*>& sour
     newPatch.minimumStreamBufferSizeFrames = numFrames;
 }
 
-void ModulePrimary::updateTelephonyPatch(const std::vector<AudioPortConfig*>& sources,
-                                         const std::vector<AudioPortConfig*>& sinks,
-                                         const AudioPatch& patch) {
+void ModulePrimary::setAudioPatchTelephony(const std::vector<AudioPortConfig*>& sources,
+                                           const std::vector<AudioPortConfig*>& sinks,
+                                           const AudioPatch& patch) {
+    std::string patchDetails = getPatchDetails(patch);
     if (!mTelephony) {
-        LOG(ERROR) << __func__ << ": Telephony not created";
+        LOG(ERROR) << __func__ << ": Telephony not created " << patchDetails << patch.toString();
         return;
     }
-
-    // Todo remove this, upon device to device patch works for telephony
-    mTelephony->updateDevicesFromPrimaryPlayback();
 
     if (!isDevicePortConfig(*(sources.at(0))) || !isDevicePortConfig(*(sinks.at(0)))) {
         return;
@@ -284,21 +282,19 @@ void ModulePrimary::updateTelephonyPatch(const std::vector<AudioPortConfig*>& so
     bool updateTx = isTelephonyTXDevice(sinks.at(0)->ext.get<AudioPortExt::Tag::device>().device);
 
     if (!updateRx && !updateTx) {
-        LOG(ERROR) << __func__ << ": neither RX nor TX update ";
+        LOG(ERROR) << __func__ << ": neither RX nor TX update " << patchDetails << patch.toString();
         return;
     }
 
-    const auto& toBeUpdated = updateRx ? (sinks) : (sources);
+    const auto& portConfigsForDeviceChange = updateRx ? (sinks) : (sources);
 
     std::vector<AudioDevice> devices;
-    for (const auto configPtr : toBeUpdated) {
-        devices.push_back(configPtr->ext.get<AudioPortExt::Tag::device>().device);
+    for (const auto portConfig : portConfigsForDeviceChange) {
+        devices.push_back(portConfig->ext.get<AudioPortExt::Tag::device>().device);
     }
 
-    // Todo uncomment below ,upon device to device patch works for telephony
-    // mTelephony->setDevicesFromPatch(devices, updateRx);
-    LOG(VERBOSE) << __func__ << ": device to device patch, " << patch.toString();
-    return;
+    mTelephony->setDevices(devices, updateRx);
+    LOG(DEBUG) << __func__ << ": device patch : " << patchDetails << patch.toString();
 }
 
 void ModulePrimary::onExternalDeviceConnectionChanged(
@@ -326,7 +322,7 @@ ndk::ScopedAStatus ModulePrimary::getSupportedPlaybackRateFactors(
 ndk::ScopedAStatus ModulePrimary::setVendorParameters(
         const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& in_parameters,
         bool in_async) {
-    LOG(DEBUG) << __func__ << ": parameter count " << in_parameters.size()
+    LOG(VERBOSE) << __func__ << ": parameter count " << in_parameters.size()
                << ", async: " << in_async;
     for (const auto& p : in_parameters) {
         if (p.id == VendorDebug::kForceTransientBurstName) {

@@ -351,8 +351,10 @@ void StreamInPrimary::resume() {
         if (ret == 0) {
             reply->hardware.frames = frames;
             reply->hardware.timeNs = timeNs;
+#ifdef VERY_VERBOSE_LOGGING
             LOG(VERBOSE) << __func__ << *this << ": returning MMAP position: frames "
                          << reply->hardware.frames << " timeNs " << reply->hardware.timeNs;
+#endif
         } else {
             LOG(ERROR) << __func__ << ": getMmapPosition failed, ret= " << ret;
             return ::android::base::ERROR;
@@ -419,7 +421,6 @@ int32_t StreamInPrimary::setAggregateSinkMetadata(bool voiceActive) {
     inStreams.erase(std::remove_if(inStreams.begin(), inStreams.end(), removeStreams),
                     inStreams.end());
 
-    LOG(VERBOSE) << __func__ << *this << " in streams not empty size is " << inStreams.size();
     for (auto it = inStreams.begin(); it < inStreams.end(); it++) {
         if (it->lock() && !it->lock()->isClosed()) {
             ::aidl::android::hardware::audio::common::SinkMetadata sinkMetadata;
@@ -428,7 +429,8 @@ int32_t StreamInPrimary::setAggregateSinkMetadata(bool voiceActive) {
         } else {
         }
     }
-    LOG(VERBOSE) << __func__ << *this << " total tracks count is " << track_count_total;
+    LOG(VERBOSE) << __func__ << *this << " trackCount " << track_count_total <<
+                " streamSize " << inStreams.size();
     if (track_count_total == 0) {
         ModulePrimary::inListMutex.unlock();
         return 0;
@@ -450,9 +452,7 @@ int32_t StreamInPrimary::setAggregateSinkMetadata(bool voiceActive) {
     }
 
     btSinkMetadata.tracks = total_tracks.data();
-    LOG(VERBOSE) << __func__ << *this << " sending sink metadata to PAL";
     pal_set_param(PAL_PARAM_ID_SET_SINK_METADATA, (void*)&btSinkMetadata, 0);
-    LOG(VERBOSE) << __func__ << *this << " after sending sink metadata to PAL";
     ModulePrimary::inListMutex.unlock();
     return 0;
 }
@@ -662,7 +662,7 @@ void StreamInPrimary::configure() {
     const size_t ringBufSizeInBytes = getPeriodSize();
     const size_t ringBufCount = getPeriodCount();
     auto palBufferConfig = mPlatform.getPalBufferConfig(ringBufSizeInBytes, ringBufCount);
-    LOG(VERBOSE) << __func__ << *this << " set pal_stream_set_buffer_size to " << ringBufSizeInBytes
+    LOG(DEBUG) << __func__ << *this << " set pal_stream_set_buffer_size to " << ringBufSizeInBytes
                  << " with count " << ringBufCount;
     if (int32_t ret = ::pal_stream_set_buffer_size(mPalHandle, palBufferConfig.get(), nullptr);
         ret) {

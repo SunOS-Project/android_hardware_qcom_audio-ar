@@ -82,11 +82,21 @@ StreamOutPrimary::StreamOutPrimary(StreamContext&& context, const SourceMetadata
         mExt.emplace<HapticsPlayback>();
     }
 
-    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK || mTag == Usecase::PCM_OFFLOAD_PLAYBACK ||
-        mTag == Usecase::MMAP_PLAYBACK) {
-        mHwVolumeSupported = true;
-    }
+    mHwVolumeSupported = isHwVolumeSupported();
     LOG(DEBUG) << __func__ << *this;
+}
+
+bool StreamOutPrimary::isHwVolumeSupported() {
+    switch (mTag) {
+        case Usecase::COMPRESS_OFFLOAD_PLAYBACK:
+        case Usecase::PCM_OFFLOAD_PLAYBACK:
+        case Usecase::MMAP_PLAYBACK:
+        case Usecase::VOIP_PLAYBACK:
+            return true;
+        default:
+            break;
+    }
+    return false;
 }
 
 StreamOutPrimary::~StreamOutPrimary() {
@@ -175,7 +185,7 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
     const size_t ringBufSizeInBytes = getPeriodSize();
     const size_t ringBufCount = getPeriodCount();
     auto palBufferConfig = mPlatform.getPalBufferConfig(ringBufSizeInBytes, ringBufCount);
-    LOG(VERBOSE) << __func__ << *this << " set pal_stream_set_buffer_size to "
+    LOG(DEBUG) << __func__ << *this << " set pal_stream_set_buffer_size to "
                  << std::to_string(ringBufSizeInBytes) << " with count "
                  << std::to_string(ringBufCount);
     if (int32_t ret =
@@ -379,8 +389,7 @@ void StreamOutPrimary::resume() {
     return ::android::OK;
 }
 
-::android::status_t StreamOutPrimary::hapticsWrite(const void *buffer, size_t bytes)
-{
+::android::status_t StreamOutPrimary::hapticsWrite(const void* buffer, size_t bytes) {
     int ret = 0;
     bool allocHapticsBuffer = false;
     struct pal_buffer audioBuf;
@@ -450,15 +459,19 @@ void StreamOutPrimary::resume() {
 
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         std::get<CompressPlayback>(mExt).getPositionInFrames(&(reply->observable.frames));
+#ifdef VERY_VERBOSE_LOGGING
         LOG(VERBOSE) << __func__ << *this << " dspFrames consumed " << reply->observable.frames;
+#endif
     } else if (mTag == Usecase::MMAP_PLAYBACK) {
         if (int32_t ret = std::get<MMapPlayback>(mExt).getMMapPosition(&(reply->hardware.frames),
                                                                        &(reply->hardware.timeNs));
             ret) {
             return ::android::BAD_VALUE;
         }
+#ifdef VERY_VERBOSE_LOGGING
         LOG(VERBOSE) << __func__ << *this << " frames " << reply->hardware.frames << " timeNs "
                      << reply->hardware.timeNs;
+#endif
     }
 
     // if the stream is connected to any bluetooth device, consider bluetooth encoder latency
@@ -470,7 +483,9 @@ void StreamOutPrimary::resume() {
         if (reply->observable.frames >= btExtraFrames) {
             reply->observable.frames -= btExtraFrames;
         }
+#ifdef VERY_VERBOSE_LOGGING
         LOG(VERBOSE) << __func__ << *this << ": bluetooth latencyMs:" << latencyMs;
+#endif
     }
 
     return ::android::OK;
@@ -743,9 +758,7 @@ int32_t StreamOutPrimary::setAggregateSourceMetadata(bool voiceActive) {
         }
     }
     btSourceMetadata.tracks = total_tracks.data();
-    LOG(VERBOSE) << __func__ << *this << " sending source metadata to PAL";
     pal_set_param(PAL_PARAM_ID_SET_SOURCE_METADATA, (void*)&btSourceMetadata, 0);
-    LOG(VERBOSE) << __func__ << *this << " after sending source metadata to PAL";
     ModulePrimary::outListMutex.unlock();
     return 0;
 }
@@ -761,7 +774,6 @@ ndk::ScopedAStatus StreamOutPrimary::getVendorParameters(
 
 ndk::ScopedAStatus StreamOutPrimary::setVendorParameters(
         const std::vector<VendorParameter>& in_parameters, bool in_async) {
-    LOG(VERBOSE) << __func__;
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         auto& compressPlayback = std::get<CompressPlayback>(mExt);
         return compressPlayback.setVendorParameters(in_parameters, in_async);

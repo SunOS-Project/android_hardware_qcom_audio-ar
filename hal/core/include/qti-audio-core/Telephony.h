@@ -16,7 +16,7 @@
 
 /*
  * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -108,10 +108,14 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     // The following below APIs are both aimed to solve routing on telephony
     // Hence Choose one
 
-    // This API is called when there is device to device patch
-    void setDevicesFromPatch(
-            const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices,
-            const bool isRxUpdate);
+    /**
+    * brief sets Rx and Tx devices from device to device patch.
+    * @param devices devices obtained from the patch
+    * @param updateRx whether device update is for rx devices or tx devices.
+    * true in case when rx devices needs updation, false otherwise.
+    */
+    void setDevices(const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices,
+                    const bool updateRx);
     // This API is called for routing devices as per primary playback devices.
     void updateDevicesFromPrimaryPlayback();
     void updateVoiceMetadataForBT(bool call_active);
@@ -129,8 +133,8 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     void updateDevices();
     void updateTtyMode();
     void updateCrsDevice();
-    std::vector<::aidl::android::media::audio::common::AudioDevice> getMatchingTxDevices(
-            const std::vector<::aidl::android::media::audio::common::AudioDevice>& rxDevices);
+    ::aidl::android::media::audio::common::AudioDevice getMatchingTxDevice(
+            const ::aidl::android::media::audio::common::AudioDevice & rxDevice);
 
   protected:
     // Gaurd all the public APIs
@@ -161,10 +165,8 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
             {TelecomConfig::TtyMode::VCO, PAL_TTY_VCO},
     };
 
-    std::vector<::aidl::android::media::audio::common::AudioDevice>
-            mRxDevices{}; // speaker, earpiece
-    std::vector<::aidl::android::media::audio::common::AudioDevice>
-            mTxDevices{}; // mic, speaker mic
+    ::aidl::android::media::audio::common::AudioDevice mRxDevice; // speaker, earpiece
+    ::aidl::android::media::audio::common::AudioDevice mTxDevice; // mic, speaker mic
     pal_stream_handle_t* mPalHandle{nullptr};
     Platform& mPlatform{Platform::getInstance()};
 };

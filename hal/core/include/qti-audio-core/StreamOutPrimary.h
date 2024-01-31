@@ -138,6 +138,9 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     const ::aidl::android::media::audio::common::AudioPortConfig& mMixPortConfig;
     HalOffloadEffects& mHalEffects{HalOffloadEffects::getInstance()};
     AudioExtension& mAudExt{AudioExtension::getInstance()};
+
+  private:
+    bool isHwVolumeSupported();
 };
 
 } // namespace qti::audio::core

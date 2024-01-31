@@ -201,7 +201,7 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
     virtual void onPrepareToDisconnectExternalDevice(
             const ::aidl::android::media::audio::common::AudioPort& audioPort);
 
-    virtual void updateTelephonyPatch(
+    virtual void setAudioPatchTelephony(
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
             const ::aidl::android::hardware::audio::core::AudioPatch& patch);

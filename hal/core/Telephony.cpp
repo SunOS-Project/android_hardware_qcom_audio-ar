@@ -59,8 +59,8 @@ Telephony::Telephony() {
     mTelecomConfig.ttyMode = TelecomConfig::TtyMode::OFF;
     mTelecomConfig.isHacEnabled = Boolean{false};
     // Todo check on default RX device
-    mRxDevices = {kDefaultRxDevice};
-    mTxDevices = getMatchingTxDevices(mRxDevices);
+    mRxDevice = kDefaultRxDevice;
+    mTxDevice = getMatchingTxDevice(mRxDevice);
 }
 
 Telephony::~Telephony() {
@@ -92,7 +92,7 @@ ndk::ScopedAStatus Telephony::switchAudioMode(AudioMode newAudioMode) {
     }
     if (newAudioMode == AudioMode::IN_CALL && mAudioMode == AudioMode::NORMAL) {
         // means call ready to start but defer start on set parameters
-        LOG(VERBOSE) << __func__ << ": defer start call on call state ACTIVE";
+        LOG(DEBUG) << __func__ << ": defer start call on call state ACTIVE";
     } else if (newAudioMode == AudioMode::NORMAL && mAudioMode == AudioMode::IN_CALL) {
         // safe to stop now
         stopCall();
@@ -101,12 +101,12 @@ ndk::ScopedAStatus Telephony::switchAudioMode(AudioMode newAudioMode) {
             updateCrsDevice();
             startCall();
             mSetUpdates.mIsCRSStarted = true;
-            LOG(VERBOSE) << __func__ << "start CRS call";
+            LOG(DEBUG) << __func__ << "start CRS call";
         }
     }
 
     mAudioMode = newAudioMode;
-    LOG(VERBOSE) << __func__ << ": switching to AudioMode:" << toString(mAudioMode);
+    LOG(DEBUG) << __func__ << ": switching to AudioMode:" << toString(mAudioMode);
     return ndk::ScopedAStatus::ok();
 }
 
@@ -155,19 +155,25 @@ bool Telephony::isCrsCallSupported() {
     return true;
 }
 
-void Telephony::setDevicesFromPatch(const std::vector<AudioDevice>& devices,
-                                    const bool isRxUpdate) {
+void Telephony::setDevices(const std::vector<AudioDevice>& devices, const bool updateRx) {
     std::scoped_lock lock{mLock};
 
-    if (isRxUpdate) {
-        mRxDevices = devices;
-    } else {
-        mTxDevices = devices;
-        /* update the voice call devices only on TX devices update. Because Rx
-         * devices patch is followed by Tx Devices patch */
-        updateDevices();
+    if (devices.size() != 1) {
+        LOG(ERROR) << __func__ << " invalid size / combo devices unsupported: " << devices;
+        return;
     }
-    return;
+
+    LOG(DEBUG) << __func__ << (updateRx ? " Rx " : " Tx") << " devices : " << devices;
+    if (updateRx) {
+        mRxDevice = devices[0]; // expected to have 1 device.
+        mTxDevice = getMatchingTxDevice(mRxDevice);
+        updateDevices();
+    } else {
+        // mTxDevice = devices;
+        // /* update the voice call devices only on TX devices update. Because Rx
+        //  * devices patch is followed by Tx Devices patch */
+        // updateDevices();
+    }
 }
 
 void Telephony::updateVoiceMetadataForBT(bool call_active) {
@@ -238,77 +244,58 @@ void Telephony::updateDevicesFromPrimaryPlayback() {
         primaryDevices = {kDefaultRxDevice};
     }
 
-    if (mRxDevices == primaryDevices) {
-        LOG(VERBOSE) << __func__ << ": same devices";
-    }
-
-    mRxDevices = primaryDevices;
-    mTxDevices = getMatchingTxDevices(mRxDevices);
-    if (mRxDevices.size() != mTxDevices.size()) {
-        LOG(VERBOSE) << __func__ << ": no Tx found for" << mRxDevices;
-        return;
-    }
+    mRxDevice = primaryDevices[0];
+    mTxDevice = getMatchingTxDevice(mRxDevice);
     updateDevices();
 }
 
 void Telephony::updateCrsDevice() {
-     LOG(VERBOSE) << __func__ << ": Enter";
+    LOG(VERBOSE) << __func__ << ": Enter";
 
-     if (mRxDevices.at(0).type.type == AudioDeviceType::OUT_SPEAKER_EARPIECE) {
-         mRxDevices = {kDefaultCRSRxDevice};
-         mTxDevices = getMatchingTxDevices(mRxDevices);
-         LOG(VERBOSE) << __func__ << "force to speaker for CRS call";
-         if (mRxDevices.size() != mTxDevices.size()) {
-             LOG(VERBOSE) << __func__ << ": no Tx found for" << mRxDevices;
-         }
-     }
+    if (mRxDevice.type.type == AudioDeviceType::OUT_SPEAKER_EARPIECE) {
+        mRxDevice = kDefaultCRSRxDevice;
+        mTxDevice = getMatchingTxDevice(mRxDevice);
+        LOG(VERBOSE) << __func__ << "force to speaker for CRS call";
+    }
 }
 
-std::vector<AudioDevice> Telephony::getMatchingTxDevices(
-        const std::vector<AudioDevice>& rxDevices) {
-    std::vector<AudioDevice> txDevices;
-    for (const auto& rxDevice : rxDevices) {
-        if (rxDevice.type.type == AudioDeviceType::OUT_SPEAKER_EARPIECE) {
-            txDevices.emplace_back(AudioDevice{.type.type = AudioDeviceType::IN_MICROPHONE});
-        } else if (rxDevice.type.type == AudioDeviceType::OUT_SPEAKER) {
-            txDevices.emplace_back(AudioDevice{.type.type = AudioDeviceType::IN_MICROPHONE_BACK});
-        } else if (rxDevice.type.type == AudioDeviceType::OUT_HEADSET &&
-                   rxDevice.type.connection == AudioDeviceDescription::CONNECTION_ANALOG) {
-            txDevices.emplace_back(
-                    AudioDevice{.type.type = AudioDeviceType::IN_HEADSET,
-                                .type.connection = AudioDeviceDescription::CONNECTION_ANALOG,
-                                .address = rxDevice.address});
-        } else if (rxDevice.type.type == AudioDeviceType::OUT_HEADPHONE &&
-                   rxDevice.type.connection == AudioDeviceDescription::CONNECTION_ANALOG) {
-            txDevices.emplace_back(AudioDevice{.type.type = AudioDeviceType::IN_MICROPHONE});
-        } else if ((rxDevice.type.type == AudioDeviceType::OUT_DEVICE ||
-                    rxDevice.type.type == AudioDeviceType::OUT_HEADSET) &&
-                   rxDevice.type.connection == AudioDeviceDescription::CONNECTION_BT_SCO) {
-            txDevices.emplace_back(
-                    AudioDevice{.type.type = AudioDeviceType::IN_HEADSET,
-                                .type.connection = AudioDeviceDescription::CONNECTION_BT_SCO});
-        } else if (rxDevice.type.type == AudioDeviceType::OUT_HEADSET &&
-                   rxDevice.type.connection == AudioDeviceDescription::CONNECTION_BT_LE) {
-            txDevices.emplace_back(
-                    AudioDevice{.type.type = AudioDeviceType::IN_HEADSET,
-                                .type.connection = AudioDeviceDescription::CONNECTION_BT_LE});
-        } else if (rxDevice.type.type == AudioDeviceType::OUT_HEADSET &&
-                   rxDevice.type.connection == AudioDeviceDescription::CONNECTION_USB) {
-            txDevices.emplace_back(
-                    AudioDevice{.type.type = AudioDeviceType::IN_HEADSET,
-                                .type.connection = AudioDeviceDescription::CONNECTION_USB,
-                                .address = rxDevice.address});
-        } else {
-            LOG(ERROR) << __func__ << ": unable to find matching TX device for "
-                       << rxDevice.toString();
-        }
+AudioDevice Telephony::getMatchingTxDevice(const AudioDevice& rxDevice) {
+    if (rxDevice.type.type == AudioDeviceType::OUT_SPEAKER_EARPIECE) {
+        return AudioDevice{.type.type = AudioDeviceType::IN_MICROPHONE};
+    } else if (rxDevice.type.type == AudioDeviceType::OUT_SPEAKER) {
+        return AudioDevice{.type.type = AudioDeviceType::IN_MICROPHONE_BACK};
+    } else if (rxDevice.type.type == AudioDeviceType::OUT_HEADSET &&
+               rxDevice.type.connection == AudioDeviceDescription::CONNECTION_ANALOG) {
+        return AudioDevice{.type.type = AudioDeviceType::IN_HEADSET,
+                           .type.connection = AudioDeviceDescription::CONNECTION_ANALOG,
+                           .address = rxDevice.address};
+    } else if (rxDevice.type.type == AudioDeviceType::OUT_HEADPHONE &&
+               rxDevice.type.connection == AudioDeviceDescription::CONNECTION_ANALOG) {
+        return AudioDevice{.type.type = AudioDeviceType::IN_MICROPHONE};
+    } else if ((rxDevice.type.type == AudioDeviceType::OUT_DEVICE ||
+                rxDevice.type.type == AudioDeviceType::OUT_HEADSET) &&
+               rxDevice.type.connection == AudioDeviceDescription::CONNECTION_BT_SCO) {
+        return AudioDevice{.type.type = AudioDeviceType::IN_HEADSET,
+                           .type.connection = AudioDeviceDescription::CONNECTION_BT_SCO};
+    } else if (rxDevice.type.type == AudioDeviceType::OUT_HEADSET &&
+               rxDevice.type.connection == AudioDeviceDescription::CONNECTION_BT_LE) {
+        return AudioDevice{.type.type = AudioDeviceType::IN_HEADSET,
+                           .type.connection = AudioDeviceDescription::CONNECTION_BT_LE};
+    } else if ((rxDevice.type.type == AudioDeviceType::OUT_DEVICE ||
+                rxDevice.type.type == AudioDeviceType::OUT_HEADSET) &&
+               rxDevice.type.connection == AudioDeviceDescription::CONNECTION_USB) {
+        return AudioDevice{.type.type = AudioDeviceType::IN_HEADSET,
+                           .type.connection = AudioDeviceDescription::CONNECTION_USB,
+                           .address = rxDevice.address};
+    } else {
+        LOG(ERROR) << __func__ << ": unable to find matching TX device for " << rxDevice.toString();
     }
-    return txDevices;
+    return {};
 }
 
 void Telephony::reconfigure(const SetUpdates& newUpdates) {
     std::scoped_lock lock{mLock};
-    auto palDevices = mPlatform.convertToPalDevices({mRxDevices.at(0), mTxDevices.at(0)});
+    auto palDevices = mPlatform.convertToPalDevices({mRxDevice, mTxDevice});
     LOG(VERBOSE) << __func__ << " current setUpdates" << mSetUpdates.toString() << " new setUpdates"
                  << newUpdates.toString();
     // Todo Implement
@@ -320,7 +307,7 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
              mSetUpdates = newUpdates;
              startCall();
              mSetUpdates.mIsCRSStarted  = true;
-             LOG(VERBOSE) << __func__ << ": start CRS call";
+             LOG(DEBUG) << __func__ << ": start CRS call";
              return;
          }
     } else {
@@ -328,7 +315,7 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
              stopCall();
              mSetUpdates = newUpdates;
              mSetUpdates.mIsCRSStarted  = false;
-             LOG(VERBOSE) << __func__ << ": stop CRS call";
+             LOG(DEBUG) << __func__ << ": stop CRS call";
              return;
          }
     }
@@ -344,7 +331,7 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
     if (UpdateSession->mCallState != CallState::ACTIVE && newUpdates.mCallState == CallState::ACTIVE) {
         // this is a clear sign that to start a call
         // other parameters value are needed
-        LOG(VERBOSE) << __func__ << " INACTIVE -> ACTIVE";
+        LOG(DEBUG) << __func__ << " CallState: INACTIVE -> ACTIVE";
         mSetUpdates = newUpdates;
         if ((palDevices[0].id == PAL_DEVICE_OUT_BLUETOOTH_BLE) &&
             (palDevices[1].id == PAL_DEVICE_IN_BLUETOOTH_BLE)) {
@@ -356,7 +343,7 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
     }
     if (newUpdates.mCallState == CallState::IN_ACTIVE && UpdateSession->mCallState == CallState::ACTIVE) {
         // this is a sign to stop the call no matter what
-        LOG(VERBOSE) << __func__ << " ACTIVE -> INACTIVE";
+        LOG(DEBUG) << __func__ << " CallState: ACTIVE -> INACTIVE";
         mSetUpdates = newUpdates;
         stopCall();
         *UpdateSession = mSetUpdates;
@@ -520,10 +507,11 @@ void Telephony::updateTtyMode() {
 }
 
 void Telephony::startCall() {
-    LOG(VERBOSE) << __func__ << ": Enter";
+    LOG(DEBUG) << __func__ << ": Enter: "
+               << " Rx: " << mRxDevice.toString() << " Tx: " << mTxDevice.toString();
     auto attributes = mPlatform.getDefaultTelephonyAttributes();
 
-    auto palDevices = mPlatform.convertToPalDevices({mRxDevices.at(0), mTxDevices.at(0)});
+    auto palDevices = mPlatform.convertToPalDevices({mRxDevice, mTxDevice});
 
     attributes->info.voice_call_info.VSID = static_cast<uint32_t>(mSetUpdates.mVSID);
     {
@@ -551,11 +539,11 @@ void Telephony::startCall() {
 }
 
 void Telephony::stopCall() {
-    LOG(VERBOSE) << __func__ << ": Enter";
+    LOG(DEBUG) << __func__ << ": Enter";
     if (mPalHandle == nullptr) {
         return;
     }
-    auto palDevices = mPlatform.convertToPalDevices({mRxDevices.at(0), mTxDevices.at(0)});
+    auto palDevices = mPlatform.convertToPalDevices({mRxDevice, mTxDevice});
     ::pal_stream_stop(mPalHandle);
     ::pal_stream_close(mPalHandle);
     if ((palDevices[0].id == PAL_DEVICE_OUT_BLUETOOTH_BLE) &&
@@ -567,7 +555,8 @@ void Telephony::stopCall() {
 }
 
 void Telephony::updateDevices() {
-    auto palDevices = mPlatform.convertToPalDevices({mRxDevices.at(0), mTxDevices.at(0)});
+
+    auto palDevices = mPlatform.convertToPalDevices({mRxDevice, mTxDevice});
 
     pal_param_bta2dp_t* param_bt_a2dp_ptr = nullptr;
     bool a2dp_capture_suspended = false;
@@ -641,7 +630,7 @@ void Telephony::updateDevices() {
         LOG(ERROR) << __func__ << ": failed to set devices";
         return;
     }
-    LOG(VERBOSE) << __func__ << ": set devices Rx: " << mRxDevices << " Tx: " << mTxDevices;
+    LOG(DEBUG) << __func__ << ": Rx: " << mRxDevice.toString() << " Tx: " << mTxDevice.toString();
 }
 
 std::ostream& operator<<(std::ostream& os, const Telephony::CallState& state) {
