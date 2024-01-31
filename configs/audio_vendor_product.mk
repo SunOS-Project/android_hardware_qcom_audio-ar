@@ -23,6 +23,35 @@ else
 -include $(TOPDIR)vendor/qcom/opensource/audio-hal/primary-hal/configs/$(TARGET_BOARD_PLATFORM)/$(TARGET_BOARD_PLATFORM).mk
 endif
 
+$(warning audio check QC_HWASAN: $(QC_HWASAN) sanitize_target $(SANITIZE_TARGET))
+$(call add_soong_config_namespace,vendor_audio_hwasan_config)
+ifneq ($(filter audio, $(QC_HWASAN)),)
+$(warning audio hwasan enabled at module level)
+AUDIO_FEATURE_USE_HWASAN_ARTIFACTS := true
+PRODUCT_HWASAN_INCLUDE_PATHS += \
+    vendor/qcom/opensource/audio-hal \
+    vendor/qcom/opensource/pal \
+    vendor/qcom/opensource/agm \
+    vendor/qcom/proprietary/args \
+    vendor/qcom/proprietary/mm-audio \
+    vendor/qcom/proprietary/mm-audio-external-noship \
+    vendor/qcom/proprietary/mm-audio-headers \
+    vendor/qcom/proprietary/mm-audio-noship
+endif
+
+ifneq ($(filter hwaddress,$(SANITIZE_TARGET)),)
+$(warning audio hwasan enabled at target level)
+AUDIO_FEATURE_USE_HWASAN_ARTIFACTS := true
+endif
+
+# this feature flag is only set when hwasan is enabled (local or global)
+ifeq ($(AUDIO_FEATURE_USE_HWASAN_ARTIFACTS), true)
+$(warning audio use hwasan artifacts)
+$(call add_soong_config_var_value,vendor_audio_hwasan_config,use_hwasan,true)
+else
+$(call add_soong_config_var_value,vendor_audio_hwasan_config,use_hwasan,false)
+endif
+
 # Pro Audio feature
 PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.audio.pro.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.audio.pro.xml
