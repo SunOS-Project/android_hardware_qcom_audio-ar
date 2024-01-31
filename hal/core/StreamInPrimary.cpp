@@ -1,6 +1,6 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -265,6 +265,21 @@ void StreamInPrimary::resume() {
     return ::android::OK;
 }
 
+::android::status_t StreamInPrimary::onReadError(const size_t sleepFrameCount) {
+    shutdown();
+    if (mTag == Usecase::COMPRESS_CAPTURE) {
+        LOG(ERROR) << __func__ << *this << ": cannot afford read failure for compress";
+        return ::android::UNEXPECTED_NULL;
+    }
+    auto& sampleRate = mMixPortConfig.sampleRate.value().value;
+    if (sampleRate == 0) {
+        LOG(ERROR) << __func__ << *this << ": cannot afford read failure, sampleRate is zero";
+        return ::android::UNEXPECTED_NULL;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds((sleepFrameCount * 1000) / sampleRate));
+    return ::android::OK;
+}
+
 ::android::status_t StreamInPrimary::transfer(void* buffer, size_t frameCount,
                                               size_t* actualFrameCount, int32_t* latencyMs) {
     if (!mPalHandle) {
@@ -272,7 +287,8 @@ void StreamInPrimary::resume() {
         configure();
         if (!mPalHandle) {
             LOG(ERROR) << __func__ << *this << ": failed to configure";
-            return ::android::UNEXPECTED_NULL;
+            *actualFrameCount = frameCount;
+            return onReadError(frameCount);
         }
     }
 
@@ -299,7 +315,14 @@ void StreamInPrimary::resume() {
         // default latency
         *latencyMs = Module::kLatencyMs;
     }
-    *actualFrameCount = static_cast<size_t>(bytesRead) / mFrameSizeBytes;
+    if (bytesRead < 0) {
+        LOG(ERROR) << __func__ << *this << " read failed, ret:" << std::to_string(bytesRead);
+        *actualFrameCount = frameCount;
+         return onReadError(frameCount);
+    }
+    else {
+        *actualFrameCount = static_cast<size_t>(bytesRead) / mFrameSizeBytes;
+    }
 
 #ifdef VERY_VERBOSE_LOGGING
     LOG(VERBOSE) << __func__ << *this << ": bytes read " << bytesRead << ", return frame count "

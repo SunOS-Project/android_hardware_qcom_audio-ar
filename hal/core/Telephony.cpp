@@ -543,6 +543,8 @@ void Telephony::startCall() {
     }
     if (int32_t ret = ::pal_stream_start(mPalHandle); ret) {
         LOG(ERROR) << __func__ << ": pal stream open failed !!" << ret;
+        pal_stream_close(mPalHandle);
+        mPalHandle = nullptr;
         return;
     }
     updateVoiceVolume();

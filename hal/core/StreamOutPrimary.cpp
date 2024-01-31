@@ -362,6 +362,9 @@ void StreamOutPrimary::resume() {
     if (bytesWritten < 0) {
         LOG(ERROR) << __func__ << *this << " write failed, ret: " << bytesWritten;
         *actualFrameCount = frameCount;
+        if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+            *actualFrameCount = static_cast<size_t>(bytesWritten / mFrameSizeBytes);
+        }
         return onWriteError(frameCount);
     }
 
@@ -852,7 +855,7 @@ size_t StreamOutPrimary::getPlatformDelay() const noexcept {
     shutdown();
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         LOG(ERROR) << __func__ << *this << ": cannot afford write failure";
-        return ::android::UNEXPECTED_NULL;
+        return ::android::OK;
     }
     auto& sampleRate = mMixPortConfig.sampleRate.value().value;
     if (sampleRate == 0) {
