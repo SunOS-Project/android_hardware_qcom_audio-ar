@@ -240,7 +240,6 @@ void Telephony::updateDevicesFromPrimaryPlayback() {
 
     if (mRxDevices == primaryDevices) {
         LOG(VERBOSE) << __func__ << ": same devices";
-        return;
     }
 
     mRxDevices = primaryDevices;

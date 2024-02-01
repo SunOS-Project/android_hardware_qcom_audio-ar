@@ -950,16 +950,28 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
              if (isMixPortConfig(*(sources.at(0)))) {
                  if (element.sourcePortConfigIds == in_requested.sourcePortConfigIds) {
                      LOG(ERROR) << __func__ << " found same mixport config in patch id: " << element.id;
-                     oldPatch = element;
-                     cleanUpPatch(element.id);
+                     existing = findById<AudioPatch>(patches, element.id);
+                     if (existing != patches.end()) {
+                         patchesBackup = mPatches;
+                         cleanUpPatch(existing->id);
+                     } else {
+                          LOG(ERROR) << __func__ << ": not found existing patch id " << in_requested.id;
+                          return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+                     }
                      break;
                  }
              }
              else {
                  if (element.sinkPortConfigIds == in_requested.sinkPortConfigIds) {
                      LOG(ERROR) << __func__ << " found same sink mixport config in patch id: " << element.id;
-                     oldPatch = element;
-                     cleanUpPatch(element.id);
+                     existing = findById<AudioPatch>(patches, element.id);
+                     if (existing != patches.end()) {
+                         patchesBackup = mPatches;
+                         cleanUpPatch(existing->id);
+                     } else {
+                          LOG(ERROR) << __func__ << ": not found existing patch id " << in_requested.id;
+                          return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+                     }
                      break;
                  }
              }
