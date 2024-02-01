@@ -16,7 +16,7 @@
 
 /*
  * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -55,6 +55,9 @@ ndk::ScopedAStatus Bluetooth::setScoConfig(const ScoConfig& in_config, ScoConfig
     }
     if (in_config.mode != ScoConfig::Mode::UNSPECIFIED) {
         mScoConfig.mode = in_config.mode;
+        if (mScoConfig.mode == ScoConfig::Mode::SCO) {
+            mPlatform.setBluetoothParameters("bt_wbs=off");
+        }
         if (mScoConfig.mode == ScoConfig::Mode::SCO_WB) {
             mPlatform.setBluetoothParameters("bt_wbs=on");
         } else if (mScoConfig.mode == ScoConfig::Mode::SCO_SWB) {
