@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <!--
-Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 SPDX-License-Identifier: BSD-3-Clause-Clear
 -->
 <modules>
@@ -169,6 +169,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
 
         <!-- start of source DEVICE PORT -->
         <devicePort tagName="built_in_mic" deviceType="IN_MICROPHONE" role="source" attached="true" defaultDevice="true" address="bottom">
+            <profile samplingRates="8000 11025 12000 16000 22050 24000 32000 44100 48000" channelLayouts="LAYOUT_MONO LAYOUT_STEREO LAYOUT_FRONT_BACK" formatType="PCM" pcmType="INT_24_BIT" />
             <profile samplingRates="8000 11025 12000 16000 22050 24000 32000 44100 48000" channelLayouts="LAYOUT_MONO LAYOUT_STEREO LAYOUT_FRONT_BACK" formatType="PCM" pcmType="INT_16_BIT" />
             <!-- To support compress offload capture such that client can query -->
             <profile samplingRates="8000 11025 12000 16000 22050 24000 32000 44100 48000" channelLayouts="LAYOUT_MONO LAYOUT_STEREO LAYOUT_FRONT_BACK" formatType="NON_PCM" encoding="audio/mp4a.40.02" />
