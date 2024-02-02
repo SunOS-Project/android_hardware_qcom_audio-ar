@@ -133,6 +133,8 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     void updateDevices();
     void updateTtyMode();
     void updateCrsDevice();
+    void startCrsLoopback();
+    void stopCrsLoopback();
     ::aidl::android::media::audio::common::AudioDevice getMatchingTxDevice(
             const ::aidl::android::media::audio::common::AudioDevice & rxDevice);
 
@@ -167,6 +169,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
 
     ::aidl::android::media::audio::common::AudioDevice mRxDevice; // speaker, earpiece
     ::aidl::android::media::audio::common::AudioDevice mTxDevice; // mic, speaker mic
+    pal_stream_handle_t* mPalCrsHandle{nullptr};
     pal_stream_handle_t* mPalHandle{nullptr};
     Platform& mPlatform{Platform::getInstance()};
 };

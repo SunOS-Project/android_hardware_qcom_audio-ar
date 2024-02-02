@@ -179,6 +179,19 @@ std::unique_ptr<pal_stream_attributes> Platform::getDefaultTelephonyAttributes()
     return std::move(attributes);
 }
 
+std::unique_ptr<pal_stream_attributes> Platform::getDefaultCRSTelephonyAttributes() const {
+    auto attributes = std::make_unique<pal_stream_attributes>();
+    auto outChannelInfo = PlatformConverter::getPalChannelInfoForChannelCount(2);
+    attributes->type = PAL_STREAM_LOOPBACK;
+    attributes->info.opt_stream_info.loopback_type = PAL_STREAM_LOOPBACK_PLAYBACK_ONLY;
+    attributes->direction = PAL_AUDIO_OUTPUT;
+    attributes->out_media_config.sample_rate = kDefaultOutputSampleRate;
+    attributes->out_media_config.ch_info = *outChannelInfo;
+    attributes->out_media_config.bit_width = kDefaultPCMBidWidth;
+    attributes->out_media_config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
+    return std::move(attributes);
+}
+
 void Platform::configurePalDevicesCustomKey(std::vector<pal_device>& palDevices,
                                             const std::string& customKey) const {
     for (auto& palDevice : palDevices) {

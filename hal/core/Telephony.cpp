@@ -100,8 +100,11 @@ ndk::ScopedAStatus Telephony::switchAudioMode(AudioMode newAudioMode) {
         if (!mSetUpdates.mIsCRSStarted) {
             updateCrsDevice();
             startCall();
+            if (mRxDevice.type.type != AudioDeviceType::OUT_SPEAKER) {
+                startCrsLoopback();
+            }
             mSetUpdates.mIsCRSStarted = true;
-            LOG(DEBUG) << __func__ << "start CRS call";
+            LOG(DEBUG) << __func__ << " start CRS call";
         }
     }
 
@@ -255,7 +258,7 @@ void Telephony::updateCrsDevice() {
     if (mRxDevice.type.type == AudioDeviceType::OUT_SPEAKER_EARPIECE) {
         mRxDevice = kDefaultCRSRxDevice;
         mTxDevice = getMatchingTxDevice(mRxDevice);
-        LOG(VERBOSE) << __func__ << "force to speaker for CRS call";
+        LOG(VERBOSE) << __func__ << " force to speaker for CRS call";
     }
 }
 
@@ -306,6 +309,9 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
              updateCrsDevice();
              mSetUpdates = newUpdates;
              startCall();
+             if (mRxDevice.type.type != AudioDeviceType::OUT_SPEAKER) {
+                 startCrsLoopback();
+             }
              mSetUpdates.mIsCRSStarted  = true;
              LOG(DEBUG) << __func__ << ": start CRS call";
              return;
@@ -313,6 +319,9 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
     } else {
          if (mSetUpdates.mIsCRSStarted) {
              stopCall();
+             if (mRxDevice.type.type != AudioDeviceType::OUT_SPEAKER) {
+                 stopCrsLoopback();
+             }
              mSetUpdates = newUpdates;
              mSetUpdates.mIsCRSStarted  = false;
              LOG(DEBUG) << __func__ << ": stop CRS call";
@@ -535,7 +544,40 @@ void Telephony::startCall() {
         return;
     }
     updateVoiceVolume();
+    if (mSetUpdates.mIsCrsCall) {
+        mPlatform.setStreamMicMute(mPalHandle, true);
+        LOG(DEBUG) << __func__ << ": CRS usecase mute TX";
+    }
     LOG(VERBOSE) << __func__ << ": Exit";
+}
+
+void Telephony::startCrsLoopback() {
+    LOG(DEBUG) << __func__ << ": Enter";
+    auto attributes = mPlatform.getDefaultCRSTelephonyAttributes();
+    std::vector<::aidl::android::media::audio::common::AudioDevice> RxDevices;
+    RxDevices = {kDefaultCRSRxDevice};
+
+    auto palDevices = mPlatform.convertToPalDevices({mRxDevice});
+    palDevices[0].id = PAL_DEVICE_OUT_SPEAKER;
+    palDevices[0].config.sample_rate = Platform::kDefaultOutputSampleRate;
+    palDevices[0].config.bit_width = Platform::kDefaultPCMBidWidth;
+    palDevices[0].config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
+
+    attributes->info.voice_call_info.VSID = static_cast<uint32_t>(mSetUpdates.mVSID);
+    const size_t numDevices = 1;
+    if (int32_t ret = ::pal_stream_open(
+                attributes.get(), numDevices, reinterpret_cast<pal_device*>(palDevices.data()), 0,
+                nullptr, nullptr, reinterpret_cast<uint64_t>(this), &mPalCrsHandle);
+        ret) {
+        LOG(ERROR) << __func__ << ": pal stream open failed !!" << ret;
+        return;
+    }
+    if (int32_t ret = ::pal_stream_start(mPalCrsHandle); ret) {
+        LOG(ERROR) << __func__ << ": pal stream open failed !!" << ret;
+        return;
+    }
+    updateVoiceVolume();
+    LOG(DEBUG) << __func__ << ": Exit";
 }
 
 void Telephony::stopCall() {
@@ -552,6 +594,17 @@ void Telephony::stopCall() {
     }
     mPalHandle = nullptr;
     LOG(VERBOSE) << __func__ << ": EXIT";
+}
+
+void Telephony::stopCrsLoopback() {
+    LOG(DEBUG) << __func__ << ": Enter";
+    if (mPalCrsHandle == nullptr) {
+        return;
+    }
+    ::pal_stream_stop(mPalCrsHandle);
+    ::pal_stream_close(mPalCrsHandle);
+    mPalCrsHandle = nullptr;
+    LOG(DEBUG) << __func__ << ": EXIT";
 }
 
 void Telephony::updateDevices() {
@@ -622,6 +675,17 @@ void Telephony::updateDevices() {
         }
     }
 
+    if (mSetUpdates.mIsCrsCall) {
+        stopCrsLoopback();
+        updateCrsDevice();
+        palDevices = mPlatform.convertToPalDevices({mRxDevice, mTxDevice});
+        strlcpy(palDevices[0].custom_config.custom_key, "crsCall",
+                  sizeof(palDevices[0].custom_config.custom_key));
+    } else {
+        strlcpy(palDevices[0].custom_config.custom_key, "",
+                  sizeof(palDevices[0].custom_config.custom_key));
+    }
+
     if (mPalHandle == nullptr) return;
 
     if (int32_t ret = ::pal_stream_set_device(mPalHandle, 2,
@@ -629,6 +693,11 @@ void Telephony::updateDevices() {
         ret) {
         LOG(ERROR) << __func__ << ": failed to set devices";
         return;
+    }
+    if (mSetUpdates.mIsCrsCall) {
+        if (mRxDevice.type.type != AudioDeviceType::OUT_SPEAKER) {
+            startCrsLoopback();
+        }
     }
     LOG(DEBUG) << __func__ << ": Rx: " << mRxDevice.toString() << " Tx: " << mTxDevice.toString();
 }

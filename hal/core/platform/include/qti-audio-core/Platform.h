@@ -101,6 +101,7 @@ class Platform {
             const std::vector<::aidl::android::media::audio::common::AudioDevice>&
                     bluetoothDevices);
     std::unique_ptr<pal_stream_attributes> getDefaultTelephonyAttributes() const;
+    std::unique_ptr<pal_stream_attributes> getDefaultCRSTelephonyAttributes() const;
     void configurePalDevicesCustomKey(std::vector<pal_device>& palDevices,
                                       const std::string& customKey) const;
 

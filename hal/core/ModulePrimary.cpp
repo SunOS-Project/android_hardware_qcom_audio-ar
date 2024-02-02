@@ -303,6 +303,9 @@ void ModulePrimary::onExternalDeviceConnectionChanged(
         LOG(WARNING) << __func__ << " failed to handle device connection change:"
                      << (connected ? " connect" : "disconnect") << " for " << audioPort.toString();
     }
+    if (connected) {
+        mTelephony->updateDevicesFromPrimaryPlayback();
+    }
 }
 
 ndk::ScopedAStatus ModulePrimary::getSupportedPlaybackRateFactors(
