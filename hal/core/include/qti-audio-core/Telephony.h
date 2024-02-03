@@ -58,8 +58,6 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
         CallState mCallState{CallState::INVALID};
         CallType mCallType{""};
         bool mIsCrsCall{false};
-        float mCRSVolume = 0.0f;
-        bool mIsCRSStarted{false};
         VSID mVSID{VSID::VSID_1};
         std::string toString() const {
             std::ostringstream os;
@@ -69,6 +67,8 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
         }
     };
 
+    float mCRSVolume = 0.4f; //default CRS call volume
+    bool mIsCRSStarted{false};
     constexpr static size_t KCodecBackendDefaultBitWidth = 16;
     const static ::aidl::android::media::audio::common::AudioDevice kDefaultRxDevice;
     const static ::aidl::android::media::audio::common::AudioDevice kDefaultCRSRxDevice;

@@ -97,13 +97,13 @@ ndk::ScopedAStatus Telephony::switchAudioMode(AudioMode newAudioMode) {
         // safe to stop now
         stopCall();
     } else if (newAudioMode == AudioMode::RINGTONE && mSetUpdates.mIsCrsCall) {
-        if (!mSetUpdates.mIsCRSStarted) {
+        if (!mIsCRSStarted) {
             updateCrsDevice();
             startCall();
             if (mRxDevice.type.type != AudioDeviceType::OUT_SPEAKER) {
                 startCrsLoopback();
             }
-            mSetUpdates.mIsCRSStarted = true;
+            mIsCRSStarted = true;
             LOG(DEBUG) << __func__ << " start CRS call";
         }
     }
@@ -305,25 +305,25 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
     mPlatform.updateCallState((int)mSetUpdates.mCallState);
 
     if (newUpdates.mIsCrsCall) {
-         if (!mSetUpdates.mIsCRSStarted && mAudioMode == AudioMode::RINGTONE) {
+         if (!mIsCRSStarted && mAudioMode == AudioMode::RINGTONE) {
              updateCrsDevice();
-             mSetUpdates = newUpdates;
+             mSetUpdates.mIsCrsCall = newUpdates.mIsCrsCall;
              startCall();
              if (mRxDevice.type.type != AudioDeviceType::OUT_SPEAKER) {
                  startCrsLoopback();
              }
-             mSetUpdates.mIsCRSStarted  = true;
+             mIsCRSStarted  = true;
              LOG(DEBUG) << __func__ << ": start CRS call";
              return;
          }
     } else {
-         if (mSetUpdates.mIsCRSStarted) {
+         if (mIsCRSStarted) {
              stopCall();
              if (mRxDevice.type.type != AudioDeviceType::OUT_SPEAKER) {
                  stopCrsLoopback();
              }
-             mSetUpdates = newUpdates;
-             mSetUpdates.mIsCRSStarted  = false;
+             mSetUpdates.mIsCrsCall = newUpdates.mIsCrsCall;
+             mIsCRSStarted  = false;
              LOG(DEBUG) << __func__ << ": stop CRS call";
              return;
          }
@@ -469,17 +469,17 @@ void Telephony::configureDeviceMute() {
 void Telephony::setCRSVolumeFromIndex(const int index) {
     std::scoped_lock lock{mLock};
     if (index > 0 && index < 4)
-       mSetUpdates.mCRSVolume = 0.2;
+        mCRSVolume = 0.2;
     else if (index == 4)
-       mSetUpdates.mCRSVolume = 0.3;
+        mCRSVolume = 0.3;
     else if (index == 5)
-       mSetUpdates.mCRSVolume = 0.4;
+        mCRSVolume = 0.4;
     else if (index == 6)
-       mSetUpdates.mCRSVolume = 0.5;
+        mCRSVolume = 0.5;
     else if (index >= 7)
-       mSetUpdates.mCRSVolume = 0.6;
+        mCRSVolume = 0.6;
     else
-       mSetUpdates.mCRSVolume = 0.0;
+        mCRSVolume = 0.0;
 }
 
 void Telephony::updateVoiceVolume() {
@@ -488,7 +488,7 @@ void Telephony::updateVoiceVolume() {
     }
     float volumeFloat = 0.0f;
     if (mSetUpdates.mIsCrsCall) {
-        volumeFloat = mSetUpdates.mCRSVolume;
+        volumeFloat = mCRSVolume;
     } else {
         volumeFloat = mTelecomConfig.voiceVolume ? mTelecomConfig.voiceVolume.value().value : 1.0;
     }
@@ -530,6 +530,14 @@ void Telephony::startCall() {
     }
 
     const size_t numDevices = 2;
+    if (mSetUpdates.mIsCrsCall) {
+        strlcpy(palDevices[0].custom_config.custom_key, "crsCall",
+                sizeof(palDevices[0].custom_config.custom_key));
+        LOG(VERBOSE) << __func__ << "setting custom key as ", palDevices[0].custom_config.custom_key;
+    } else {
+        strlcpy(palDevices[0].custom_config.custom_key, "",
+                sizeof(palDevices[0].custom_config.custom_key));
+    }
     if (int32_t ret = ::pal_stream_open(
                 attributes.get(), numDevices, reinterpret_cast<pal_device*>(palDevices.data()), 0,
                 nullptr, nullptr, reinterpret_cast<uint64_t>(this), &mPalHandle);
