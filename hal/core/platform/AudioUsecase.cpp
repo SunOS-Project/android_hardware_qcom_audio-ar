@@ -321,12 +321,19 @@ void CompressPlayback::configureDefault() {
     return;
 }
 
-void CompressPlayback::setAndConfigure(pal_stream_handle_t* handle) {
+void CompressPlayback::setAndConfigureCodecInfo(pal_stream_handle_t* handle) {
     mCompressPlaybackHandle = handle;
     if (mCompressPlaybackHandle == nullptr) {
         return;
     }
     configureCodecInfo();
+}
+
+void CompressPlayback::configureGapless(pal_stream_handle_t* handle) {
+    mCompressPlaybackHandle = handle;
+    if (mCompressPlaybackHandle == nullptr) {
+        return;
+    }
     configureGapLessMetadata();
 }
 
