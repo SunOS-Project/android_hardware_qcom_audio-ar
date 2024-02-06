@@ -95,7 +95,7 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
         auto& outFlags = mixPortConfig.flags.value().get<AudioIoFlags::Tag::output>();
         if (outFlags == primaryPlaybackFlags) {
             tag = Usecase::PRIMARY_PLAYBACK;
-        } else if (outFlags == deepBufferPlaybackFlags) {
+        } else if (outFlags == deepBufferPlaybackFlags || (outFlags == noneFlags)) {
             tag = Usecase::DEEP_BUFFER_PLAYBACK;
         } else if (outFlags == lowLatencyPlaybackFlags) {
             tag = Usecase::LOW_LATENCY_PLAYBACK;
