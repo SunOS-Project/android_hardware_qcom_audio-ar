@@ -507,7 +507,7 @@ void StreamOutPrimary::shutdown() {
     }
 
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        std::get<CompressPlayback>(mExt).setAndConfigure(nullptr);
+        std::get<CompressPlayback>(mExt).setAndConfigureCodecInfo(nullptr);
     }
 
     if (karaoke) mAudExt.mKarokeExtension->karaoke_stop();
@@ -1038,7 +1038,7 @@ void StreamOutPrimary::configure() {
 
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         // Must be before pal stream start
-        std::get<CompressPlayback>(mExt).setAndConfigure(mPalHandle);
+        std::get<CompressPlayback>(mExt).setAndConfigureCodecInfo(mPalHandle);
     }
 
     if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
@@ -1061,6 +1061,11 @@ void StreamOutPrimary::configure() {
     if (karaoke) mAudExt.mKarokeExtension->karaoke_start();
 
     LOG(VERBOSE) << __func__ << *this << " pal_stream_start successful";
+
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        // Must be after pal stream start
+        std::get<CompressPlayback>(mExt).configureGapless(mPalHandle);
+    }
 
     if (!mVolumes.empty()) {
         setHwVolume(mVolumes);

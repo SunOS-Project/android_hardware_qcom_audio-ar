@@ -198,7 +198,8 @@ class CompressPlayback final {
             const ::aidl::android::media::audio::common::AudioOffloadInfo& offloadInfo,
             std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> asyncCallback);
     /* To reconfigure the codec, gapless info */
-    void setAndConfigure(pal_stream_handle_t* handle);
+    void setAndConfigureCodecInfo(pal_stream_handle_t* handle);
+    void configureGapless(pal_stream_handle_t* handle);
     void reconfigureOnFlush() const;
     void reconfigureOnPartialDrain() const;
     // if fetched, when status is set, it resets the status
