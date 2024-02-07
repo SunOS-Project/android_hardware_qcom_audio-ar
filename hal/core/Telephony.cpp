@@ -480,6 +480,7 @@ void Telephony::setCRSVolumeFromIndex(const int index) {
         mCRSVolume = 0.6;
     else
         mCRSVolume = 0.0;
+    updateVoiceVolume();
 }
 
 void Telephony::updateVoiceVolume() {
