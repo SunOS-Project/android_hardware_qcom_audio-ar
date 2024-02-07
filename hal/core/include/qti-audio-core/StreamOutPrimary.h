@@ -124,10 +124,10 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     //Haptics Usecase
     struct pal_stream_attributes mHapticsStreamAttributes;
     struct pal_device mHapticsDevice;
-    uint8_t* mHapticsBuffer{nullptr};
+    std::unique_ptr<uint8_t[]> mHapticsBuffer{nullptr};
     size_t mHapticsBufSize{0};
     // This API splits and writes audio and haptics streams
-    ::android::status_t hapticsWrite(const void *buffer, size_t bytes);
+    ::android::status_t hapticsWrite(const void *buffer, size_t frameCount);
 
     std::variant<std::monostate, PrimaryPlayback, DeepBufferPlayback, CompressPlayback,
                  PcmOffloadPlayback, VoipPlayback, SpatialPlayback, MMapPlayback, UllPlayback,
