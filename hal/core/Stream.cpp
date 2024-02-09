@@ -356,6 +356,12 @@ bool StreamInWorkerLogic::read(size_t clientSize, StreamDescriptor::Reply* reply
 const std::string StreamOutWorkerLogic::kThreadName = "writer";
 
 StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
+    StreamDescriptor::Command command{};
+    if (!mContext->getCommandMQ()->readBlocking(&command, 1)) {
+        LOG(ERROR) << __func__ << ": reading of command from MQ failed";
+        mState = StreamDescriptor::State::ERROR;
+        return Status::ABORT;
+    }
     if (mState == StreamDescriptor::State::DRAINING ||
         mState == StreamDescriptor::State::TRANSFERRING) {
         if (auto stateDurationMs = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -378,13 +384,6 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
                            << " after a timeout";
             }
         }
-    }
-
-    StreamDescriptor::Command command{};
-    if (!mContext->getCommandMQ()->readBlocking(&command, 1)) {
-        LOG(ERROR) << __func__ << ": reading of command from MQ failed";
-        mState = StreamDescriptor::State::ERROR;
-        return Status::ABORT;
     }
     using Tag = StreamDescriptor::Command::Tag;
     using LogSeverity = ::android::base::LogSeverity;
