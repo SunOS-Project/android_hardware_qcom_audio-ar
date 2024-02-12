@@ -337,6 +337,11 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
          }
     }
 
+    if (!UpdateSession) {
+        LOG(DEBUG) << __func__ << ": UpdateSession not created";
+        return;
+    }
+
     if (UpdateSession->mCallState != CallState::ACTIVE && newUpdates.mCallState == CallState::ACTIVE) {
         // this is a clear sign that to start a call
         // other parameters value are needed
