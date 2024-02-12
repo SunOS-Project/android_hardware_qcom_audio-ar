@@ -93,7 +93,11 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
 
     if (flagsTag == AudioIoFlags::Tag::output) {
         auto& outFlags = mixPortConfig.flags.value().get<AudioIoFlags::Tag::output>();
-        if (outFlags == primaryPlaybackFlags) {
+        if (channelLayout.getTag() == AudioChannelLayout::Tag::layoutMask &&
+                   channelLayout.get<AudioChannelLayout::Tag::layoutMask>() ==
+                           AudioChannelLayout::LAYOUT_STEREO_HAPTIC_A) {
+            tag = Usecase::HAPTICS_PLAYBACK;
+        } else if (outFlags == primaryPlaybackFlags) {
             tag = Usecase::PRIMARY_PLAYBACK;
         } else if (outFlags == deepBufferPlaybackFlags || (outFlags == noneFlags)) {
             tag = Usecase::DEEP_BUFFER_PLAYBACK;
@@ -113,10 +117,6 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
             tag = Usecase::MMAP_PLAYBACK;
         } else if (outFlags == inCallMusicFlags) {
             tag = Usecase::IN_CALL_MUSIC;
-        } else if (channelLayout.getTag() == AudioChannelLayout::Tag::layoutMask &&
-                   channelLayout.get<AudioChannelLayout::Tag::layoutMask>() ==
-                           AudioChannelLayout::LAYOUT_STEREO_HAPTIC_A) {
-            tag = Usecase::HAPTICS_PLAYBACK;
         }
     } else if (flagsTag == AudioIoFlags::Tag::input) {
         auto& inFlags = mixPortConfig.flags.value().get<AudioIoFlags::Tag::input>();

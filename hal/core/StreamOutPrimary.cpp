@@ -389,23 +389,23 @@ void StreamOutPrimary::resume() {
     return ::android::OK;
 }
 
-::android::status_t StreamOutPrimary::hapticsWrite(const void* buffer, size_t bytes) {
+::android::status_t StreamOutPrimary::hapticsWrite(const void* buffer, size_t frameCount) {
     int ret = 0;
     bool allocHapticsBuffer = false;
     struct pal_buffer audioBuf;
-    std::unique_ptr<uint8_t[]> dataBuff;
     struct pal_buffer hapticsBuf;
     size_t srcIndex = 0, audIndex = 0, hapIndex = 0;
     uint8_t channelCount =  getChannelCount(mMixPortConfig.channelMask.value());
     uint8_t bytesPerSample = getPcmSampleSizeInBytes(mMixPortConfig.format.value().pcm);
     uint32_t frameSize = channelCount * bytesPerSample;
-    uint32_t frameCount = bytes / frameSize;
 
     // Calculate Haptics Buffer size
+
     uint8_t hapticsChannelCount = mHapticsStreamAttributes.out_media_config.ch_info.channels;
-    uint32_t hapticsFrameSize = bytes * hapticsChannelCount;
+    uint32_t hapticsFrameSize = hapticsChannelCount * bytesPerSample;
     uint32_t audioFrameSize = frameSize - hapticsFrameSize;
     uint32_t totalHapticsBufferSize = frameCount * hapticsFrameSize;
+
 
     if (!mHapticsBuffer) {
         allocHapticsBuffer = true;
@@ -415,8 +415,7 @@ void StreamOutPrimary::resume() {
     }
 
     if (allocHapticsBuffer) {
-        dataBuff = std::make_unique<uint8_t[]>(totalHapticsBufferSize);
-        mHapticsBuffer = reinterpret_cast<uint8_t*>(dataBuff.get());
+        mHapticsBuffer = std::make_unique<uint8_t[]>(totalHapticsBufferSize);
         if(!mHapticsBuffer) {
             LOG(ERROR) << __func__ << ": Failed to allocate haptic buffer";
             return -ENOMEM;
@@ -427,8 +426,8 @@ void StreamOutPrimary::resume() {
     audioBuf.buffer = (uint8_t *)buffer;
     audioBuf.size = frameCount * audioFrameSize;
     audioBuf.offset = 0;
-    hapticsBuf.buffer  = mHapticsBuffer;
-    hapticsBuf.size = frameCount * mHapticsBufSize;
+    hapticsBuf.buffer  = reinterpret_cast<uint8_t*>(mHapticsBuffer.get());
+    hapticsBuf.size = frameCount * hapticsFrameSize;
     hapticsBuf.offset = 0;
 
     for (size_t i = 0; i < frameCount; i++) {
@@ -448,7 +447,7 @@ void StreamOutPrimary::resume() {
     // write haptics data
     ret = ::pal_stream_write(mHapticsPalHandle, &hapticsBuf);
 
-    return ret;
+    return (ret < 0 ? ret :  (frameSize*frameCount));
 }
 
 ::android::status_t StreamOutPrimary::refinePosition(
@@ -1006,7 +1005,13 @@ void StreamOutPrimary::configure() {
         mAudExt.mKarokeExtension->karaoke_open(palDevices[size - 1].id, palFn,
                                                attr.get()->out_media_config.ch_info);
     }
-    const size_t ringBufSizeInBytes = getPeriodSize();
+    size_t ringBufSizeInBytes = getPeriodSize();
+
+    if (mTag == Usecase::HAPTICS_PLAYBACK && mHapticsPalHandle) {
+        size_t hapticsFrameSize = getFrameSizeInBytes(mMixPortConfig.format.value(), channelLayout);
+        ringBufSizeInBytes = LowLatencyPlayback::kPeriodSize * hapticsFrameSize;
+    }
+
     const size_t ringBufCount = getPeriodCount();
     auto palBufferConfig = mPlatform.getPalBufferConfig(ringBufSizeInBytes, ringBufCount);
     LOG(DEBUG) << __func__ << *this << "set pal_stream_set_buffer_size to "
