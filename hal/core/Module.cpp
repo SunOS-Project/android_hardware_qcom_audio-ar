@@ -1000,6 +1000,10 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
         onNewPatchCreation(sources, sinks, *_aidl_return);
         patches.push_back(*_aidl_return);
     } else {
+        if (in_requested.id == 0 ) {
+           _aidl_return->id = existing->id;
+           LOG(DEBUG) << __func__ << "patch id 0 updated to existing patch id " << existing->id;
+        }
         // this suggests to update the existing patch.
         oldPatch = *existing;
         // update the existing patch to requested patch in module config.
