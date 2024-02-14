@@ -19,6 +19,9 @@ using ::aidl::android::media::audio::common::AudioPortExt;
 using ::aidl::android::media::audio::common::AudioIoFlags;
 using ::aidl::android::media::audio::common::AudioInputFlags;
 using ::aidl::android::media::audio::common::AudioOutputFlags;
+using ::aidl::android::media::audio::common::AudioPortExt;
+using ::aidl::android::media::audio::common::AudioSource;
+using ::aidl::android::media::audio::common::AudioPortMixExtUseCase;
 
 using ::aidl::android::hardware::audio::core::VendorParameter;
 
@@ -109,6 +112,20 @@ bool hasOutputCompressOffloadFlag(const AudioIoFlags& ioFlags) noexcept {
         return ((compressOffloadFlag & ioFlags.get<AudioIoFlags::Tag::output>()) != 0);
     }
     return false;
+}
+
+std::optional<AudioSource> getAudioSource(const AudioPortConfig& mixPortconfig) noexcept {
+    if (mixPortconfig.ext.getTag() != AudioPortExt::Tag::mix) {
+        LOG(ERROR) << __func__ << ": not a mix port, " << mixPortconfig.toString();
+        return std::nullopt;
+    }
+    if (mixPortconfig.ext.get<AudioPortExt::Tag::mix>().usecase.getTag() !=
+        AudioPortMixExtUseCase::Tag::source) {
+        LOG(ERROR) << __func__ << ": no source provided, " << mixPortconfig.toString();
+        return std::nullopt;
+    }
+    return mixPortconfig.ext.get<AudioPortExt::Tag::mix>()
+            .usecase.get<AudioPortMixExtUseCase::Tag::source>();
 }
 
 std::vector<int32_t> getActiveInputMixPortConfigIds(

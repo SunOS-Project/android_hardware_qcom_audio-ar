@@ -65,6 +65,9 @@ bool hasOutputDirectFlag(const ::aidl::android::media::audio::common::AudioIoFla
 bool hasOutputCompressOffloadFlag(
         const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
 
+std::optional<aidl::android::media::audio::common::AudioSource> getAudioSource(
+        const ::aidl::android::media::audio::common::AudioPortConfig&) noexcept;
+
 std::vector<int32_t> getActiveInputMixPortConfigIds(
         const std::vector<::aidl::android::media::audio::common::AudioPortConfig>&
                 activePortConfigs);

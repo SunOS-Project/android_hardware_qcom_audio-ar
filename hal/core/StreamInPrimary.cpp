@@ -30,6 +30,7 @@ using aidl::android::media::audio::common::AudioLatencyMode;
 using aidl::android::media::audio::common::AudioOffloadInfo;
 using aidl::android::media::audio::common::AudioPortExt;
 using aidl::android::media::audio::common::AudioPlaybackRate;
+using aidl::android::media::audio::common::AudioSource;
 using aidl::android::media::audio::common::MicrophoneDynamicInfo;
 using aidl::android::media::audio::common::MicrophoneInfo;
 
@@ -613,6 +614,11 @@ void StreamInPrimary::configure() {
     }
     if (mTag == Usecase::PCM_RECORD) {
         attr->type = PAL_STREAM_DEEP_BUFFER;
+        if (const auto& source = getAudioSource(mMixPortConfig);
+            (source && source.value() == AudioSource::ECHO_REFERENCE)) {
+            LOG(INFO) << __func__ << *this << ": echo reference capture";
+            attr->type = PAL_STREAM_RAW;
+        }
     } else if (mTag == Usecase::COMPRESS_CAPTURE) {
         attr->type = PAL_STREAM_COMPRESSED;
     } else if (mTag == Usecase::VOIP_RECORD) {
