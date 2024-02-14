@@ -895,7 +895,23 @@ size_t PcmOffloadPlayback::getPeriodSize(
 
     periodSize = ALIGN(periodSize, (frameSize * 32));
 
+    if (auto res = Platform::requiresBufferReformat(mixPortConfig)) {
+        audio_format_t inFormat = res->first;
+        audio_format_t outFormat = res->second;
+        periodSize =
+                (periodSize * audio_bytes_per_sample(inFormat)) / audio_bytes_per_sample(outFormat);
+    }
+
     return periodSize;
+}
+
+size_t PcmOffloadPlayback::getFrameCount(
+        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
+    const auto frameSize =
+            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
+
+    auto periodSize = getPeriodSize(mixPortConfig);
+    return periodSize / frameSize;
 }
 
 // end of PcmOffloadPlayback
