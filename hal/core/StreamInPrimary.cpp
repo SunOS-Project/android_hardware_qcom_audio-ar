@@ -1,6 +1,6 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -43,6 +43,8 @@ using ::aidl::android::hardware::audio::effect::getEffectTypeUuidAcousticEchoCan
 using ::aidl::android::hardware::audio::effect::getEffectTypeUuidNoiseSuppression;
 
 namespace qti::audio::core {
+
+#define READ_RETRY_COUNT 10
 
 std::mutex StreamInPrimary::sinkMetadata_mutex_;
 
@@ -279,7 +281,24 @@ void StreamInPrimary::resume() {
     LOG(VERBOSE) << __func__ << *this << ": framecount " << frameCount << " mFrameSizeBytes "
                  << mFrameSizeBytes;
     int32_t bytesRead = ::pal_stream_read(mPalHandle, &palBuffer);
-    if (bytesRead < 0) {
+    /* AudioFlinger will call Pause/flush and read again upon receiving 0 bytes.
+     * This results VA buffering stop in PAL. Add retry mechanism to get valid data
+     * for HOTWORD read stream
+     */
+    if (mTag == Usecase::HOTWORD_RECORD && bytesRead <= 0) {
+        if (bytesRead == 0) {
+            int32_t retryCnt = 0;
+            do {
+                bytesRead = ::pal_stream_read(mPalHandle, &palBuffer);
+            } while (bytesRead == 0 && ++retryCnt < READ_RETRY_COUNT);
+        } else {
+            /* Send silence buffer to let app know to stop capture session.
+             * This would avoid continous read from Audioflinger to HAL.
+             */
+            memset(palBuffer.buffer, 0, palBuffer.size);
+            bytesRead = palBuffer.size;
+        }
+    } else if (bytesRead < 0) {
         LOG(ERROR) << __func__ << *this << " read failed, ret:" << std::to_string(bytesRead);
         return ::android::NOT_ENOUGH_DATA;
     }
