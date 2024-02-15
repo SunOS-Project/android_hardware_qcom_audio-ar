@@ -48,6 +48,8 @@ using ::aidl::android::hardware::audio::effect::getEffectTypeUuidNoiseSuppressio
 
 namespace qti::audio::core {
 
+#define READ_RETRY_COUNT 10
+
 std::mutex StreamInPrimary::sinkMetadata_mutex_;
 
 StreamInPrimary::StreamInPrimary(StreamContext&& context, const SinkMetadata& sinkMetadata,
@@ -301,7 +303,24 @@ void StreamInPrimary::resume() {
                  << mFrameSizeBytes;
 #endif
     int32_t bytesRead = ::pal_stream_read(mPalHandle, &palBuffer);
-    if (bytesRead < 0) {
+    /* AudioFlinger will call Pause/flush and read again upon receiving 0 bytes.
+     * This results VA buffering stop in PAL. Add retry mechanism to get valid data
+     * for HOTWORD read stream
+     */
+    if (mTag == Usecase::HOTWORD_RECORD && bytesRead <= 0) {
+        if (bytesRead == 0) {
+            int32_t retryCnt = 0;
+            do {
+                bytesRead = ::pal_stream_read(mPalHandle, &palBuffer);
+            } while (bytesRead == 0 && ++retryCnt < READ_RETRY_COUNT);
+        } else {
+            /* Send silence buffer to let app know to stop capture session.
+             * This would avoid continous read from Audioflinger to HAL.
+             */
+            memset(palBuffer.buffer, 0, palBuffer.size);
+            bytesRead = palBuffer.size;
+        }
+    } else if (bytesRead < 0) {
         LOG(ERROR) << __func__ << *this << " read failed, ret:" << std::to_string(bytesRead);
         return ::android::NOT_ENOUGH_DATA;
     }
