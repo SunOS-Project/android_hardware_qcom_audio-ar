@@ -19,6 +19,9 @@ LOCAL_VINTF_FRAGMENTS   := \
 LOCAL_VINTF_FRAGMENTS += \
     ../../configs/common/manifest_non_qmaa_extn.xml
 
+LOCAL_VINTF_FRAGMENTS += \
+    manifest_audiocoreservices_qti.xml
+
 LOCAL_SRC_FILES := \
     CoreService.cpp \
     Bluetooth.cpp \

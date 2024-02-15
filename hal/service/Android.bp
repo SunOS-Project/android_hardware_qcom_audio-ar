@@ -2,7 +2,6 @@ cc_binary {
     name: "audiohalservice.qti",
     vendor: true,
     relative_install_path: "hw",
-    vintf_fragments: ["audiocoreservice_qti.xml"],
     init_rc: ["audiohalservice_qti.rc"],
 
     cflags: [
