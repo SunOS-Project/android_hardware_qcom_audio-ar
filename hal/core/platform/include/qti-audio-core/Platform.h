@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -17,6 +17,12 @@
 #include <qti-audio-core/AudioUsecase.h>
 
 namespace qti::audio::core {
+
+struct HdmiParameters {
+    int controller;
+    int stream;
+    pal_device_id_t deviceId;
+};
 
 enum class PlaybackRateStatus { SUCCESS, UNSUPPORTED, ILLEGAL_ARGUMENT };
 
@@ -95,6 +101,7 @@ class Platform {
             const std::vector<::aidl::android::media::audio::common::AudioDevice>&
                     bluetoothDevices);
     std::unique_ptr<pal_stream_attributes> getDefaultTelephonyAttributes() const;
+    std::unique_ptr<pal_stream_attributes> getDefaultCRSTelephonyAttributes() const;
     void configurePalDevicesCustomKey(std::vector<pal_device>& palDevices,
                                       const std::string& customKey) const;
 
@@ -172,6 +179,9 @@ class Platform {
     bool getBtConfig(pal_param_bta2dp_t* bTConfig);
     std::vector<::aidl::android::media::audio::common::AudioProfile> getUsbProfiles(
             const ::aidl::android::media::audio::common::AudioPort& port) const;
+
+    std::optional<struct HdmiParameters> getHdmiParameters(
+            const ::aidl::android::media::audio::common::AudioDevice&) const;
 
   public:
     constexpr static uint32_t kDefaultOutputSampleRate = 48000;

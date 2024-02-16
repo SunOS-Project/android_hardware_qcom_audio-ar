@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -128,7 +128,7 @@ DevicePairs getDevicePairs() {
              PAL_DEVICE_IN_HDMI},
             {makeAudioDeviceDescription(AudioDeviceType::OUT_DEVICE,
                                         AudioDeviceDescription::CONNECTION_HDMI),
-             PAL_DEVICE_OUT_HDMI},
+             PAL_DEVICE_OUT_AUX_DIGITAL},
             {makeAudioDeviceDescription(AudioDeviceType::IN_ACCESSORY,
                                         AudioDeviceDescription::CONNECTION_USB),
              PAL_DEVICE_IN_USB_ACCESSORY},

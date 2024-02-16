@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -11,6 +11,10 @@
 namespace qti::audio::core {
 
 class StreamInPrimary : public StreamIn, public StreamCommonImpl {
+
+  private:
+    ::android::status_t onReadError(const size_t sleepFrameCount);
+
   public:
     friend class ndk::SharedRefBase;
     StreamInPrimary(

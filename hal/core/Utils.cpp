@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -91,6 +91,24 @@ bool hasMMapFlagsEnabled(const AudioIoFlags& ioFlags) noexcept {
 
 bool isInputAFEProxyDevice(const AudioDevice& device) noexcept {
     return device.type.type == AudioDeviceType::IN_AFE_PROXY;
+}
+
+bool hasOutputDirectFlag(const AudioIoFlags& ioFlags) noexcept {
+    if (ioFlags.getTag() == AudioIoFlags::Tag::output) {
+        constexpr auto directFlag =
+                static_cast<int32_t>(1 << static_cast<int32_t>(AudioOutputFlags::DIRECT));
+        return ((directFlag & ioFlags.get<AudioIoFlags::Tag::output>()) != 0);
+    }
+    return false;
+}
+
+bool hasOutputCompressOffloadFlag(const AudioIoFlags& ioFlags) noexcept {
+    if (ioFlags.getTag() == AudioIoFlags::Tag::output) {
+        constexpr auto compressOffloadFlag =
+                static_cast<int32_t>(1 << static_cast<int32_t>(AudioOutputFlags::COMPRESS_OFFLOAD));
+        return ((compressOffloadFlag & ioFlags.get<AudioIoFlags::Tag::output>()) != 0);
+    }
+    return false;
 }
 
 std::vector<int32_t> getActiveInputMixPortConfigIds(

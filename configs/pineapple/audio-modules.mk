@@ -61,17 +61,12 @@ AUDIO_TEST := mcs_test
 AUDIO_TEST += ar_util_in_test_example
 
 
-#AUDIO_MODULES := audio.a2dp.default
-AUDIO_MODULES := audio.usb.default
-AUDIO_MODULES += audio.r_submix.default
-AUDIO_MODULES += audio.primary.pineapple
-AUDIO_MODULES += ftm_test_config
+AUDIO_MODULES := ftm_test_config
 AUDIO_MODULES += ftm_test_config_pineapple-qrd-snd-card
 AUDIO_MODULES += ftm_test_config_pineapple-qrd-sku2-snd-card
 AUDIO_MODULES += ftm_test_config_cliffs-mtp-wsa883x-snd-card
 AUDIO_MODULES += ftm_test_config_cliffs-qrd-snd-card
 AUDIO_MODULES += audioadsprpcd
-AUDIO_MODULES += android.hardware.audio.service_64
 AUDIO_MODULES += MTP_acdb_cal.acdb
 AUDIO_MODULES += MTP_workspaceFileXml.qwsp
 AUDIO_MODULES += CDP_acdb_cal.acdb
@@ -134,67 +129,19 @@ AUDIO_MODULES += $(AUDIO_PAL)
 AUDIO_MODULES += $(AUDIO_C2)
 AUDIO_MODULES += $(AUDIO_TEST)
 
-# for HIDL related packages
-AUDIO_MODULES += \
-    android.hardware.audio@2.0-service_64 \
-    android.hardware.audio@2.0-impl \
-    android.hardware.audio.effect@2.0-impl \
-    android.hardware.audio@4.0 \
-    android.hardware.audio.common@4.0 \
-    android.hardware.audio.common@4.0-util \
-    android.hardware.audio@4.0-impl \
-    android.hardware.audio.effect@4.0 \
-    android.hardware.audio.effect@4.0-impl
-
-# enable audio hidl hal 5.0
-AUDIO_MODULES += \
-    android.hardware.audio@5.0 \
-    android.hardware.audio.common@5.0 \
-    android.hardware.audio.common@5.0-util \
-    android.hardware.audio@5.0-impl \
-    android.hardware.audio.effect@5.0 \
-    android.hardware.audio.effect@5.0-impl
-
-# enable audio hidl hal 6.0
-AUDIO_MODULES += \
-    android.hardware.audio@6.0 \
-    android.hardware.audio.common@6.0 \
-    android.hardware.audio.common@6.0-util \
-    android.hardware.audio@6.0-impl \
-    android.hardware.audio.effect@6.0 \
-    android.hardware.audio.effect@6.0-impl
-
-# enable audio hidl hal 7.0
-AUDIO_MODULES += \
-    android.hardware.audio@7.0 \
-    android.hardware.audio.common@7.0 \
-    android.hardware.audio.common@7.0-util \
-    android.hardware.audio@7.0-impl \
-    android.hardware.audio.effect@7.0 \
-    android.hardware.audio.effect@7.0-impl
-
-# enable audio hidl hal 7.1
-AUDIO_MODULES += \
-    android.hardware.audio@7.1-impl
-
 # sound trigger aidl library
 AUDIO_MODULES += libsoundtriggerhal.qti
 
-# enable Listen Sound Model hidl 1.0
+# enable Listen Sound Model aidl 1.0
 AUDIO_MODULES += \
-    vendor.qti.hardware.ListenSoundModel@1.0 \
-    vendor.qti.hardware.ListenSoundModel@1.0-impl
-
+    liblistensoundmodelaidl
 
 # AIDL Audio modules
 
 AUDIO_MODULES += \
     audiohalservice.qti \
     libaudiocorehal.qti \
-    libaudioeffecthal.qti \
-    vendor.qti.hardware.AGMIPC@1.0-impl \
-    vendor.qti.hardware.pal@1.0-impl \
-    android.hardware.bluetooth.audio-impl
+    libaudioeffecthal.qti
 
 
 endif

@@ -15,8 +15,8 @@
  */
 
 /*
- * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -31,6 +31,8 @@
 #include <qti-audio-core/ModulePrimary.h>
 #include <qti-audio-core/Stream.h>
 
+// uncomment this to enable logging of very verbose logs like burst commands.
+// #define VERY_VERBOSE_LOGGING 1
 using aidl::android::hardware::audio::common::AudioOffloadMetadata;
 using aidl::android::hardware::audio::common::getChannelCount;
 using aidl::android::hardware::audio::common::getFrameSizeInBytes;
@@ -168,8 +170,16 @@ StreamInWorkerLogic::Status StreamInWorkerLogic::cycle() {
             command.getTag() == Tag::burst || command.getTag() == Tag::getStatus
                     ? LogSeverity::VERBOSE
                     : LogSeverity::DEBUG;
+
+#ifdef VERY_VERBOSE_LOGGING
     LOG(severity) << __func__ << ": received command " << command.toString() << " in "
                   << kThreadName;
+#else
+    if (command.getTag() != Tag::burst && command.getTag() != Tag::getStatus)
+        LOG(DEBUG) << __func__ << ": received command " << command.toString() << " in "
+                   << kThreadName;
+#endif
+
     StreamDescriptor::Reply reply{};
     reply.status = STATUS_BAD_VALUE;
     switch (command.getTag()) {
@@ -205,8 +215,10 @@ StreamInWorkerLogic::Status StreamInWorkerLogic::cycle() {
             break;
         case Tag::burst:
             if (const int32_t fmqByteCount = command.get<Tag::burst>(); fmqByteCount >= 0) {
+#ifdef VERY_VERBOSE_LOGGING
                 LOG(VERBOSE) << __func__ << ": '" << toString(command.getTag()) << "' command for "
                              << fmqByteCount << " bytes";
+#endif
                 if (mState == StreamDescriptor::State::IDLE ||
                     mState == StreamDescriptor::State::ACTIVE ||
                     mState == StreamDescriptor::State::PAUSED ||
@@ -324,8 +336,10 @@ bool StreamInWorkerLogic::read(size_t clientSize, StreamDescriptor::Reply* reply
     const size_t actualByteCount = actualFrameCount * frameSize;
     if (bool success = actualByteCount > 0 ? dataMQ->write(&mDataBuffer[0], actualByteCount) : true;
         success) {
+#ifdef VERY_VERBOSE_LOGGING
         LOG(VERBOSE) << __func__ << ": writing of " << actualByteCount << " bytes into data MQ"
                      << " succeeded; connected? " << isConnected;
+#endif
         // Frames are provided and counted regardless of connection status.
         reply->fmqByteCount += actualByteCount;
         mContext->advanceFrameCount(actualFrameCount);
@@ -342,6 +356,12 @@ bool StreamInWorkerLogic::read(size_t clientSize, StreamDescriptor::Reply* reply
 const std::string StreamOutWorkerLogic::kThreadName = "writer";
 
 StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
+    StreamDescriptor::Command command{};
+    if (!mContext->getCommandMQ()->readBlocking(&command, 1)) {
+        LOG(ERROR) << __func__ << ": reading of command from MQ failed";
+        mState = StreamDescriptor::State::ERROR;
+        return Status::ABORT;
+    }
     if (mState == StreamDescriptor::State::DRAINING ||
         mState == StreamDescriptor::State::TRANSFERRING) {
         if (auto stateDurationMs = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -352,29 +372,11 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
                 // In blocking mode, mState can only be DRAINING.
                 mState = StreamDescriptor::State::IDLE;
             } else {
-                // In a real implementation, the driver should notify the HAL
-                // about drain or transfer completion. In the stub, we switch
-                // unconditionally.
-                if (mState == StreamDescriptor::State::DRAINING) {
+                if (mState == StreamDescriptor::State::DRAINING && mDriver->isDrainReady()) {
                     mState = StreamDescriptor::State::IDLE;
-                    /*
-                    ndk::ScopedAStatus status = asyncCallback->onDrainReady();
-                    if (!status.isOk()) {
-                        LOG(ERROR) << __func__
-                                   << ": error from onDrainReady: " << status;
-                    }
-                    */
-                } else {
+                } else if (mState == StreamDescriptor::State::TRANSFERRING &&
+                           mDriver->isTransferReady()) {
                     mState = StreamDescriptor::State::ACTIVE;
-                    /*
-                    ndk::ScopedAStatus status =
-                        asyncCallback->onTransferReady();
-                    if (!status.isOk()) {
-                        LOG(ERROR)
-                            << __func__
-                            << ": error from onTransferReady: " << status;
-                    }
-                    */
                 }
             }
             if (mTransientStateDelayMs.count() != 0) {
@@ -383,21 +385,21 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
             }
         }
     }
-
-    StreamDescriptor::Command command{};
-    if (!mContext->getCommandMQ()->readBlocking(&command, 1)) {
-        LOG(ERROR) << __func__ << ": reading of command from MQ failed";
-        mState = StreamDescriptor::State::ERROR;
-        return Status::ABORT;
-    }
     using Tag = StreamDescriptor::Command::Tag;
     using LogSeverity = ::android::base::LogSeverity;
     const LogSeverity severity =
             command.getTag() == Tag::burst || command.getTag() == Tag::getStatus
                     ? LogSeverity::VERBOSE
                     : LogSeverity::DEBUG;
+#ifdef VERY_VERBOSE_LOGGING
     LOG(severity) << __func__ << ": received command " << command.toString() << " in "
                   << kThreadName;
+#else
+    if (command.getTag() != Tag::burst && command.getTag() != Tag::getStatus)
+        LOG(DEBUG) << __func__ << ": received command " << command.toString() << " in "
+                   << kThreadName;
+#endif
+
     StreamDescriptor::Reply reply{};
     reply.status = STATUS_BAD_VALUE;
     // DEBUG, provide a default latency for any command
@@ -453,8 +455,10 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
         } break;
         case Tag::burst:
             if (const int32_t fmqByteCount = command.get<Tag::burst>(); fmqByteCount >= 0) {
+#ifdef VERY_VERBOSE_LOGGING
                 LOG(VERBOSE) << __func__ << ": '" << toString(command.getTag()) << "' command for "
                              << fmqByteCount << " bytes";
+#endif
                 if (mState != StreamDescriptor::State::ERROR &&
                     mState != StreamDescriptor::State::TRANSFERRING &&
                     mState != StreamDescriptor::State::TRANSFER_PAUSED) {
@@ -588,8 +592,10 @@ bool StreamOutWorkerLogic::write(size_t clientSize, StreamDescriptor::Reply* rep
     int32_t latency = Module::kLatencyMs;
     if (bool success = readByteCount > 0 ? dataMQ->read(&mDataBuffer[0], readByteCount) : true) {
         const bool isConnected = mIsConnected;
+#ifdef VERY_VERBOSE_LOGGING
         LOG(VERBOSE) << __func__ << ": reading of " << readByteCount << " bytes from data MQ"
                      << " succeeded; connected? " << isConnected;
+#endif
         // Amount of data that the HAL module is going to actually use.
         size_t byteCount = std::min({clientSize, readByteCount, mDataBufferSize});
         if (byteCount >= frameSize && mContext->getForceTransientBurst()) {
@@ -602,6 +608,7 @@ bool StreamOutWorkerLogic::write(size_t clientSize, StreamDescriptor::Reply* rep
             if (::android::status_t status = mDriver->transfer(
                         mDataBuffer.get(), byteCount / frameSize, &actualFrameCount, &latency);
                 status != ::android::OK) {
+                reply->status = STATUS_DEAD_OBJECT;
                 fatal = true;
                 LOG(ERROR) << __func__ << ": write failed: " << status;
             }

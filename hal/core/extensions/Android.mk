@@ -31,8 +31,8 @@ LOCAL_SHARED_LIBRARIES := \
     libxml2 \
     android.hardware.common-V2-ndk \
     android.hardware.common.fmq-V1-ndk \
-    android.media.audio.common.types-V2-ndk \
-    android.hardware.audio.core-V1-ndk \
+    android.media.audio.common.types-V3-ndk \
+    android.hardware.audio.core-V2-ndk \
     libar-pal
 
 include $(BUILD_STATIC_LIBRARY)

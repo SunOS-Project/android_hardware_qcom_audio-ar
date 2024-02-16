@@ -16,7 +16,7 @@
 
 /*
  * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -947,11 +947,33 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
         //if its there, then update to new patch and remove it from list
         for (auto & element : patches)
         {
-             if (element.sourcePortConfigIds == in_requested.sourcePortConfigIds) {
-                 LOG(ERROR) << __func__ << " found same mixport config in patch id: " << element.id;
-                 oldPatch = element;
-                 cleanUpPatch(element.id);
-                 break;
+             if (isMixPortConfig(*(sources.at(0)))) {
+                 if (element.sourcePortConfigIds == in_requested.sourcePortConfigIds) {
+                     LOG(ERROR) << __func__ << " found same mixport config in patch id: " << element.id;
+                     existing = findById<AudioPatch>(patches, element.id);
+                     if (existing != patches.end()) {
+                         patchesBackup = mPatches;
+                         cleanUpPatch(existing->id);
+                     } else {
+                          LOG(ERROR) << __func__ << ": not found existing patch id " << in_requested.id;
+                          return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+                     }
+                     break;
+                 }
+             }
+             else {
+                 if (element.sinkPortConfigIds == in_requested.sinkPortConfigIds) {
+                     LOG(ERROR) << __func__ << " found same sink mixport config in patch id: " << element.id;
+                     existing = findById<AudioPatch>(patches, element.id);
+                     if (existing != patches.end()) {
+                         patchesBackup = mPatches;
+                         cleanUpPatch(existing->id);
+                     } else {
+                          LOG(ERROR) << __func__ << ": not found existing patch id " << in_requested.id;
+                          return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+                     }
+                     break;
+                 }
              }
         }
     }
@@ -988,7 +1010,7 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
     auto status = updateStreamsConnectedState(oldPatch, *_aidl_return);
 
     // call this after streams devices got updated
-    updateTelephonyPatch(sources, sinks, *_aidl_return);
+    setAudioPatchTelephony(sources, sinks, *_aidl_return);
 
     if (!status.isOk()) {
         mPatches = std::move(*patchesBackup);
@@ -1002,10 +1024,12 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
 
     if (oldPatch.id == 0) {
         LOG(INFO) << __func__ << ": "
-                  << "created" << _aidl_return->toString();
+                  << "created " << getPatchDetails(*_aidl_return) << " "
+                  << _aidl_return->toString();
     } else {
         LOG(INFO) << __func__ << ": "
-                  << "updated from " << oldPatch.toString() << " to " << _aidl_return->toString();
+                  << "updated from " << getPatchDetails(oldPatch) << " " << oldPatch.toString()
+                  << " to " << getPatchDetails(*_aidl_return) << " " << _aidl_return->toString();
     }
     return ndk::ScopedAStatus::ok();
 }
@@ -1016,7 +1040,42 @@ void Module::onNewPatchCreation(const std::vector<AudioPortConfig*>& sources,
     return;
 }
 
-void Module::updateTelephonyPatch(
+std::string Module::portNameFromPortConfigIds(int portConfigId) {
+    auto& portConfigs = getConfig().portConfigs;
+    auto portConfigIt = findById<AudioPortConfig>(portConfigs, portConfigId);
+    if (portConfigIt != portConfigs.end()) {
+        auto& ports = getConfig().ports;
+        auto portIt = findById<AudioPort>(ports, portConfigIt->portId);
+        return portIt->name;
+    }
+
+    return "";
+}
+
+std::string Module::getPatchDetails(
+        const ::aidl::android::hardware::audio::core::AudioPatch& patch) {
+    auto sourcePortConfigs = patch.sourcePortConfigIds;
+    auto sinkPortConfigs = patch.sinkPortConfigIds;
+
+    std::string result = "[";
+
+    for (auto src : sourcePortConfigs) {
+        result += portNameFromPortConfigIds(src);
+        result += " ";
+    }
+
+    result += " -> ";
+
+    for (auto sink : sinkPortConfigs) {
+        result += portNameFromPortConfigIds(sink);
+        result += " ";
+    }
+
+    result += " ]";
+    return result;
+}
+
+void Module::setAudioPatchTelephony(
         const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
         const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
         const ::aidl::android::hardware::audio::core::AudioPatch& patch) {
@@ -1153,11 +1212,15 @@ ndk::ScopedAStatus Module::setAudioPortConfig(const AudioPortConfig& in_requeste
         out_suggested->id = getConfig().nextPortId++;
         configs.push_back(*out_suggested);
         *_aidl_return = true;
-        LOG(DEBUG) << __func__ << ": created new port config " << out_suggested->toString();
+        auto portName = portNameFromPortConfigIds(out_suggested->id);
+        LOG(DEBUG) << __func__ << ": created new port config for " << portName << " "
+                   << out_suggested->toString();
     } else if (existing != configs.end() && requestedIsValid) {
         *existing = *out_suggested;
         *_aidl_return = true;
-        LOG(DEBUG) << __func__ << ": updated port config " << out_suggested->toString();
+        auto portName = portNameFromPortConfigIds(out_suggested->id);
+        LOG(DEBUG) << __func__ << ": updated port config for" << portName << " "
+                   << out_suggested->toString();
     } else {
         LOG(DEBUG) << __func__ << ": not applied; existing config ? " << (existing != configs.end())
                    << "; requested is valid? " << requestedIsValid << ", fully specified? "
@@ -1177,8 +1240,9 @@ ndk::ScopedAStatus Module::resetAudioPatch(int32_t in_patchId) {
             mPatches = std::move(patchesBackup);
             return status;
         }
+        std::string patchDetails = getPatchDetails(*patchIt);
         patches.erase(patchIt);
-        LOG(DEBUG) << __func__ << ": erased patch " << in_patchId;
+        LOG(DEBUG) << __func__ << ": erased patch " << in_patchId << " " << patchDetails;
         return ndk::ScopedAStatus::ok();
     }
     LOG(ERROR) << __func__ << ": patch id " << in_patchId << " not found";
@@ -1202,12 +1266,15 @@ ndk::ScopedAStatus Module::resetAudioPortConfig(int32_t in_portConfigId) {
         }
         auto& initials = getConfig().initialConfigs;
         auto initialIt = findById<AudioPortConfig>(initials, in_portConfigId);
+        auto relatedPortName = portNameFromPortConfigIds(in_portConfigId);
         if (initialIt == initials.end()) {
             configs.erase(configIt);
-            LOG(DEBUG) << __func__ << ": erased port config " << in_portConfigId;
+            LOG(DEBUG) << __func__ << ": erased port config " << in_portConfigId << " "
+                       << relatedPortName;
         } else if (*configIt != *initialIt) {
             *configIt = *initialIt;
-            LOG(DEBUG) << __func__ << ": reset port config " << in_portConfigId;
+            LOG(DEBUG) << __func__ << ": reset port config " << in_portConfigId << " "
+                       << relatedPortName;
         }
         return ndk::ScopedAStatus::ok();
     }

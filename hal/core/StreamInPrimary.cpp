@@ -1,6 +1,6 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -41,6 +41,9 @@ using ::aidl::android::hardware::audio::core::StreamDescriptor;
 using ::aidl::android::hardware::audio::core::VendorParameter;
 using ::aidl::android::hardware::audio::effect::getEffectTypeUuidAcousticEchoCanceler;
 using ::aidl::android::hardware::audio::effect::getEffectTypeUuidNoiseSuppression;
+
+// uncomment this to enable logging of very verbose logs like burst commands.
+// #define VERY_VERBOSE_LOGGING 1
 
 namespace qti::audio::core {
 
@@ -126,7 +129,7 @@ ndk::ScopedAStatus StreamInPrimary::setConnectedDevices(
         return std::move(prev) + ';' + device.toString();
     };
 
-    LOG(VERBOSE) << __func__ << *this << " stream is connected to devices:"
+    LOG(DEBUG) << __func__ << *this << " stream is connected to devices:"
                  << std::accumulate(mConnectedDevices.cbegin(), mConnectedDevices.cend(),
                                     std::string(""), devicesString);
 
@@ -178,7 +181,7 @@ ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd, int64_t* bu
     const size_t ringBufSizeInBytes = getPeriodSize();
     const size_t ringBufCount = getPeriodCount();
     auto palBufferConfig = mPlatform.getPalBufferConfig(ringBufSizeInBytes, ringBufCount);
-    LOG(VERBOSE) << __func__ << *this << " set pal_stream_set_buffer_size to "
+    LOG(DEBUG) << __func__ << *this << " set pal_stream_set_buffer_size to "
                  << std::to_string(ringBufSizeInBytes) << " with count "
                  << std::to_string(ringBufCount);
     if (int32_t ret =
@@ -262,6 +265,21 @@ void StreamInPrimary::resume() {
     return ::android::OK;
 }
 
+::android::status_t StreamInPrimary::onReadError(const size_t sleepFrameCount) {
+    shutdown();
+    if (mTag == Usecase::COMPRESS_CAPTURE) {
+        LOG(ERROR) << __func__ << *this << ": cannot afford read failure for compress";
+        return ::android::UNEXPECTED_NULL;
+    }
+    auto& sampleRate = mMixPortConfig.sampleRate.value().value;
+    if (sampleRate == 0) {
+        LOG(ERROR) << __func__ << *this << ": cannot afford read failure, sampleRate is zero";
+        return ::android::UNEXPECTED_NULL;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds((sleepFrameCount * 1000) / sampleRate));
+    return ::android::OK;
+}
+
 ::android::status_t StreamInPrimary::transfer(void* buffer, size_t frameCount,
                                               size_t* actualFrameCount, int32_t* latencyMs) {
     if (!mPalHandle) {
@@ -269,15 +287,18 @@ void StreamInPrimary::resume() {
         configure();
         if (!mPalHandle) {
             LOG(ERROR) << __func__ << *this << ": failed to configure";
-            return ::android::UNEXPECTED_NULL;
+            *actualFrameCount = frameCount;
+            return onReadError(frameCount);
         }
     }
 
     pal_buffer palBuffer{};
     palBuffer.buffer = static_cast<uint8_t*>(buffer);
     palBuffer.size = frameCount * mFrameSizeBytes;
+#ifdef VERY_VERBOSE_LOGGING
     LOG(VERBOSE) << __func__ << *this << ": framecount " << frameCount << " mFrameSizeBytes "
                  << mFrameSizeBytes;
+#endif
     int32_t bytesRead = ::pal_stream_read(mPalHandle, &palBuffer);
     if (bytesRead < 0) {
         LOG(ERROR) << __func__ << *this << " read failed, ret:" << std::to_string(bytesRead);
@@ -294,10 +315,19 @@ void StreamInPrimary::resume() {
         // default latency
         *latencyMs = Module::kLatencyMs;
     }
-    *actualFrameCount = static_cast<size_t>(bytesRead) / mFrameSizeBytes;
+    if (bytesRead < 0) {
+        LOG(ERROR) << __func__ << *this << " read failed, ret:" << std::to_string(bytesRead);
+        *actualFrameCount = frameCount;
+         return onReadError(frameCount);
+    }
+    else {
+        *actualFrameCount = static_cast<size_t>(bytesRead) / mFrameSizeBytes;
+    }
 
+#ifdef VERY_VERBOSE_LOGGING
     LOG(VERBOSE) << __func__ << *this << ": bytes read " << bytesRead << ", return frame count "
                  << *actualFrameCount;
+#endif
 
     return ::android::OK;
 }
@@ -321,8 +351,10 @@ void StreamInPrimary::resume() {
         if (ret == 0) {
             reply->hardware.frames = frames;
             reply->hardware.timeNs = timeNs;
+#ifdef VERY_VERBOSE_LOGGING
             LOG(VERBOSE) << __func__ << *this << ": returning MMAP position: frames "
                          << reply->hardware.frames << " timeNs " << reply->hardware.timeNs;
+#endif
         } else {
             LOG(ERROR) << __func__ << ": getMmapPosition failed, ret= " << ret;
             return ::android::base::ERROR;
@@ -389,7 +421,6 @@ int32_t StreamInPrimary::setAggregateSinkMetadata(bool voiceActive) {
     inStreams.erase(std::remove_if(inStreams.begin(), inStreams.end(), removeStreams),
                     inStreams.end());
 
-    LOG(VERBOSE) << __func__ << *this << " in streams not empty size is " << inStreams.size();
     for (auto it = inStreams.begin(); it < inStreams.end(); it++) {
         if (it->lock() && !it->lock()->isClosed()) {
             ::aidl::android::hardware::audio::common::SinkMetadata sinkMetadata;
@@ -398,7 +429,8 @@ int32_t StreamInPrimary::setAggregateSinkMetadata(bool voiceActive) {
         } else {
         }
     }
-    LOG(VERBOSE) << __func__ << *this << " total tracks count is " << track_count_total;
+    LOG(VERBOSE) << __func__ << *this << " trackCount " << track_count_total <<
+                " streamSize " << inStreams.size();
     if (track_count_total == 0) {
         ModulePrimary::inListMutex.unlock();
         return 0;
@@ -420,9 +452,7 @@ int32_t StreamInPrimary::setAggregateSinkMetadata(bool voiceActive) {
     }
 
     btSinkMetadata.tracks = total_tracks.data();
-    LOG(VERBOSE) << __func__ << *this << " sending sink metadata to PAL";
     pal_set_param(PAL_PARAM_ID_SET_SINK_METADATA, (void*)&btSinkMetadata, 0);
-    LOG(VERBOSE) << __func__ << *this << " after sending sink metadata to PAL";
     ModulePrimary::inListMutex.unlock();
     return 0;
 }
@@ -632,7 +662,7 @@ void StreamInPrimary::configure() {
     const size_t ringBufSizeInBytes = getPeriodSize();
     const size_t ringBufCount = getPeriodCount();
     auto palBufferConfig = mPlatform.getPalBufferConfig(ringBufSizeInBytes, ringBufCount);
-    LOG(VERBOSE) << __func__ << *this << " set pal_stream_set_buffer_size to " << ringBufSizeInBytes
+    LOG(DEBUG) << __func__ << *this << " set pal_stream_set_buffer_size to " << ringBufSizeInBytes
                  << " with count " << ringBufCount;
     if (int32_t ret = ::pal_stream_set_buffer_size(mPalHandle, palBufferConfig.get(), nullptr);
         ret) {

@@ -16,7 +16,7 @@
 
 /*
  * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -44,7 +44,6 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     };
     friend std::ostream& operator<<(std::ostream& os, const CallState& state);
     enum class VSID : int64_t {
-        INVALID = 0,
         VSID_1 = 0x11C05000,
         VSID_2 = 0x11DC5000,
     };
@@ -59,9 +58,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
         CallState mCallState{CallState::INVALID};
         CallType mCallType{""};
         bool mIsCrsCall{false};
-        float mCRSVolume = 0.0f;
-        bool mIsCRSStarted{false};
-        VSID mVSID{VSID::INVALID};
+        VSID mVSID{VSID::VSID_1};
         std::string toString() const {
             std::ostringstream os;
             os << "{ mCallState:" << mCallState << ", mVSID:" << mVSID
@@ -70,9 +67,19 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
         }
     };
 
+    float mCRSVolume = 0.4f; //default CRS call volume
+    bool mIsCRSStarted{false};
     constexpr static size_t KCodecBackendDefaultBitWidth = 16;
     const static ::aidl::android::media::audio::common::AudioDevice kDefaultRxDevice;
     const static ::aidl::android::media::audio::common::AudioDevice kDefaultCRSRxDevice;
+    static constexpr int32_t VSID1_VOICE_SESSION = 0;
+    static constexpr int32_t VSID2_VOICE_SESSION = 1;
+    static constexpr int32_t MAX_VOICE_SESSIONS = 2;
+    struct SetUpdateSession {
+        SetUpdates session[MAX_VOICE_SESSIONS];
+    };
+
+    SetUpdateSession mVoiceSession;
 
     /* All the public APIs are guarded by mLock, Hence never call a public
      * API from anther public API */
@@ -101,10 +108,14 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     // The following below APIs are both aimed to solve routing on telephony
     // Hence Choose one
 
-    // This API is called when there is device to device patch
-    void setDevicesFromPatch(
-            const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices,
-            const bool isRxUpdate);
+    /**
+    * brief sets Rx and Tx devices from device to device patch.
+    * @param devices devices obtained from the patch
+    * @param updateRx whether device update is for rx devices or tx devices.
+    * true in case when rx devices needs updation, false otherwise.
+    */
+    void setDevices(const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices,
+                    const bool updateRx);
     // This API is called for routing devices as per primary playback devices.
     void updateDevicesFromPrimaryPlayback();
     void updateVoiceMetadataForBT(bool call_active);
@@ -122,8 +133,10 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     void updateDevices();
     void updateTtyMode();
     void updateCrsDevice();
-    std::vector<::aidl::android::media::audio::common::AudioDevice> getMatchingTxDevices(
-            const std::vector<::aidl::android::media::audio::common::AudioDevice>& rxDevices);
+    void startCrsLoopback();
+    void stopCrsLoopback();
+    ::aidl::android::media::audio::common::AudioDevice getMatchingTxDevice(
+            const ::aidl::android::media::audio::common::AudioDevice & rxDevice);
 
   protected:
     // Gaurd all the public APIs
@@ -154,10 +167,9 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
             {TelecomConfig::TtyMode::VCO, PAL_TTY_VCO},
     };
 
-    std::vector<::aidl::android::media::audio::common::AudioDevice>
-            mRxDevices{}; // speaker, earpiece
-    std::vector<::aidl::android::media::audio::common::AudioDevice>
-            mTxDevices{}; // mic, speaker mic
+    ::aidl::android::media::audio::common::AudioDevice mRxDevice; // speaker, earpiece
+    ::aidl::android::media::audio::common::AudioDevice mTxDevice; // mic, speaker mic
+    pal_stream_handle_t* mPalCrsHandle{nullptr};
     pal_stream_handle_t* mPalHandle{nullptr};
     Platform& mPlatform{Platform::getInstance()};
 };

@@ -16,10 +16,8 @@ LOCAL_CFLAGS := -DBACKEND_NDK
 LOCAL_VINTF_FRAGMENTS   := \
     ../../configs/common/manifest_non_qmaa.xml
 
-ifeq ($(strip $(AUDIO_FEATURE_ENABLED_LSM_HIDL)),true)
 LOCAL_VINTF_FRAGMENTS += \
     ../../configs/common/manifest_non_qmaa_extn.xml
-endif
 
 LOCAL_SRC_FILES := \
     CoreService.cpp \
@@ -75,11 +73,9 @@ LOCAL_SHARED_LIBRARIES := \
     libutils \
     libaudioutils \
     libxml2 \
-    av-audio-types-aidl-ndk \
     android.hardware.common-V2-ndk \
-    android.hardware.common.fmq-V1-ndk \
-    android.media.audio.common.types-V2-ndk \
-    android.hardware.audio.core-V1-ndk \
+    android.media.audio.common.types-V3-ndk \
+    android.hardware.audio.core-V2-ndk \
     android.hardware.audio.effect-V1-ndk \
     android.hardware.audio.core.sounddose-V1-ndk \
     libar-pal \

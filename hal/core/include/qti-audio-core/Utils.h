@@ -15,8 +15,8 @@
  */
 
 /*
- * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -59,6 +59,11 @@ bool hasOutputMMapFlag(const ::aidl::android::media::audio::common::AudioIoFlags
 bool hasMMapFlagsEnabled(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
 
 bool isInputAFEProxyDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
+
+bool hasOutputDirectFlag(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
+
+bool hasOutputCompressOffloadFlag(
+        const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
 
 std::vector<int32_t> getActiveInputMixPortConfigIds(
         const std::vector<::aidl::android::media::audio::common::AudioPortConfig>&

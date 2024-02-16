@@ -15,8 +15,8 @@
  */
 
 /*
- * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -225,6 +225,12 @@ ndk::ScopedAStatus ModulePrimary::createInputStream(StreamContext&& context,
 ndk::ScopedAStatus ModulePrimary::createOutputStream(
         StreamContext&& context, const SourceMetadata& sourceMetadata,
         const std::optional<AudioOffloadInfo>& offloadInfo, std::shared_ptr<StreamOut>* result) {
+    if (mPlatform.isSoundCardDown() &&
+        (hasOutputDirectFlag(context.getMixPortConfig().flags.value()) ||
+         hasOutputCompressOffloadFlag(context.getMixPortConfig().flags.value()))) {
+        LOG(ERROR) << __func__ << ": avoid direct or compress streams as sound card is down";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
     createStreamInstance<StreamOutPrimary>(result, std::move(context), sourceMetadata, offloadInfo);
     ModulePrimary::outListMutex.lock();
     ModulePrimary::updateStreamOutList(*result);
@@ -260,16 +266,14 @@ void ModulePrimary::onNewPatchCreation(const std::vector<AudioPortConfig*>& sour
     newPatch.minimumStreamBufferSizeFrames = numFrames;
 }
 
-void ModulePrimary::updateTelephonyPatch(const std::vector<AudioPortConfig*>& sources,
-                                         const std::vector<AudioPortConfig*>& sinks,
-                                         const AudioPatch& patch) {
+void ModulePrimary::setAudioPatchTelephony(const std::vector<AudioPortConfig*>& sources,
+                                           const std::vector<AudioPortConfig*>& sinks,
+                                           const AudioPatch& patch) {
+    std::string patchDetails = getPatchDetails(patch);
     if (!mTelephony) {
-        LOG(ERROR) << __func__ << ": Telephony not created";
+        LOG(ERROR) << __func__ << ": Telephony not created " << patchDetails << patch.toString();
         return;
     }
-
-    // Todo remove this, upon device to device patch works for telephony
-    mTelephony->updateDevicesFromPrimaryPlayback();
 
     if (!isDevicePortConfig(*(sources.at(0))) || !isDevicePortConfig(*(sinks.at(0)))) {
         return;
@@ -278,21 +282,19 @@ void ModulePrimary::updateTelephonyPatch(const std::vector<AudioPortConfig*>& so
     bool updateTx = isTelephonyTXDevice(sinks.at(0)->ext.get<AudioPortExt::Tag::device>().device);
 
     if (!updateRx && !updateTx) {
-        LOG(ERROR) << __func__ << ": neither RX nor TX update ";
+        LOG(ERROR) << __func__ << ": neither RX nor TX update " << patchDetails << patch.toString();
         return;
     }
 
-    const auto& toBeUpdated = updateRx ? (sinks) : (sources);
+    const auto& portConfigsForDeviceChange = updateRx ? (sinks) : (sources);
 
     std::vector<AudioDevice> devices;
-    for (const auto configPtr : toBeUpdated) {
-        devices.push_back(configPtr->ext.get<AudioPortExt::Tag::device>().device);
+    for (const auto portConfig : portConfigsForDeviceChange) {
+        devices.push_back(portConfig->ext.get<AudioPortExt::Tag::device>().device);
     }
 
-    // Todo uncomment below ,upon device to device patch works for telephony
-    // mTelephony->setDevicesFromPatch(devices, updateRx);
-    LOG(VERBOSE) << __func__ << ": device to device patch, " << patch.toString();
-    return;
+    mTelephony->setDevices(devices, updateRx);
+    LOG(DEBUG) << __func__ << ": device patch : " << patchDetails << patch.toString();
 }
 
 void ModulePrimary::onExternalDeviceConnectionChanged(
@@ -300,6 +302,9 @@ void ModulePrimary::onExternalDeviceConnectionChanged(
     if (!mPlatform.handleDeviceConnectionChange(audioPort, connected)) {
         LOG(WARNING) << __func__ << " failed to handle device connection change:"
                      << (connected ? " connect" : "disconnect") << " for " << audioPort.toString();
+    }
+    if (connected) {
+        mTelephony->updateDevicesFromPrimaryPlayback();
     }
 }
 
@@ -320,9 +325,8 @@ ndk::ScopedAStatus ModulePrimary::getSupportedPlaybackRateFactors(
 ndk::ScopedAStatus ModulePrimary::setVendorParameters(
         const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& in_parameters,
         bool in_async) {
-    LOG(DEBUG) << __func__ << ": parameter count " << in_parameters.size()
+    LOG(VERBOSE) << __func__ << ": parameter count " << in_parameters.size()
                << ", async: " << in_async;
-    bool allParametersKnown = true;
     for (const auto& p : in_parameters) {
         if (p.id == VendorDebug::kForceTransientBurstName) {
             if (!extractParameter<Boolean>(p, &mVendorDebug.forceTransientBurst)) {
@@ -341,13 +345,10 @@ ndk::ScopedAStatus ModulePrimary::setVendorParameters(
             }
 
             mPlatform.setVendorParameters(in_parameters, in_async);
-            allParametersKnown = false;
-            LOG(ERROR) << __func__ << ": unrecognized parameter \"" << p.id << "\"";
         }
     }
     processSetVendorParameters(in_parameters);
-    if (allParametersKnown) return ndk::ScopedAStatus::ok();
-    return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    return ndk::ScopedAStatus::ok();
 }
 
 bool ModulePrimary::processSetVendorParameters(const std::vector<VendorParameter>& parameters) {
@@ -355,7 +356,7 @@ bool ModulePrimary::processSetVendorParameters(const std::vector<VendorParameter
     for (const auto& p : parameters) {
         const auto searchId = mSetParameterToFeatureMap.find(p.id);
         if (searchId == mSetParameterToFeatureMap.cend()) {
-            LOG(ERROR) << __func__ << ": not configured " << p.id;
+            LOG(VERBOSE) << __func__ << ": not configured " << p.id;
             continue;
         }
 
@@ -370,8 +371,8 @@ bool ModulePrimary::processSetVendorParameters(const std::vector<VendorParameter
     for (const auto & [ key, value ] : pendingActions) {
         const auto search = mFeatureToSetHandlerMap.find(key);
         if (search == mFeatureToSetHandlerMap.cend()) {
-            LOG(ERROR) << __func__
-                       << ": no handler set on Feature:" << static_cast<int>(search->first);
+            LOG(VERBOSE) << __func__
+                         << ": no handler set on Feature:" << static_cast<int>(search->first);
             continue;
         }
         auto handler = std::bind(search->second, this, value);
@@ -592,7 +593,6 @@ ndk::ScopedAStatus ModulePrimary::getVendorParameters(
         const std::vector<std::string>& in_ids,
         std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return) {
     LOG(DEBUG) << __func__ << ": id count: " << in_ids.size();
-    bool allParametersKnown = true;
     for (const auto& id : in_ids) {
         if (id == VendorDebug::kForceTransientBurstName) {
             VendorParameter forceTransientBurst{.id = id};
@@ -603,17 +603,12 @@ ndk::ScopedAStatus ModulePrimary::getVendorParameters(
             forceSynchronousDrain.ext.setParcelable(Boolean{mVendorDebug.forceSynchronousDrain});
             _aidl_return->push_back(std::move(forceSynchronousDrain));
         }
-        // else {
-        //     allParametersKnown = false;
-        //     LOG(ERROR) << __func__ << ": unrecognized parameter \"" << id << "\"";
-        // }
     }
 
     auto results = processGetVendorParameters(in_ids);
     std::move(results.begin(), results.end(), std::back_inserter(*_aidl_return));
 
-    if (allParametersKnown) return ndk::ScopedAStatus::ok();
-    return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    return ndk::ScopedAStatus::ok();
 }
 
 std::vector<VendorParameter> ModulePrimary::processGetVendorParameters(

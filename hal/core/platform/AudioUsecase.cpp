@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #define LOG_TAG "AHAL_Usecase_QTI"
@@ -13,7 +13,6 @@
 #include <qti-audio-core/Platform.h>
 #include <qti-audio-core/PlatformUtils.h>
 
-using ::aidl::android::hardware::audio::common::getChannelCount;
 using ::aidl::android::media::audio::common::AudioIoFlags;
 using ::aidl::android::media::audio::common::AudioInputFlags;
 using ::aidl::android::media::audio::common::AudioOutputFlags;
@@ -27,6 +26,8 @@ using ::aidl::android::media::audio::common::AudioPortConfig;
 using ::aidl::android::media::audio::common::AudioPortExt;
 using ::aidl::android::media::audio::common::AudioPortMixExtUseCase;
 using ::aidl::android::hardware::audio::core::VendorParameter;
+using ::aidl::android::media::audio::common::AudioChannelLayout;
+using ::aidl::android::hardware::audio::common::AudioOffloadMetadata;
 
 namespace qti::audio::core {
 
@@ -50,6 +51,8 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
 
     const auto& flagsTag = mixPortConfig.flags.value().getTag();
     constexpr auto flagCastToint = [](auto flag) { return static_cast<int32_t>(flag); };
+
+    const auto& channelLayout = mixPortConfig.channelMask.value();
 
     constexpr int32_t noneFlags = 0;
     constexpr auto primaryPlaybackFlags =
@@ -90,9 +93,13 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
 
     if (flagsTag == AudioIoFlags::Tag::output) {
         auto& outFlags = mixPortConfig.flags.value().get<AudioIoFlags::Tag::output>();
-        if (outFlags == primaryPlaybackFlags) {
+        if (channelLayout.getTag() == AudioChannelLayout::Tag::layoutMask &&
+                   channelLayout.get<AudioChannelLayout::Tag::layoutMask>() ==
+                           AudioChannelLayout::LAYOUT_STEREO_HAPTIC_A) {
+            tag = Usecase::HAPTICS_PLAYBACK;
+        } else if (outFlags == primaryPlaybackFlags) {
             tag = Usecase::PRIMARY_PLAYBACK;
-        } else if (outFlags == deepBufferPlaybackFlags) {
+        } else if (outFlags == deepBufferPlaybackFlags || (outFlags == noneFlags)) {
             tag = Usecase::DEEP_BUFFER_PLAYBACK;
         } else if (outFlags == lowLatencyPlaybackFlags) {
             tag = Usecase::LOW_LATENCY_PLAYBACK;
@@ -184,6 +191,8 @@ std::string getName(const Usecase tag) {
             return "ULTRA_FAST_RECORD";
         case Usecase::HOTWORD_RECORD:
             return "HOTWORD_RECORD";
+        case Usecase::HAPTICS_PLAYBACK:
+            return "HAPTICS_PLAYBACK";
         default:
             return std::to_string(static_cast<uint16_t>(tag));
     }
@@ -194,8 +203,8 @@ std::string getName(const Usecase tag) {
 size_t PcmRecord::getMinFrames(const AudioPortConfig& mixPortConfig) {
     size_t minFrames = kCaptureDurationMs * (mixPortConfig.sampleRate.value().value / 1000);
     minFrames = getNearestMultiple(minFrames,
-                                   getPcmSampleSizeInBytes(mixPortConfig.format.value().pcm));
-    // Adjusting to minFrames as atleast kFMQMinFrameSize (256).
+                std::lcm(32, getPcmSampleSizeInBytes(mixPortConfig.format.value().pcm)));
+    // Adjusting to minFrames as atleast kFMQMinFrameSize (160).
     // Todo check the sanity of this requirement in the VTS test.
     minFrames = std::max(minFrames, kFMQMinFrameSize);
     return minFrames;
@@ -312,14 +321,56 @@ void CompressPlayback::configureDefault() {
     return;
 }
 
-void CompressPlayback::setPalHandle(pal_stream_handle_t* handle) {
+void CompressPlayback::setAndConfigureCodecInfo(pal_stream_handle_t* handle) {
     mCompressPlaybackHandle = handle;
+    if (mCompressPlaybackHandle == nullptr) {
+        return;
+    }
+    configureCodecInfo();
+}
+
+void CompressPlayback::configureGapless(pal_stream_handle_t* handle) {
+    mCompressPlaybackHandle = handle;
+    if (mCompressPlaybackHandle == nullptr) {
+        return;
+    }
+    configureGapLessMetadata();
+}
+
+void CompressPlayback::reconfigureOnFlush() const {
+    if (mCompressPlaybackHandle == nullptr) {
+        return;
+    }
+    configureGapLessMetadata();
+}
+
+void CompressPlayback::reconfigureOnPartialDrain() const {
+    if (mCompressPlaybackHandle == nullptr) {
+        return;
+    }
+    configureGapLessMetadata();
 }
 
 ndk::ScopedAStatus CompressPlayback::getVendorParameters(
         const std::vector<std::string>& in_ids,
         std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return) {
     return ndk::ScopedAStatus::ok();
+}
+
+bool CompressPlayback::fetchDrainReady() {
+    return mIsDrainReady.exchange(false);
+}
+
+void CompressPlayback::setDrainReady() {
+    mIsDrainReady.store(true);
+}
+
+bool CompressPlayback::fetchTransferReady() {
+    return mIsTransferReady.exchange(false);
+}
+
+void CompressPlayback::setTransferReady() {
+    mIsTransferReady.store(true);
 }
 
 // static
@@ -330,15 +381,19 @@ int32_t CompressPlayback::palCallback(pal_stream_handle_t* palHandle, uint32_t e
     switch (eventId) {
         case PAL_STREAM_CBK_EVENT_WRITE_READY: {
             LOG(VERBOSE) << __func__ << " ready to write";
+            compressPlayback->setTransferReady();
             compressPlayback->mAsyncCallback->onTransferReady();
         } break;
 
         case PAL_STREAM_CBK_EVENT_DRAIN_READY: {
             LOG(VERBOSE) << __func__ << " drain ready";
+            compressPlayback->setDrainReady();
             compressPlayback->mAsyncCallback->onDrainReady();
         } break;
         case PAL_STREAM_CBK_EVENT_PARTIAL_DRAIN_READY: {
             LOG(VERBOSE) << __func__ << " partial drain ready";
+            compressPlayback->reconfigureOnPartialDrain();
+            compressPlayback->setDrainReady();
             compressPlayback->mAsyncCallback->onDrainReady();
         } break;
         case PAL_STREAM_CBK_EVENT_ERROR:
@@ -369,7 +424,7 @@ auto getIntValueFromVString = [](
 ndk::ScopedAStatus CompressPlayback::setVendorParameters(
         const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& in_parameters,
         bool in_async) {
-    LOG(VERBOSE) << __func__ << ": parameter count" << in_parameters.size() << " parsing for "
+    LOG(VERBOSE) << __func__ << ": parameter count:" << in_parameters.size() << " parsing for "
                  << mCompressFormat.encoding;
     if (mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_FLAC) {
         if (auto value = getIntValueFromVString(in_parameters, Flac::kMinBlockSize); value) {
@@ -469,9 +524,8 @@ ndk::ScopedAStatus CompressPlayback::setVendorParameters(
         if (auto value = getIntValueFromVString(in_parameters, Wma::kFormatTag); value) {
             mPalSndDec.wma_dec.fmt_tag = value.value();
         }
-        if (auto value = getIntValueFromVString(in_parameters, kAvgBitRate); value) {
-            mPalSndDec.wma_dec.avg_bit_rate = value.value();
-        }
+        mPalSndDec.wma_dec.avg_bit_rate = mOffloadMetadata.averageBitRatePerSecond;
+
         if (auto value = getIntValueFromVString(in_parameters, Wma::kBlockAlign); value) {
             mPalSndDec.wma_dec.super_block_align = value.value();
         }
@@ -543,44 +597,44 @@ ndk::ScopedAStatus CompressPlayback::setVendorParameters(
             mPalSndDec.opus_dec.channel_map[7] = value.value();
         }
         mPalSndDec.opus_dec.sample_rate = mSampleRate;
-    } else {
-        if (auto value = getIntValueFromVString(in_parameters, kDelaySamples); value) {
-            mGapLessMetadata.encoderDelay = value.value();
-        }
-        if (auto value = getIntValueFromVString(in_parameters, kPaddingSamples); value) {
-            mGapLessMetadata.encoderPadding = value.value();
-        }
     }
+    if(mCompressPlaybackHandle == nullptr){
+        return ndk::ScopedAStatus::ok();
+    }
+    LOG(VERBOSE) << __func__ << ": trying for on-the-fly codec configuration";
+    configureCodecInfo();
     return ndk::ScopedAStatus::ok();
 }
 
-void CompressPlayback::configureGapLessMetadata() const {
-    if (mCompressPlaybackHandle == nullptr) {
-        return;
-    }
+bool CompressPlayback::configureGapLessMetadata() const {
     const auto payloadSize = sizeof(pal_param_payload);
     const auto kGapLessSize = sizeof(pal_compr_gapless_mdata);
     auto dataPtr = std::make_unique<uint8_t[]>(payloadSize + kGapLessSize);
     auto payloadPtr = reinterpret_cast<pal_param_payload*>(dataPtr.get());
     payloadPtr->payload_size = kGapLessSize;
     auto gapLessPtr = reinterpret_cast<pal_compr_gapless_mdata*>(dataPtr.get() + payloadSize);
-    *gapLessPtr = mGapLessMetadata;
-
+    gapLessPtr->encoderDelay = mOffloadMetadata.delayFrames;
+    gapLessPtr->encoderPadding = mOffloadMetadata.paddingFrames;
+    LOG(VERBOSE) << __func__ << ": encoderDelay:" << gapLessPtr->encoderDelay
+                 << ", encoderPadding:" << gapLessPtr->encoderPadding;
     if (int32_t ret = ::pal_stream_set_param(mCompressPlaybackHandle, PAL_PARAM_ID_GAPLESS_MDATA,
                                              payloadPtr);
         ret) {
         LOG(ERROR) << __func__ << ": failed PAL_PARAM_ID_GAPLESS_MDATA!! ret:" << ret;
-        return;
+        return false;
     }
+    return true;
 }
 
 void CompressPlayback::updateOffloadMetadata(
         const ::aidl::android::hardware::audio::common::AudioOffloadMetadata& offloadMetaData) {
-    mOffloadMetadata = &offloadMetaData;
-    mSampleRate = mOffloadMetadata->sampleRate;
-    mChannelLayout = mOffloadMetadata->channelMask;
-    // TODO check for any pal update
-    LOG(INFO) << __func__ << ": " << mOffloadMetadata->toString();
+    if(mCompressPlaybackHandle == nullptr){
+        return;
+    }
+    mOffloadMetadata = offloadMetaData;
+    mSampleRate = mOffloadMetadata.sampleRate;
+    mChannelLayout = mOffloadMetadata.channelMask;
+    configureGapLessMetadata();
     return;
 }
 
@@ -592,12 +646,21 @@ void CompressPlayback::updateSourceMetadata(
     return;
 }
 
-std::unique_ptr<uint8_t[]> CompressPlayback::getPayloadCodecInfo() {
+bool CompressPlayback::configureCodecInfo() const {
     auto dataPtr = std::make_unique<uint8_t[]>(sizeof(pal_param_payload) + sizeof(pal_snd_dec_t));
     auto palParamPayload = reinterpret_cast<pal_param_payload*>(dataPtr.get());
     palParamPayload->payload_size = sizeof(pal_snd_dec_t);
-    memcpy(palParamPayload->payload, &mPalSndDec, sizeof(pal_snd_dec_t));
-    return std::move(dataPtr);
+    auto palSndDecPtr = reinterpret_cast<pal_snd_dec_t*>(dataPtr.get() + sizeof(pal_param_payload));
+    *palSndDecPtr = mPalSndDec;
+    if (int32_t ret =
+                ::pal_stream_set_param(mCompressPlaybackHandle, PAL_PARAM_ID_CODEC_CONFIGURATION,
+                                       reinterpret_cast<pal_param_payload*>(dataPtr.get()));
+        ret) {
+        LOG(ERROR) << __func__ << " PAL_PARAM_ID_CODEC_CONFIGURATION failed, ret:" << ret;
+        return false;
+    }
+    LOG(VERBOSE) << __func__ << " PAL_PARAM_ID_CODEC_CONFIGURATION successful";
+    return true;
 }
 
 // static
@@ -822,9 +885,16 @@ size_t PcmOffloadPlayback::getPeriodSize(
     const auto frameSize =
             getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
     size_t periodSize =
-            mixPortConfig.sampleRate.value().value * (kPeriodDurationMs / 1000) * frameSize;
-    periodSize = getNearestMultiple(
-            periodSize, std::lcm(32, getPcmSampleSizeInBytes(mixPortConfig.format.value().pcm)));
+            (mixPortConfig.sampleRate.value().value * kPeriodDurationMs * frameSize) / 1000;
+
+    if (periodSize < kMinPeriodSize) {
+        periodSize = kMinPeriodSize;
+    } else if (periodSize > kMaxPeriodSize) {
+        periodSize = kMaxPeriodSize;
+    }
+
+    periodSize = ALIGN(periodSize, (frameSize * 32));
+
     return periodSize;
 }
 

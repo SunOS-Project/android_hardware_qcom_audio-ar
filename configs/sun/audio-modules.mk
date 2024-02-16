@@ -60,17 +60,12 @@ AUDIO_TEST := mcs_test
 AUDIO_TEST += ar_util_in_test_example
 
 
-#AUDIO_MODULES := audio.a2dp.default
-AUDIO_MODULES := audio.usb.default
-AUDIO_MODULES += audio.r_submix.default
-AUDIO_MODULES += audio.primary.sun
-AUDIO_MODULES += ftm_test_config
+AUDIO_MODULES := ftm_test_config
 AUDIO_MODULES += ftm_test_config_sun-qrd-snd-card
 AUDIO_MODULES += ftm_test_config_sun-qrd-sku2-snd-card
 AUDIO_MODULES += ftm_test_config_cliffs-mtp-wsa883x-snd-card
 AUDIO_MODULES += ftm_test_config_cliffs-qrd-snd-card
 AUDIO_MODULES += audioadsprpcd
-AUDIO_MODULES += android.hardware.audio.service_64
 AUDIO_MODULES += MTP_acdb_cal.acdb
 AUDIO_MODULES += MTP_workspaceFileXml.qwsp
 AUDIO_MODULES += CDP_acdb_cal.acdb
@@ -87,10 +82,8 @@ AUDIO_MODULES += fai__2.0.0_0.1__3.0.0_0.0__eai_1.36_enpu2.pmd
 AUDIO_MODULES += fai__2.7.2_0.0__3.0.0_0.0__eai_1.36_enpu2.pmd
 AUDIO_MODULES += fai__2.7.20_0.0__3.0.0_0.0__eai_1.36_enpu2.pmd
 AUDIO_MODULES += fai__3.0.0_0.0__eai_1.36_enpu2.pmd
-AUDIO_MODULES += ffv__5.0.1_0.1__3.0.0_0.0__eai_2.10_enpu3.pmd
-AUDIO_MODULES += ffv__5.0.1_0.1__eai_2.10_enpu3.pmd
-AUDIO_MODULES += ffv__6.2.5_0.1__eai_3.4__enpu_v4.pmd
-AUDIO_MODULES += ffv__7.0.1_0.1__eai_3.4_enpu_v4.pmd
+AUDIO_MODULES += ffv__7.0.1_0.1__eai_4.2.1_enpu5.pmd
+AUDIO_MODULES += ffv__7.0.2_0.2__eai_4.2.1_enpu5.pmd
 AUDIO_MODULES += click.pcm
 AUDIO_MODULES += double_click.pcm
 AUDIO_MODULES += heavy_click.pcm
@@ -117,10 +110,15 @@ AUDIO_MODULES += mm-audio-ftm
 AUDIO_MODULES += libmcs
 AUDIO_MODULES += libquasar
 AUDIO_MODULES += sensors.dynamic_sensor_hal
+
+ifeq ($(PRODUCT_ENABLE_QESDK),true)
 AUDIO_MODULES += libvui_dmgr
 AUDIO_MODULES += libvui_dmgr_client
 AUDIO_MODULES += qsap_voiceui
+AUDIO_MODULES += qsap_voiceui.rc
 AUDIO_MODULES += qsap_voiceui.policy
+endif
+
 AUDIO_MODULES += libaudiocollector
 AUDIO_MODULES += libhotword_intf
 AUDIO_MODULES += libcustomva_intf
@@ -132,49 +130,6 @@ AUDIO_MODULES += $(AUDIO_AGM)
 AUDIO_MODULES += $(AUDIO_PAL)
 AUDIO_MODULES += $(AUDIO_C2)
 AUDIO_MODULES += $(AUDIO_TEST)
-
-# for HIDL related packages
-AUDIO_MODULES += \
-    android.hardware.audio@2.0-service_64 \
-    android.hardware.audio@2.0-impl \
-    android.hardware.audio.effect@2.0-impl \
-    android.hardware.audio@4.0 \
-    android.hardware.audio.common@4.0 \
-    android.hardware.audio.common@4.0-util \
-    android.hardware.audio@4.0-impl \
-    android.hardware.audio.effect@4.0 \
-    android.hardware.audio.effect@4.0-impl
-
-# enable audio hidl hal 5.0
-AUDIO_MODULES += \
-    android.hardware.audio@5.0 \
-    android.hardware.audio.common@5.0 \
-    android.hardware.audio.common@5.0-util \
-    android.hardware.audio@5.0-impl \
-    android.hardware.audio.effect@5.0 \
-    android.hardware.audio.effect@5.0-impl
-
-# enable audio hidl hal 6.0
-AUDIO_MODULES += \
-    android.hardware.audio@6.0 \
-    android.hardware.audio.common@6.0 \
-    android.hardware.audio.common@6.0-util \
-    android.hardware.audio@6.0-impl \
-    android.hardware.audio.effect@6.0 \
-    android.hardware.audio.effect@6.0-impl
-
-# enable audio hidl hal 7.0
-AUDIO_MODULES += \
-    android.hardware.audio@7.0 \
-    android.hardware.audio.common@7.0 \
-    android.hardware.audio.common@7.0-util \
-    android.hardware.audio@7.0-impl \
-    android.hardware.audio.effect@7.0 \
-    android.hardware.audio.effect@7.0-impl
-
-# enable audio hidl hal 7.1
-AUDIO_MODULES += \
-    android.hardware.audio@7.1-impl
 
  # sound trigger aidl library
 AUDIO_MODULES += libsoundtriggerhal.qti
@@ -188,9 +143,7 @@ AUDIO_MODULES += \
 AUDIO_MODULES += \
     audiohalservice.qti \
     libaudiocorehal.qti \
-    libaudioeffecthal.qti \
-    vendor.qti.hardware.pal@1.0-impl \
-    android.hardware.bluetooth.audio-impl
+    libaudioeffecthal.qti
 
 
 endif

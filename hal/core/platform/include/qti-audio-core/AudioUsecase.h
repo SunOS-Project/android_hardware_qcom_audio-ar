@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -23,6 +23,9 @@
 #include <algorithm>
 #include <numeric>
 
+#define DIV_ROUND_UP(x, y) (((x) + (y) - 1) / (y))
+#define ALIGN(x, y) ((y) * DIV_ROUND_UP((x), (y)))
+
 namespace qti::audio::core {
 
 enum class Usecase : uint16_t {
@@ -45,6 +48,7 @@ enum class Usecase : uint16_t {
     FAST_RECORD,
     ULTRA_FAST_RECORD,
     HOTWORD_RECORD,
+    HAPTICS_PLAYBACK,
 };
 
 Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
@@ -77,7 +81,7 @@ class PcmRecord {
   public:
     constexpr static uint32_t kCaptureDurationMs = 20;
     constexpr static uint32_t kPeriodCount = 4;
-    constexpr static size_t kFMQMinFrameSize = 256;
+    constexpr static size_t kFMQMinFrameSize = 160;
     static size_t getMinFrames(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
     enum class HdrMode : uint8_t {
@@ -115,9 +119,6 @@ class CompressPlayback final {
   public:
     static constexpr size_t kPeriodSize = 32 * 1024;
     static constexpr size_t kPeriodCount = 4;
-    inline const static std::string kAvgBitRate{"music_offload_avg_bit_rate"};
-    inline const static std::string kDelaySamples{"delay_samples"};
-    inline const static std::string kPaddingSamples{"padding_samples"};
     class Flac final {
       public:
         static constexpr size_t kPeriodSize = 256 * 1024;
@@ -196,9 +197,17 @@ class CompressPlayback final {
     explicit CompressPlayback(
             const ::aidl::android::media::audio::common::AudioOffloadInfo& offloadInfo,
             std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> asyncCallback);
-    void configureDefault();
-    void configureGapLessMetadata() const;
-    void setPalHandle(pal_stream_handle_t* handle);
+    /* To reconfigure the codec, gapless info */
+    void setAndConfigureCodecInfo(pal_stream_handle_t* handle);
+    void configureGapless(pal_stream_handle_t* handle);
+    void reconfigureOnFlush() const;
+    void reconfigureOnPartialDrain() const;
+    // if fetched, when status is set, it resets the status
+    bool fetchDrainReady();
+    void setDrainReady();
+    // if fetched, when status is set, it resets the status
+    bool fetchTransferReady();
+    void setTransferReady();
     ndk::ScopedAStatus getVendorParameters(
             const std::vector<std::string>& in_ids,
             std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return);
@@ -211,26 +220,30 @@ class CompressPlayback final {
             const ::aidl::android::hardware::audio::common::AudioOffloadMetadata& offloadMetaData);
     void updateSourceMetadata(
             const ::aidl::android::hardware::audio::common::SourceMetadata& sourceMetaData);
-    std::unique_ptr<uint8_t[]> getPayloadCodecInfo();
-    bool isCodecConfigured() const { return mIsCodecConfigured; }
-    pal_snd_dec_t getPalSndDec();
 
-  private:
+  protected:
+    void configureDefault();
+    // configure the codec info which is cached already
+    bool configureCodecInfo() const;
+    // configure the gapless info which is cached already
+    bool configureGapLessMetadata() const;
+
+  protected:
     // dynamic compress info
-    const ::aidl::android::hardware::audio::common::AudioOffloadMetadata* mOffloadMetadata{nullptr};
+    ::aidl::android::hardware::audio::common::AudioOffloadMetadata mOffloadMetadata{};
     const ::aidl::android::hardware::audio::common::SourceMetadata* mSourceMetadata{nullptr};
     // this is static info at the stream creation, for dynamic info check AudioOffloadMetadata
     const ::aidl::android::media::audio::common::AudioOffloadInfo& mOffloadInfo;
     std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> mAsyncCallback;
     uint16_t mCompressBitWidth{0};
-    bool mIsCodecConfigured{false};
     pal_stream_handle_t* mCompressPlaybackHandle{nullptr};
     pal_snd_dec_t mPalSndDec{};
-    pal_compr_gapless_mdata mGapLessMetadata{0, 0};
     int32_t mSampleRate;
     ::aidl::android::media::audio::common::AudioFormatDescription mCompressFormat;
     ::aidl::android::media::audio::common::AudioChannelLayout mChannelLayout;
     int32_t mBitWidth;
+    std::atomic<bool> mIsDrainReady{false};
+    std::atomic<bool> mIsTransferReady{false};
 };
 
 class CompressCapture final {
@@ -310,6 +323,8 @@ class PcmOffloadPlayback final {
     constexpr static size_t kPeriodDurationMs = 80;
     constexpr static size_t kPeriodCount = 4;
     constexpr static size_t kPlatformDelayMs = 30;
+    constexpr static size_t kMinPeriodSize = 512;
+    constexpr static size_t kMaxPeriodSize = 240 * 1024;
     static size_t getPeriodSize(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
 
@@ -404,4 +419,10 @@ class HotwordRecord : public PcmRecord {
             mixPortConfig);
 };
 
-}  // namespace qti::audio::core
+class HapticsPlayback {
+    public:
+    constexpr static size_t kPeriodSize = 240; //same as low-latency
+    constexpr static size_t kPeriodCount = 2;
+};
+
+} // namespace qti::audio::core

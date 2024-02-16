@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -37,6 +37,8 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     ::android::status_t refinePosition(
             ::aidl::android::hardware::audio::core::StreamDescriptor::Reply*
             /*reply*/) override;
+    bool isDrainReady() override;
+    bool isTransferReady() override;
     void shutdown() override;
 
     // methods of StreamCommonInterface
@@ -110,6 +112,7 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     bool mHwVolumeSupported = false;
     // check validaty of mPalHandle before use
     pal_stream_handle_t* mPalHandle{nullptr};
+    pal_stream_handle_t* mHapticsPalHandle{nullptr};
     static constexpr ::aidl::android::media::audio::common::AudioPlaybackRate sDefaultPlaybackRate =
             {.speed = 1.0f,
              .pitch = 1.0f,
@@ -118,15 +121,26 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
 
     ::aidl::android::media::audio::common::AudioPlaybackRate mPlaybackRate;
 
+    //Haptics Usecase
+    struct pal_stream_attributes mHapticsStreamAttributes;
+    struct pal_device mHapticsDevice;
+    std::unique_ptr<uint8_t[]> mHapticsBuffer{nullptr};
+    size_t mHapticsBufSize{0};
+    // This API splits and writes audio and haptics streams
+    ::android::status_t hapticsWrite(const void *buffer, size_t frameCount);
+
     std::variant<std::monostate, PrimaryPlayback, DeepBufferPlayback, CompressPlayback,
                  PcmOffloadPlayback, VoipPlayback, SpatialPlayback, MMapPlayback, UllPlayback,
-                 InCallMusic>
+                 InCallMusic, HapticsPlayback>
             mExt;
     // references
     Platform& mPlatform{Platform::getInstance()};
     const ::aidl::android::media::audio::common::AudioPortConfig& mMixPortConfig;
     HalOffloadEffects& mHalEffects{HalOffloadEffects::getInstance()};
     AudioExtension& mAudExt{AudioExtension::getInstance()};
+
+  private:
+    bool isHwVolumeSupported();
 };
 
 } // namespace qti::audio::core
