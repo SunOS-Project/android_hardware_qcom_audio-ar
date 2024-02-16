@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #pragma once
@@ -35,11 +35,13 @@ class PerfLock final {
     inline static std::mutex sMonitor;
     inline static bool sIsAcquired{false};
     inline static int kPerfLockOptsSize{4};
+    inline static int sPerfLockCounter{0};
     inline static int kPerfLockOpts[4] = {0x40400000, 0x1, 0x40C00000, 0x1};
+    inline static int sHandle{0};
 
     static bool init();
 
-    void acquire();
-    void release();
-    int mHandle{0};
+    // Below functions needs to be called with sMonitor lock held
+    void acquire_l();
+    void release_l();
 };
