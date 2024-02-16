@@ -31,12 +31,7 @@ AUDIO_FEATURE_USE_HWASAN_ARTIFACTS := true
 PRODUCT_HWASAN_INCLUDE_PATHS += \
     vendor/qcom/opensource/audio-hal \
     vendor/qcom/opensource/pal \
-    vendor/qcom/opensource/agm \
-    vendor/qcom/proprietary/args \
-    vendor/qcom/proprietary/mm-audio \
-    vendor/qcom/proprietary/mm-audio-external-noship \
-    vendor/qcom/proprietary/mm-audio-headers \
-    vendor/qcom/proprietary/mm-audio-noship
+    vendor/qcom/opensource/agm
 endif
 
 ifneq ($(filter hwaddress,$(SANITIZE_TARGET)),)
