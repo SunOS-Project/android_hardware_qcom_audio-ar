@@ -32,6 +32,7 @@ cc_library_static {
     srcs: [
         "EffectThread.cpp",
         "EffectImpl.cpp",
+        "EffectContext.cpp",
     ],
     defaults: ["aidlaudioeffectserviceqti_defaults"],
 }
