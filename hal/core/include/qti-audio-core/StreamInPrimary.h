@@ -24,7 +24,6 @@ class StreamInPrimary : public StreamIn, public StreamCommonImpl {
 
     virtual ~StreamInPrimary() override;
 
-    operator const char*() const noexcept;
     int32_t setAggregateSinkMetadata(bool voiceActive) override;
     // Methods of 'DriverInterface'.
     ::android::status_t init() override;
@@ -98,6 +97,9 @@ class StreamInPrimary : public StreamIn, public StreamCommonImpl {
     // references
     Platform& mPlatform{Platform::getInstance()};
     const ::aidl::android::media::audio::common::AudioPortConfig& mMixPortConfig;
+
+   private:
+        std::string mLogPrefix = "";
 };
 
 } // namespace qti::audio::core

@@ -22,8 +22,6 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     virtual ~StreamOutPrimary() override;
     int32_t setAggregateSourceMetadata(bool voiceActive) override;
 
-    operator const char*() const noexcept;
-
     // Methods of 'DriverInterface'.
     ::android::status_t init() override;
     ::android::status_t drain(
@@ -140,6 +138,7 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     AudioExtension& mAudExt{AudioExtension::getInstance()};
 
   private:
+    std::string mLogPrefix = "";
     bool isHwVolumeSupported();
 };
 
