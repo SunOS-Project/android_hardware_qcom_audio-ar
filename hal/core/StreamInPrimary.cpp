@@ -671,6 +671,10 @@ void StreamInPrimary::configure() {
         return;
     }
 
+    if (mTag == Usecase::PCM_RECORD) {
+        std::get<PcmRecord>(mExt).configurePalDevices(mMixPortConfig, palDevices);
+    }
+
     uint64_t cookie = reinterpret_cast<uint64_t>(this);
     pal_stream_callback palFn = nullptr;
 
