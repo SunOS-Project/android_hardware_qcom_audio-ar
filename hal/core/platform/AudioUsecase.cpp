@@ -683,21 +683,6 @@ size_t CompressPlayback::getPeriodBufferSize(
     return periodSize;
 }
 
-void CompressPlayback::getPositionInFrames(int64_t* dspFrames) {
-    pal_session_time tstamp;
-    if (int32_t ret = pal_get_timestamp(mCompressPlaybackHandle, &tstamp); ret) {
-        LOG(ERROR) << __func__ << " pal_get_timestamp failure, ret:" << ret;
-        return;
-    }
-
-    uint64_t sessionTimeUs =
-            ((static_cast<decltype(sessionTimeUs)>(tstamp.session_time.value_msw)) << 32 |
-             tstamp.session_time.value_lsw);
-    // sessionTimeUs to frames
-    *dspFrames = static_cast<int64_t>(sessionTimeUs / 1000 * mSampleRate / 1000);
-    return;
-}
-
 // end of compress playback
 
 // start of compress capture

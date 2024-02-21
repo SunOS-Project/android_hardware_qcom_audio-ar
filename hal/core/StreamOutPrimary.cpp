@@ -470,11 +470,9 @@ void StreamOutPrimary::resume() {
         return ::android::OK;
     }
 
-    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        std::get<CompressPlayback>(mExt).getPositionInFrames(&(reply->observable.frames));
-#ifdef VERY_VERBOSE_LOGGING
-        LOG(VERBOSE) << __func__ << mLogPrefix << " dspFrames consumed " << reply->observable.frames;
-#endif
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK || mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
+        mPlatform.getPositionInFrames(mPalHandle, mMixPortConfig.sampleRate.value().value,
+                                            &(reply->observable.frames));
     } else if (mTag == Usecase::MMAP_PLAYBACK) {
         if (int32_t ret = std::get<MMapPlayback>(mExt).getMMapPosition(&(reply->hardware.frames),
                                                                        &(reply->hardware.timeNs));

@@ -332,6 +332,23 @@ std::vector<pal_device> Platform::configureAndFetchPalDevices(
     return palDevices;
 }
 
+void Platform::getPositionInFrames(pal_stream_handle_t* palHandle, int32_t const& sampleRate,
+                                         int64_t* const dspFrames) const {
+    pal_session_time tstamp;
+    if (int32_t ret = ::pal_get_timestamp(palHandle, &tstamp); ret) {
+        LOG(ERROR) << __func__ << " pal_get_timestamp failure, ret:" << ret;
+        return;
+    }
+
+    uint64_t sessionTimeUs =
+            ((static_cast<decltype(sessionTimeUs)>(tstamp.session_time.value_msw)) << 32 |
+             tstamp.session_time.value_lsw);
+    // sessionTimeUs to frames
+    *dspFrames = static_cast<int64_t>((sessionTimeUs / 1000) * (sampleRate / 1000));
+    LOG(VERBOSE) << __func__ << " dsp frames consumed:" << *dspFrames;
+    return;
+}
+
 int Platform::setVolume(pal_stream_handle_t* handle, const std::vector<float>& volumes) const {
     auto data = makePalVolumes(volumes);
     if (data.empty()) {

@@ -82,6 +82,19 @@ class Platform {
             const Usecase& tag,
             const std::vector<::aidl::android::media::audio::common::AudioDevice>& setDevices)
             const;
+    /*
+    * @breif In order to get stream position in the DSP pipeline
+    * 
+    * @param, 
+    * Input Parameters: 
+    * palHandle, a valid stream pal handle
+    * sampleRate, a valid stream sample rate
+    * 
+    * Output Parameters:
+    * dspFrames, num of frames delivered by DSP
+    */
+    void getPositionInFrames(pal_stream_handle_t* palHandle, int32_t const& sampleRate,
+                                   int64_t* const dspFrames) const;
 
     /*
     * @brief requiresBufferReformat is used to check if format converter is needed for

@@ -215,7 +215,6 @@ class CompressPlayback final {
             const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
                     in_parameters,
             bool in_async);
-    void getPositionInFrames(int64_t* dspFrames);
     void updateOffloadMetadata(
             const ::aidl::android::hardware::audio::common::AudioOffloadMetadata& offloadMetaData);
     void updateSourceMetadata(
