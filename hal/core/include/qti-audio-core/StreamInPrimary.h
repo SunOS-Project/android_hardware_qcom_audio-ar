@@ -11,10 +11,6 @@
 namespace qti::audio::core {
 
 class StreamInPrimary : public StreamIn, public StreamCommonImpl {
-
-  private:
-    ::android::status_t onReadError(const size_t sleepFrameCount);
-
   public:
     friend class ndk::SharedRefBase;
     StreamInPrimary(
@@ -81,25 +77,28 @@ class StreamInPrimary : public StreamIn, public StreamCommonImpl {
     size_t getPeriodCount() const noexcept;
     size_t getPlatformDelay() const noexcept;
 
-  protected:
     const Usecase mTag;
     const std::string mTagName;
     const size_t mFrameSizeBytes;
-
-    bool mAECEnabled = false;
-    bool mNSEnabled = false;
 
     // All the public must check the validity of this resource, if using
     pal_stream_handle_t* mPalHandle{nullptr};
 
     std::variant<std::monostate, PcmRecord, CompressCapture, VoipRecord, MMapRecord,
                  VoiceCallRecord, FastRecord, UltraFastRecord, HotwordRecord>  mExt;
+
     // references
     Platform& mPlatform{Platform::getInstance()};
     const ::aidl::android::media::audio::common::AudioPortConfig& mMixPortConfig;
 
-   private:
-        std::string mLogPrefix = "";
+  private:
+    ::android::status_t onReadError(const size_t sleepFrameCount);
+    void applyEffects();
+
+    bool mAECEnabled = false;
+    bool mNSEnabled = false;
+    bool mEffectsApplied = true;
+    std::string mLogPrefix = "";
 };
 
 } // namespace qti::audio::core

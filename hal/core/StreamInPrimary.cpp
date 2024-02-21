@@ -384,6 +384,7 @@ void StreamInPrimary::resume() {
 
 void StreamInPrimary::shutdown() {
     LOG(DEBUG) << __func__ << mLogPrefix;
+    mEffectsApplied = true;
     if (mPalHandle != nullptr) {
         if (mTag == Usecase::HOTWORD_RECORD) {
             ::pal_stream_set_param(mPalHandle, PAL_PARAM_ID_STOP_BUFFERING, nullptr);
@@ -510,25 +511,16 @@ ndk::ScopedAStatus StreamInPrimary::addEffect(
 
     if (typeUUID == getEffectTypeUuidAcousticEchoCanceler()) {
         if (!mAECEnabled) {
-            auto tag = mNSEnabled ? PAL_AUDIO_EFFECT_ECNS : PAL_AUDIO_EFFECT_EC;
-            LOG(DEBUG) << __func__ << mLogPrefix << "effectType " << tag;
-            if (auto ret = pal_add_remove_effect(mPalHandle, tag, true); !ret) {
-                mAECEnabled = true;
-            } else {
-                LOG(ERROR) << __func__ << mLogPrefix << "failed for AEC";
-            }
+            mAECEnabled = true;
+            applyEffects();
         }
     } else if (typeUUID == getEffectTypeUuidNoiseSuppression()) {
         if (!mNSEnabled) {
-            auto tag = mAECEnabled ? PAL_AUDIO_EFFECT_ECNS : PAL_AUDIO_EFFECT_NS;
-            LOG(DEBUG) << __func__ << mLogPrefix << "effectType " << tag;
-            if (auto ret = pal_add_remove_effect(mPalHandle, tag, true); !ret) {
-                mNSEnabled = true;
-            } else {
-                LOG(ERROR) << __func__ << mLogPrefix << "failed for NS";
-            }
+            mNSEnabled = true;
+            applyEffects();
         }
     }
+
     return ndk::ScopedAStatus::ok();
 }
 
@@ -545,34 +537,19 @@ ndk::ScopedAStatus StreamInPrimary::removeEffect(
     }
 
     const auto& typeUUID = desc.common.id.type;
-    /*
-     * While disabling AEC or NS check the other effect is enabled or not.
-     * Take action accordingly. In case AEC is disabled, but NS is still
-     * enabled then NS has to be enabled alone, otherwise disable both ECNS
-     * This can be decided based on the state of other effect.
-     * TODO check if https://review-android.quicinc.com/#/c/3346149 needed
-     */
+
     if (typeUUID == getEffectTypeUuidAcousticEchoCanceler()) {
         if (mAECEnabled) {
-            auto tag = mNSEnabled ? PAL_AUDIO_EFFECT_NS : PAL_AUDIO_EFFECT_ECNS;
-            LOG(DEBUG) << __func__ << mLogPrefix << "effectType " << tag;
-            if (auto ret = pal_add_remove_effect(mPalHandle, tag, mNSEnabled); !ret) {
-                mAECEnabled = false;
-            } else {
-                LOG(ERROR) << __func__ << mLogPrefix << "failed for AEC";
-            }
+            mAECEnabled = false;
+            applyEffects();
         }
     } else if (typeUUID == getEffectTypeUuidNoiseSuppression()) {
-        if (!mNSEnabled) {
-            auto tag = mAECEnabled ? PAL_AUDIO_EFFECT_ECNS : PAL_AUDIO_EFFECT_NS;
-            LOG(DEBUG) << __func__ << mLogPrefix << "effectType " << tag;
-            if (auto ret = pal_add_remove_effect(mPalHandle, tag, mAECEnabled); !ret) {
-                mNSEnabled = false;
-            } else {
-                LOG(ERROR) << __func__ << mLogPrefix << "failed for NS";
-            }
+        if (mNSEnabled) {
+            mNSEnabled = false;
+            applyEffects();
         }
     }
+
     return ndk::ScopedAStatus::ok();
 }
 
@@ -726,7 +703,41 @@ void StreamInPrimary::configure() {
         std::get<CompressCapture>(mExt).setPalHandle(mPalHandle);
     }
 
+    if (!mEffectsApplied)
+        applyEffects();
+
     LOG(DEBUG) << __func__ << mLogPrefix << " : stream is configured";
+}
+
+void StreamInPrimary::applyEffects() {
+    if (mPalHandle == nullptr) {
+        // try to applyEffects after pal_stream_start
+        mEffectsApplied = false;
+        return;
+    }
+
+    /*
+     * While enabling/ disabling AEC or NS check the other effect is enabled or not.
+     * Take action accordingly. In case AEC is disabled, but NS is still
+     * enabled then NS has to be enabled alone, otherwise disable both ECNS
+     * This can be decided based on the state of other effect.
+     */
+
+    pal_audio_effect_t type = PAL_AUDIO_EFFECT_ECNS;
+    bool enable = mAECEnabled || mNSEnabled;
+
+    if (mAECEnabled && mNSEnabled) {
+        type = PAL_AUDIO_EFFECT_ECNS;
+    } else if (mAECEnabled) {
+        type = PAL_AUDIO_EFFECT_EC;
+    } else if (mNSEnabled) {
+        type = PAL_AUDIO_EFFECT_NS;
+    }
+
+    LOG(DEBUG) << __func__ << mLogPrefix << " apply effects aec " << mAECEnabled << " ns "
+               << mNSEnabled << " type " << type << " enable " << enable;
+    int ret = pal_add_remove_effect(mPalHandle, type, enable);
+    mEffectsApplied = (ret == 0);
 }
 
 } // namespace qti::audio::core
