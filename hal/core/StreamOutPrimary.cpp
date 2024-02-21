@@ -9,12 +9,11 @@
 
 #include <android-base/logging.h>
 #include <audio_utils/clock.h>
+#include <extensions/PerfLock.h>
 #include <hardware/audio.h>
 #include <qti-audio-core/Module.h>
 #include <qti-audio-core/ModulePrimary.h>
 #include <qti-audio-core/StreamOutPrimary.h>
-#include <system/audio.h>
-#include <extensions/PerfLock.h>
 #include <qti-audio/PlatformConverter.h>
 
 using aidl::android::hardware::audio::common::AudioOffloadMetadata;
@@ -361,7 +360,9 @@ void StreamOutPrimary::resume() {
         return ::android::OK;
     }
     ssize_t bytesWritten;
-    if (mTag == Usecase::HAPTICS_PLAYBACK && mHapticsPalHandle) {
+    if (mBufferFormatConverter.has_value()) {
+        bytesWritten = convertBufferAndWrite(buffer, frameCount);
+    } else if (mTag == Usecase::HAPTICS_PLAYBACK && mHapticsPalHandle) {
         bytesWritten = hapticsWrite(buffer, frameCount);
     } else {
         bytesWritten = ::pal_stream_write(mPalHandle, &palBuffer);
@@ -386,6 +387,22 @@ void StreamOutPrimary::resume() {
     return ::android::OK;
 }
 
+::android::status_t StreamOutPrimary::convertBufferAndWrite(const void* buffer, size_t frameCount) {
+    auto& converter = *mBufferFormatConverter.value();
+    if (auto result = converter.convert(buffer, frameCount * mFrameSizeBytes)) {
+        pal_buffer palBuffer{};
+        palBuffer.buffer = result->first;
+        palBuffer.size = result->second;
+        ssize_t bytesWritten = ::pal_stream_write(mPalHandle, &palBuffer);
+        if (bytesWritten >= 0) {
+            bytesWritten = (bytesWritten * converter.getInputBytesPerSample()) /
+                           converter.getOutputBytesPerSample();
+            return bytesWritten;
+        }
+    }
+
+    return -EINVAL;
+}
 ::android::status_t StreamOutPrimary::hapticsWrite(const void* buffer, size_t frameCount) {
     int ret = 0;
     bool allocHapticsBuffer = false;
@@ -1010,6 +1027,15 @@ void StreamOutPrimary::configure() {
     }
 
     const size_t ringBufCount = getPeriodCount();
+
+    if (auto converter = Platform::requiresBufferReformat(mMixPortConfig);
+        converter && !mBufferFormatConverter.has_value()) {
+        mBufferFormatConverter = std::make_unique<BufferFormatConverter>(
+                converter->first, converter->second, ringBufSizeInBytes);
+        LOG(DEBUG) << __func__ << mLogPrefix << "created format converter from format "
+                   << converter->first << " to format " << converter->second;
+    }
+
     auto palBufferConfig = mPlatform.getPalBufferConfig(ringBufSizeInBytes, ringBufCount);
     LOG(DEBUG) << __func__ << mLogPrefix << "set pal_stream_set_buffer_size to "
                << std::to_string(ringBufSizeInBytes) << " with count "

@@ -328,6 +328,16 @@ class PcmOffloadPlayback final {
     static size_t getPeriodSize(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
 
+    /*
+    * Earlier in Hidl, getBufferSize was used, which used to provide buffer size of stream.
+    * now in AIDL when a patch is created framecount is queried.
+    * Ideally totalBytes (bufferSizeInBytes) = framecount * framesize.
+    * while framesize = (channelCount * sizeof(audio_format))
+    * // TODO remove this comment, once all usecase are unified with the these signatures.
+    */
+    static size_t getFrameCount(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
+
   private:
     int64_t mCachePresentationPosition;
 };

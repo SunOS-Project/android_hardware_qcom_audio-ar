@@ -12,6 +12,7 @@
 #include <aidl/android/media/audio/common/AudioPort.h>
 #include <aidl/android/media/audio/common/AudioPortConfig.h>
 #include <extensions/AudioExtension.h>
+#include <system/audio.h>
 
 #include <PalApi.h>
 #include <qti-audio-core/AudioUsecase.h>
@@ -64,7 +65,7 @@ class Platform {
             noexcept;
     bool isSoundCardUp() const noexcept;
     bool isSoundCardDown() const noexcept;
-    size_t getIOBufferSizeInFrames(
+    size_t getFrameCount(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) const;
     size_t getMinimumStreamSizeFrames(
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
@@ -81,6 +82,24 @@ class Platform {
             const Usecase& tag,
             const std::vector<::aidl::android::media::audio::common::AudioDevice>& setDevices)
             const;
+
+    /*
+    * @brief requiresBufferReformat is used to check if format converter is needed for
+    * a PCM format or not, it is not applicable for compressed formats.
+    * It is possible that framework can use a format which might not
+    * be supported at below layers, so HAL needs to convert the buffer in desired format
+    * before writing.
+    *
+    * @param portConfig : mixport config of the stream.
+    * return return a pair of input and output audio_format_t in case a format converter
+    * is needed, otherwise nullopt.
+    * For example, mix port using audio format FLOAT is not supported, closest to FLOAT,
+    * INT_32 can be used as target format. so, return a pair of
+    * <AUDIO_FORMAT_PCM_FLOAT, AUDIO_FORMAT_PCM_32_BIT>
+    * Caller can utilize this to create a converter based of provided input, output formats.
+    */
+    static std::optional<std::pair<audio_format_t, audio_format_t>> requiresBufferReformat(
+            const ::aidl::android::media::audio::common::AudioPortConfig& portConfig);
 
     /*
     * @brief creates a pal payload for a pal volume and sets to PAL
