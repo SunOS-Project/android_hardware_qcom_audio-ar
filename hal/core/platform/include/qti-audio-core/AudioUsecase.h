@@ -299,7 +299,7 @@ class CompressCapture final {
     ndk::ScopedAStatus getVendorParameters(
             const std::vector<std::string>& in_ids,
             std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return);
-    std::unique_ptr<uint8_t[]> getPayloadCodecInfo() const;
+    bool configureCodecInfo();
     int32_t getAACMinBitrateValue();
 
     int32_t getAACMaxBitrateValue();
