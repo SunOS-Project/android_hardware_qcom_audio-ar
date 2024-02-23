@@ -220,7 +220,7 @@ PcmRecord::HdrMode PcmRecord::getHdrMode() {
     }
     const std::string kHdrArmProperty{"vendor.audio.hdr.record.enable"};
     const bool isArmEnabled = ::android::base::GetBoolProperty(kHdrArmProperty, false);
-    const bool isHdrSetOnPlatform = platform.getParameter("hdr_record_on") == "true" ? true : false;
+    const bool isHdrSetOnPlatform = platform.isHDREnabled();
     if (isArmEnabled && isHdrSetOnPlatform) {
         return HdrMode::ARM;
     }
@@ -229,21 +229,16 @@ PcmRecord::HdrMode PcmRecord::getHdrMode() {
 
 void PcmRecord::setHdrOnPalDevice(pal_device* palDeviceIn) {
     const auto& platform = Platform::getInstance();
-    const bool isOrientationLandscape =
-            platform.getParameter("orientation") == "landscape" ? true : false;
-    const bool isInverted = platform.getParameter("inverted") == "true" ? true : false;
+    const bool isOrientationLandscape = platform.getOrientation() == "landscape";
+    const bool isInverted = platform.isInverted();
     if (isOrientationLandscape && !isInverted) {
-        strlcpy(palDeviceIn->custom_config.custom_key, "unprocessed-hdr-mic-landscape",
-                sizeof(palDeviceIn->custom_config.custom_key));
+        setPalDeviceCustomKey(*palDeviceIn, "unprocessed-hdr-mic-landscape");
     } else if (!isOrientationLandscape && !isInverted) {
-        strlcpy(palDeviceIn->custom_config.custom_key, "unprocessed-hdr-mic-portrait",
-                sizeof(palDeviceIn->custom_config.custom_key));
+        setPalDeviceCustomKey(*palDeviceIn, "unprocessed-hdr-mic-portrait");
     } else if (isOrientationLandscape && isInverted) {
-        strlcpy(palDeviceIn->custom_config.custom_key, "unprocessed-hdr-mic-inverted-landscape",
-                sizeof(palDeviceIn->custom_config.custom_key));
+        setPalDeviceCustomKey(*palDeviceIn, "unprocessed-hdr-mic-inverted-landscape");
     } else if (!isOrientationLandscape && isInverted) {
-        strlcpy(palDeviceIn->custom_config.custom_key, "unprocessed-hdr-mic-inverted-portrait",
-                sizeof(palDeviceIn->custom_config.custom_key));
+        setPalDeviceCustomKey(*palDeviceIn, "unprocessed-hdr-mic-inverted-portrait");
     }
     LOG(DEBUG) << __func__
                << " setting custom config:" << std::string(palDeviceIn->custom_config.custom_key);

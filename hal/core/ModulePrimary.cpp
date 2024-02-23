@@ -426,11 +426,31 @@ void ModulePrimary::onSetGenericParameters(const std::vector<VendorParameter>& p
 
 void ModulePrimary::onSetHDRParameters(const std::vector<VendorParameter>& params) {
     for (const auto& param : params) {
-        LOG(VERBOSE) << __func__ << param.id;
+        std::string paramValue{};
+        if (!extractParameter<VString>(param, &paramValue)) {
+            LOG(ERROR) << __func__ << ": extraction failed for " << param.id;
+            continue;
+        }
+        if (param.id == Parameters::kHdrRecord) {
+            mPlatform.setHDREnabled(paramValue == "true");
+        } else if (param.id == Parameters::kHdrSamplingRate) {
+            mPlatform.setHDRSampleRate(static_cast<int32_t>(getInt64FromString(paramValue)));
+        } else if (param.id == Parameters::kHdrChannelCount) {
+            mPlatform.setHDRChannelCount(static_cast<int32_t>(getInt64FromString(paramValue)));
+        } else if (param.id == Parameters::kWnr) {
+            mPlatform.setWNREnabled(paramValue == "true");
+        } else if (param.id == Parameters::kAns) {
+            mPlatform.setANREnabled(paramValue == "true");
+        } else if (param.id == Parameters::kOrientation) {
+            mPlatform.setOrientation(paramValue);
+        } else if (param.id == Parameters::kInverted) {
+            mPlatform.setInverted(paramValue == "true");
+        } else if (param.id == Parameters::kFacing) {
+            mPlatform.setFacing(paramValue);
+        }
     }
-    // LOG(VERBOSE) << __func__;
-    return;
-};
+    LOG(VERBOSE) << __func__ << ": processed";
+}
 
 void ModulePrimary::onSetTelephonyParameters(const std::vector<VendorParameter>& parameters) {
     if (!mTelephony) {
@@ -578,6 +598,7 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
                                  {Parameters::kInverted, Feature::HDR},
                                  {Parameters::kHdrChannelCount, Feature::HDR},
                                  {Parameters::kHdrSamplingRate, Feature::HDR},
+                                 {Parameters::kFacing, Feature::HDR},
                                  {Parameters::kVoiceCallState, Feature::TELEPHONY},
                                  {Parameters::kVoiceCallType, Feature::TELEPHONY},
                                  {Parameters::kVoiceVSID, Feature::TELEPHONY},
@@ -736,6 +757,41 @@ std::vector<VendorParameter> ModulePrimary::onGetBluetoothParams(
     return results;
 }
 
+std::vector<VendorParameter> ModulePrimary::onGetHDRParameters(
+        const std::vector<std::string>& ids) {
+    std::vector<VendorParameter> result;
+    for (const auto& id : ids) {
+        std::string value{};
+        if (id == Parameters::kHdrRecord) {
+            value = makeParamValue(mPlatform.isHDREnabled());
+            result.push_back(makeVendorParameter(id, value));
+        } else if (id == Parameters::kHdrSamplingRate) {
+            value = std::to_string(mPlatform.getHDRSampleRate());
+            result.push_back(makeVendorParameter(id, value));
+        } else if (id == Parameters::kHdrChannelCount) {
+            value = std::to_string(mPlatform.getHDRChannelCount());
+            result.push_back(makeVendorParameter(id, value));
+        } else if (id == Parameters::kWnr) {
+            value = makeParamValue(mPlatform.isWNREnabled());
+            result.push_back(makeVendorParameter(id, value));
+        } else if (id == Parameters::kAns) {
+            value = makeParamValue(mPlatform.isANREnabled());
+            result.push_back(makeVendorParameter(id, value));
+        } else if (id == Parameters::kOrientation) {
+            value = mPlatform.getOrientation();
+            result.push_back(makeVendorParameter(id, value));
+        } else if (id == Parameters::kInverted) {
+            value = makeParamValue(mPlatform.isInverted());
+            result.push_back(makeVendorParameter(id, value));
+        } else if (id == Parameters::kFacing) {
+            value = mPlatform.getFacing();
+            result.push_back(makeVendorParameter(id, value));
+        }
+    }
+    LOG(VERBOSE) << __func__ << ": processed";
+    return result;
+}
+
 std::vector<VendorParameter> ModulePrimary::onGetTelephonyParameters(
         const std::vector<std::string>& ids) {
     if (!mTelephony) {
@@ -809,7 +865,15 @@ std::vector<VendorParameter> ModulePrimary::onGetFTMParameters(
 
 // static
 ModulePrimary::GetParameterToFeatureMap ModulePrimary::fillGetParameterToFeatureMap() {
-    GetParameterToFeatureMap map{{Parameters::kVoiceIsCRsSupported, Feature::TELEPHONY},
+    GetParameterToFeatureMap map{{Parameters::kHdrRecord, Feature::HDR},
+                                 {Parameters::kWnr, Feature::HDR},
+                                 {Parameters::kAns, Feature::HDR},
+                                 {Parameters::kOrientation, Feature::HDR},
+                                 {Parameters::kInverted, Feature::HDR},
+                                 {Parameters::kHdrChannelCount, Feature::HDR},
+                                 {Parameters::kHdrSamplingRate, Feature::HDR},
+                                 {Parameters::kFacing, Feature::HDR},
+                                 {Parameters::kVoiceIsCRsSupported, Feature::TELEPHONY},
                                  {Parameters::kA2dpSuspended, Feature::BLUETOOTH},
                                  {Parameters::kCanOpenProxy, Feature::WFD},
                                  {Parameters::kFTMParam, Feature::FTM},
@@ -820,7 +884,8 @@ ModulePrimary::GetParameterToFeatureMap ModulePrimary::fillGetParameterToFeature
 
 // static
 ModulePrimary::FeatureToGetHandlerMap ModulePrimary::fillFeatureToGetHandlerMap() {
-    FeatureToGetHandlerMap map{{Feature::TELEPHONY, &ModulePrimary::onGetTelephonyParameters},
+    FeatureToGetHandlerMap map{{Feature::HDR, &ModulePrimary::onGetHDRParameters},
+                               {Feature::TELEPHONY, &ModulePrimary::onGetTelephonyParameters},
                                {Feature::BLUETOOTH, &ModulePrimary::onGetBluetoothParams},
                                {Feature::WFD, &ModulePrimary::onGetWFDParameters},
                                {Feature::FTM, &ModulePrimary::onGetFTMParameters},
