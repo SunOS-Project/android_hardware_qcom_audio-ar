@@ -120,6 +120,7 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
         }
     } else if (flagsTag == AudioIoFlags::Tag::input) {
         auto& inFlags = mixPortConfig.flags.value().get<AudioIoFlags::Tag::input>();
+        tag = Usecase::PCM_RECORD;
         if (inFlags == noneFlags) {
             tag = Usecase::PCM_RECORD;
             if (mixUsecaseTag == AudioPortMixExtUseCase::source) {

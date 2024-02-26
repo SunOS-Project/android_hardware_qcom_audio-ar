@@ -147,7 +147,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
             ::aidl::android::media::audio::common::AudioMode::RINGTONE,
             ::aidl::android::media::audio::common::AudioMode::IN_CALL,
             ::aidl::android::media::audio::common::AudioMode::IN_COMMUNICATION,
-            // Omit CALL_SCREEN for a better VTS coverage.
+            ::aidl::android::media::audio::common::AudioMode::CALL_SCREEN,
     };
 
     ::aidl::android::media::audio::common::AudioMode mAudioMode{

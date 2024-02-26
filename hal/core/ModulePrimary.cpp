@@ -138,12 +138,20 @@ ModulePrimary::ModulePrimary() : Module(Type::DEFAULT) {
 }
 
 ndk::ScopedAStatus ModulePrimary::getMicMute(bool* _aidl_return) {
+    if (!mTelephony) {
+        LOG(ERROR) << __func__ << ": Telephony not created ";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+    }
     *_aidl_return = mMicMute;
     LOG(VERBOSE) << __func__ << ": returning " << *_aidl_return;
     return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus ModulePrimary::setMicMute(bool in_mute) {
+    if (!mTelephony) {
+        LOG(ERROR) << __func__ << ": Telephony not created ";
+        return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+    }
     LOG(VERBOSE) << __func__ << ": " << in_mute;
     mMicMute = in_mute;
 
@@ -217,7 +225,9 @@ ndk::ScopedAStatus ModulePrimary::createInputStream(StreamContext&& context,
     createStreamInstance<StreamInPrimary>(result, std::move(context), sinkMetadata, microphones);
     ModulePrimary::inListMutex.lock();
     ModulePrimary::updateStreamInList(*result);
-    if (mTelephony) mTelephony->mStreamInPrimary = *result;
+    if (mTelephony) { 
+        mTelephony->mStreamInPrimary = *result;
+    }
     ModulePrimary::inListMutex.unlock();
     return ndk::ScopedAStatus::ok();
 }
@@ -235,7 +245,10 @@ ndk::ScopedAStatus ModulePrimary::createOutputStream(
     ModulePrimary::outListMutex.lock();
     ModulePrimary::updateStreamOutList(*result);
     // save primary out stream weak ptr, as some other modules need it.
-    if (mTelephony) mTelephony->mStreamOutPrimary = *result;
+    if (mTelephony) { 
+        mTelephony->mStreamOutPrimary = *result;
+    }
+
     ModulePrimary::outListMutex.unlock();
     return ndk::ScopedAStatus::ok();
 }
@@ -303,6 +316,12 @@ void ModulePrimary::onExternalDeviceConnectionChanged(
         LOG(WARNING) << __func__ << " failed to handle device connection change:"
                      << (connected ? " connect" : "disconnect") << " for " << audioPort.toString();
     }
+
+    if (!mTelephony) {
+        LOG(ERROR) << __func__ << ": Telephony not created ";
+        return;
+    }
+
     if (connected) {
         mTelephony->updateDevicesFromPrimaryPlayback();
     }
@@ -607,6 +626,12 @@ ndk::ScopedAStatus ModulePrimary::getVendorParameters(
 
     auto results = processGetVendorParameters(in_ids);
     std::move(results.begin(), results.end(), std::back_inserter(*_aidl_return));
+
+    if (_aidl_return->size() != in_ids.size()) {
+        LOG(ERROR) << __func__ << ": handled parameters " << _aidl_return->size()
+                   << " requested " << in_ids.size();
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
 
     return ndk::ScopedAStatus::ok();
 }
