@@ -674,8 +674,9 @@ size_t CompressPlayback::getPeriodBufferSize(
     }
 
     const std::string kCompressPeriodSizeProp{"vendor.audio.offload.buffer.size.kb"};
-    auto propPeriodSize = ::android::base::GetUintProperty<size_t>(kCompressPeriodSizeProp,
-                                                                   CompressPlayback::kPeriodSize);
+    auto propPeriodSize =
+            ::android::base::GetUintProperty<size_t>(kCompressPeriodSizeProp, 0) * 1024;
+
     if (propPeriodSize > periodSize) {
         periodSize = propPeriodSize;
     }
