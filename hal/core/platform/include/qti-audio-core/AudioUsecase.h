@@ -320,7 +320,7 @@ class CompressCapture final {
 class PcmOffloadPlayback final {
   public:
     constexpr static size_t kPeriodDurationMs = 80;
-    constexpr static size_t kPeriodCount = 4;
+    constexpr static size_t kPeriodCount = 2;
     constexpr static size_t kPlatformDelayMs = 30;
     constexpr static size_t kMinPeriodSize = 512;
     constexpr static size_t kMaxPeriodSize = 240 * 1024;
