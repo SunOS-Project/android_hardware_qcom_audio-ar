@@ -213,7 +213,7 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
         mPalHandle = nullptr;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
-    LOG(INFO) << __func__ << mLogPrefix << ": stream configured";
+    LOG(INFO) << __func__ << mLogPrefix << ": stream is configured";
 
     if (!mVolumes.empty()) {
         setHwVolume(mVolumes);
