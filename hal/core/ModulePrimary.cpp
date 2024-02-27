@@ -312,6 +312,12 @@ void ModulePrimary::setAudioPatchTelephony(const std::vector<AudioPortConfig*>& 
 
 void ModulePrimary::onExternalDeviceConnectionChanged(
         const ::aidl::android::media::audio::common::AudioPort& audioPort, bool connected) {
+
+    if (mDebug.simulateDeviceConnections) {
+        LOG(DEBUG) << __func__ << ": connection is in simulation mode";
+        return;
+    }
+
     if (!mPlatform.handleDeviceConnectionChange(audioPort, connected)) {
         LOG(WARNING) << __func__ << " failed to handle device connection change:"
                      << (connected ? " connect" : "disconnect") << " for " << audioPort.toString();

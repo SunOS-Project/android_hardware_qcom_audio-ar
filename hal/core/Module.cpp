@@ -124,19 +124,6 @@ bool findAudioProfile(const AudioPort& port, const AudioFormatDescription& forma
 
 } // namespace
 
-// static
-// std::shared_ptr<Module> Module::createInstance(Type type) {
-//     switch (type) {
-//         case Type::USB:
-//         case Type::R_SUBMIX:
-//         case Type::DEFAULT:
-//             return ndk::SharedRefBase::make<ModulePrimary>();
-//         case Type::STUB:
-//             return ndk::SharedRefBase::make<ModuleStub>();
-
-//     }
-// }
-
 std::ostream& operator<<(std::ostream& os, Module::Type t) {
     switch (t) {
         case Module::Type::DEFAULT:
@@ -153,6 +140,10 @@ std::ostream& operator<<(std::ostream& os, Module::Type t) {
             break;
     }
     return os;
+}
+
+Module::Module(Type type) : mType(type) {
+    populateConnectedProfiles();
 }
 
 void Module::cleanUpPatch(int32_t patchId) {
@@ -282,6 +273,38 @@ ndk::ScopedAStatus Module::findPortIdForNewStream(int32_t in_portConfigId, Audio
     return ndk::ScopedAStatus::ok();
 }
 
+
+static std::vector<AudioProfile> getStandard16And24BitPcmAudioProfiles() {
+    auto createStdPcmAudioProfile = [](const PcmType& pcmType) {
+        return AudioProfile{
+                .format = AudioFormatDescription{.type = AudioFormatType::PCM, .pcm = pcmType},
+                .channelMasks = {AudioChannelLayout::make<AudioChannelLayout::layoutMask>(
+                                         AudioChannelLayout::LAYOUT_MONO),
+                                 AudioChannelLayout::make<AudioChannelLayout::layoutMask>(
+                                         AudioChannelLayout::LAYOUT_STEREO)},
+                .sampleRates = {8000, 11025, 16000, 32000, 44100, 48000}};
+    };
+    return {
+            createStdPcmAudioProfile(PcmType::INT_16_BIT),
+            createStdPcmAudioProfile(PcmType::INT_24_BIT),
+    };
+}
+
+void Module::populateConnectedProfiles() {
+    auto& config = getConfig();
+    for (const AudioPort& port : config.ports) {
+        if (port.ext.getTag() == AudioPortExt::device) {
+            if (auto devicePort = port.ext.get<AudioPortExt::device>();
+                !devicePort.device.type.connection.empty() && port.profiles.empty()) {
+                if (auto connIt = config.connectedProfiles.find(port.id);
+                    connIt == config.connectedProfiles.end()) {
+                    config.connectedProfiles.emplace(
+                            port.id, getStandard16And24BitPcmAudioProfiles());
+                }
+            }
+        }
+    }
+}
 template <typename C>
 std::set<int32_t> Module::portIdsFromPortConfigIds(C portConfigIds) {
     std::set<int32_t> result;
@@ -552,8 +575,8 @@ ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdA
         }
     }
 
+    RETURN_STATUS_IF_ERROR(populateConnectedDevicePort(&connectedPort, templateId));
     if (!mDebug.simulateDeviceConnections) {
-        RETURN_STATUS_IF_ERROR(populateConnectedDevicePort(&connectedPort, templateId));
         onExternalDeviceConnectionChanged(connectedPort, true /*connected*/);
         const auto& dynamicProfiles = getDynamicProfiles(in_templateIdAndAdditionalData);
         if (dynamicProfiles.size() != 0) {
@@ -1469,6 +1492,12 @@ ndk::ScopedAStatus Module::getMmapPolicyInfos(AudioMMapPolicyType mmapPolicyType
                                         AudioOutputFlags::MMAP_NOIRQ)) {
             mmapSources.insert(port.id);
         }
+    }
+    if (mmapSources.empty() && mmapSinks.empty()) {
+        AudioMMapPolicyInfo policyInfo;
+        policyInfo.mmapPolicy = AudioMMapPolicy::NEVER;
+        _aidl_return->push_back(policyInfo);
+        return ndk::ScopedAStatus::ok();
     }
     for (const auto& route : getConfig().routes) {
         if (mmapSinks.count(route.sinkPortId) != 0) {
