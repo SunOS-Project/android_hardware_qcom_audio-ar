@@ -526,6 +526,8 @@ ndk::ScopedAStatus CompressPlayback::setVendorParameters(
         }
         mPalSndDec.wma_dec.avg_bit_rate = mOffloadMetadata.averageBitRatePerSecond;
 
+        LOG(VERBOSE) << __func__ << ": averageBitRatePerSecond "
+                                 << mOffloadMetadata.averageBitRatePerSecond;
         if (auto value = getIntValueFromVString(in_parameters, Wma::kBlockAlign); value) {
             mPalSndDec.wma_dec.super_block_align = value.value();
         }
@@ -617,20 +619,19 @@ bool CompressPlayback::configureGapLessMetadata() const {
     gapLessPtr->encoderPadding = mOffloadMetadata.paddingFrames;
     LOG(VERBOSE) << __func__ << ": encoderDelay:" << gapLessPtr->encoderDelay
                  << ", encoderPadding:" << gapLessPtr->encoderPadding;
-    if (int32_t ret = ::pal_stream_set_param(mCompressPlaybackHandle, PAL_PARAM_ID_GAPLESS_MDATA,
+    if (mCompressPlaybackHandle) {
+        if (int32_t ret = ::pal_stream_set_param(mCompressPlaybackHandle, PAL_PARAM_ID_GAPLESS_MDATA,
                                              payloadPtr);
-        ret) {
-        LOG(ERROR) << __func__ << ": failed PAL_PARAM_ID_GAPLESS_MDATA!! ret:" << ret;
-        return false;
+            ret) {
+            LOG(ERROR) << __func__ << ": failed PAL_PARAM_ID_GAPLESS_MDATA!! ret:" << ret;
+            return false;
+        }
     }
     return true;
 }
 
 void CompressPlayback::updateOffloadMetadata(
         const ::aidl::android::hardware::audio::common::AudioOffloadMetadata& offloadMetaData) {
-    if(mCompressPlaybackHandle == nullptr){
-        return;
-    }
     mOffloadMetadata = offloadMetaData;
     mSampleRate = mOffloadMetadata.sampleRate;
     mChannelLayout = mOffloadMetadata.channelMask;
