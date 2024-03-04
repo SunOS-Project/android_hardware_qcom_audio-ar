@@ -211,69 +211,6 @@ size_t PcmRecord::getMinFrames(const AudioPortConfig& mixPortConfig) {
     return minFrames;
 }
 
-PcmRecord::HdrMode PcmRecord::getHdrMode() {
-    const auto& platform = Platform::getInstance();
-    const std::string kHdrSpfProperty{"vendor.audio.hdr.spf.record.enable"};
-    const bool isSPFEnabled = ::android::base::GetBoolProperty(kHdrSpfProperty, false);
-    if (isSPFEnabled) {
-        return HdrMode::SPF;
-    }
-    const std::string kHdrArmProperty{"vendor.audio.hdr.record.enable"};
-    const bool isArmEnabled = ::android::base::GetBoolProperty(kHdrArmProperty, false);
-    const bool isHdrSetOnPlatform = platform.isHDREnabled();
-    if (isArmEnabled && isHdrSetOnPlatform) {
-        return HdrMode::ARM;
-    }
-    return HdrMode::NONE;
-}
-
-void PcmRecord::setHdrOnPalDevice(pal_device* palDeviceIn) {
-    const auto& platform = Platform::getInstance();
-    const bool isOrientationLandscape = platform.getOrientation() == "landscape";
-    const bool isInverted = platform.isInverted();
-    if (isOrientationLandscape && !isInverted) {
-        setPalDeviceCustomKey(*palDeviceIn, "unprocessed-hdr-mic-landscape");
-    } else if (!isOrientationLandscape && !isInverted) {
-        setPalDeviceCustomKey(*palDeviceIn, "unprocessed-hdr-mic-portrait");
-    } else if (isOrientationLandscape && isInverted) {
-        setPalDeviceCustomKey(*palDeviceIn, "unprocessed-hdr-mic-inverted-landscape");
-    } else if (!isOrientationLandscape && isInverted) {
-        setPalDeviceCustomKey(*palDeviceIn, "unprocessed-hdr-mic-inverted-portrait");
-    }
-    LOG(DEBUG) << __func__
-               << " setting custom config:" << std::string(palDeviceIn->custom_config.custom_key);
-}
-
-void PcmRecord::configurePalDevices(
-        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
-        std::vector<pal_device>& palDevices) {
-    const auto& mixUsecase =
-            mixPortConfig.ext.get<::aidl::android::media::audio::common::AudioPortExt::Tag::mix>()
-                    .usecase;
-    if (mixUsecase.getTag() !=
-        ::aidl::android::media::audio::common::AudioPortMixExtUseCase::Tag::source) {
-        LOG(ERROR) << __func__ << " expected mix usecase as source instead found, "
-                   << mixUsecase.toString();
-        return;
-    }
-    const auto& sampleRate = mixPortConfig.sampleRate.value().value;
-    const auto& channelLayout = mixPortConfig.channelMask.value();
-    const ::aidl::android::media::audio::common::AudioSource& audioSourceType = mixUsecase.get<
-            ::aidl::android::media::audio::common::AudioPortMixExtUseCase::Tag::source>();
-    const bool isSourceUnprocessed =
-            audioSourceType == ::aidl::android::media::audio::common::AudioSource::UNPROCESSED;
-    const bool isSourceCamCorder =
-            audioSourceType == ::aidl::android::media::audio::common::AudioSource::CAMCORDER;
-    const bool isMic = audioSourceType == ::aidl::android::media::audio::common::AudioSource::MIC;
-    const HdrMode hdrMode = getHdrMode();
-    if ((isSourceUnprocessed && sampleRate == 48000 && getChannelCount(channelLayout) == 4 &&
-         hdrMode == HdrMode::ARM) ||
-        (hdrMode == HdrMode::ARM) || (hdrMode == HdrMode::SPF && (isSourceCamCorder || isMic))) {
-        std::for_each(palDevices.begin(), palDevices.end(),
-                      [&](auto& palDevice) { this->setHdrOnPalDevice(&palDevice); });
-    }
-}
-
 // end of pcm record
 
 // start of fast record

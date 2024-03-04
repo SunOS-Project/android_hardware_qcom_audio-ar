@@ -99,8 +99,8 @@ ndk::ScopedAStatus StreamInPrimary::setConnectedDevices(
     mConnectedDevices = devices;
     auto connectedPalDevices =
             mPlatform.configureAndFetchPalDevices(mMixPortConfig, mTag, mConnectedDevices);
-    if (mTag == Usecase::PCM_RECORD) {
-        std::get<PcmRecord>(mExt).configurePalDevices(mMixPortConfig, connectedPalDevices);
+    if (mTag == Usecase::PCM_RECORD || mTag == Usecase::COMPRESS_CAPTURE) {
+        mPlatform.configurePalDevices(mMixPortConfig, connectedPalDevices);
     } else if (mTag == Usecase::ULTRA_FAST_RECORD) {
         auto countProxyDevices = std::count_if(mConnectedDevices.cbegin(), mConnectedDevices.cend(),
                                                isInputAFEProxyDevice);
@@ -653,8 +653,9 @@ void StreamInPrimary::configure() {
         return;
     }
 
-    if (mTag == Usecase::PCM_RECORD) {
-        std::get<PcmRecord>(mExt).configurePalDevices(mMixPortConfig, palDevices);
+    if (mTag == Usecase::PCM_RECORD || mTag == Usecase::COMPRESS_CAPTURE) {
+        LOG(DEBUG) << __func__ << mLogPrefix << " PalDevices is config";
+        mPlatform.configurePalDevices(mMixPortConfig, palDevices);
     }
 
     uint64_t cookie = reinterpret_cast<uint64_t>(this);
