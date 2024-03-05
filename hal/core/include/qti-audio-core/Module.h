@@ -42,8 +42,7 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
     static constexpr int32_t kLatencyMs = 10;
     enum Type : int { DEFAULT, R_SUBMIX, STUB, USB };
 
-    // static std::shared_ptr<Module> createInstance(Type type);
-    explicit Module(Type type) : mType(type) {}
+    explicit Module(Type type);
 
     // #################### start of overriding APIs from IModule ####################
     ndk::ScopedAStatus setModuleDebug(
@@ -252,6 +251,7 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
     const Streams& getStreams() const { return mStreams; }
     Type getType() const { return mType; }
     bool isMmapSupported();
+    void populateConnectedProfiles();
     template <typename C>
     std::set<int32_t> portIdsFromPortConfigIds(C portConfigIds);
 

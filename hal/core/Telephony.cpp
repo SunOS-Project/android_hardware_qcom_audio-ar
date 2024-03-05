@@ -80,8 +80,8 @@ ndk::ScopedAStatus Telephony::switchAudioMode(AudioMode newAudioMode) {
 
     if (std::find(mSupportedAudioModes.begin(), mSupportedAudioModes.end(), newAudioMode) ==
         mSupportedAudioModes.end()) {
-        LOG(ERROR) << __func__ << ": unsupported mode " << toString(newAudioMode);
-        return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+        LOG(ERROR) << __func__ << ": illegal mode " << toString(newAudioMode);
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
 
     mPlatform.updateCallMode((int)newAudioMode);
