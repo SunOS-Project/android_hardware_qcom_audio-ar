@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #define LOG_TAG "AHAL_PerfLock_QTI"
@@ -11,29 +11,31 @@
 PerfLock::PerfLock() {
     static bool isInit = init();
     std::scoped_lock lock{sMonitor};
-    acquire();
+    acquire_l();
 }
 
 PerfLock::~PerfLock() {
     std::scoped_lock lock{sMonitor};
-    release();
+    release_l();
 }
 
-void PerfLock::acquire() {
+void PerfLock::acquire_l() {
+    ++sPerfLockCounter;
     if (!sIsAcquired && sAcquirePerfLock != nullptr) {
-        mHandle = sAcquirePerfLock(0, 0, kPerfLockOpts, kPerfLockOptsSize);
-        if (mHandle > 0) {
+        sHandle = sAcquirePerfLock(0, 0, kPerfLockOpts, kPerfLockOptsSize);
+        if (sHandle > 0) {
             sIsAcquired = true;
-            // LOG(INFO) << __func__ << ": PerfLock Handle:" << mHandle;
+            // LOG(INFO) << __func__ << ": PerfLock Handle:" << sHandle;
         }
     }
 }
 
-void PerfLock::release() {
-    if (mHandle > 0 && sReleasePerfLock != nullptr) {
-        sReleasePerfLock(mHandle);
+void PerfLock::release_l() {
+    --sPerfLockCounter;
+    if (sHandle > 0 && sReleasePerfLock != nullptr && (sPerfLockCounter == 0)) {
+        sReleasePerfLock(sHandle);
         sIsAcquired = false;
-        // LOG(INFO) << __func__ << ": PerfLock Handle:" << mHandle;
+        // LOG(INFO) << __func__ << ": PerfLock Handle:" << sHandle;
     }
 }
 
