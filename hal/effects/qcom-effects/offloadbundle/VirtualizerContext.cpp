@@ -1,6 +1,6 @@
 /*
 
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -117,8 +117,11 @@ int VirtualizerContext::getVirtualizerStrength() const {
 
 RetCode VirtualizerContext::setForcedDevice(const AudioDeviceDescription& device) {
     std::lock_guard lg(mMutex);
-    RETURN_VALUE_IF(true != deviceSupportsEffect({device}), RetCode::ERROR_EFFECT_LIB_ERROR,
-                    " deviceUnsupported");
+    AudioDeviceDescription noneDevice;
+    if (device != noneDevice) {
+        RETURN_VALUE_IF(true != deviceSupportsEffect({device}), RetCode::ERROR_EFFECT_LIB_ERROR,
+                        " deviceNotSupportVirtualizer");
+    }
     mForcedDevice = device;
     return RetCode::SUCCESS;
 }

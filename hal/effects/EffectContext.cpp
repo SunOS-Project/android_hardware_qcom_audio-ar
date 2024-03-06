@@ -28,72 +28,100 @@
 using aidl::android::hardware::audio::common::getChannelCount;
 using aidl::android::hardware::audio::common::getFrameSizeInBytes;
 using aidl::android::hardware::audio::effect::IEffect;
+// using aidl::android::hardware::audio::effect::kReopenSupportedVersion;
+using aidl::android::hardware::audio::effect::kEventFlagDataMqUpdate;
 using aidl::android::media::audio::common::PcmType;
 using ::android::hardware::EventFlag;
 
 namespace aidl::qti::effects {
 
-EffectContext::EffectContext(const Parameter::Common &common, bool processData) {
-    mCommon = common;
+int kReopenSupportedVersion = 2;
+
+EffectContext::EffectContext(const Parameter::Common& common, bool processData) {
+    if (RetCode::SUCCESS != setCommon(common)) {
+        LOG(ERROR) << __func__ << " illegal common parameters";
+    }
     initMessageQueues(processData);
 }
 
-EffectContext::~EffectContext() {}
-
 void EffectContext::initMessageQueues(bool processData) {
     if (processData) {
-        auto &input = mCommon.input;
-        auto &output = mCommon.output;
-
-        LOG_ALWAYS_FATAL_IF(
-                input.base.format.pcm != aidl::android::media::audio::common::PcmType::FLOAT_32_BIT,
-                "inputFormatNotFloat");
-        LOG_ALWAYS_FATAL_IF(output.base.format.pcm !=
-                                    aidl::android::media::audio::common::PcmType::FLOAT_32_BIT,
-                            "outputFormatNotFloat");
-        mInputFrameSize = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
-                input.base.format, input.base.channelMask);
-        mOutputFrameSize = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
-                output.base.format, output.base.channelMask);
         // in/outBuffer size in float (FMQ data format defined for DataMQ)
-        size_t inBufferSizeInFloat = input.frameCount * mInputFrameSize / sizeof(float);
-        size_t outBufferSizeInFloat = output.frameCount * mOutputFrameSize / sizeof(float);
+        size_t inBufferSizeInFloat = mCommon.input.frameCount * mInputFrameSize / sizeof(float);
+        size_t outBufferSizeInFloat = mCommon.output.frameCount * mOutputFrameSize / sizeof(float);
 
         // only status FMQ use the EventFlag
-        mStatusMQ = std::make_shared<StatusMQ>(1 /*numElementsInQueue*/,
-                                               true /*configureEventFlagWord*/);
+        mStatusMQ = std::make_shared<StatusMQ>(1 /*depth*/, true /*configureEventFlagWord*/);
         mInputMQ = std::make_shared<DataMQ>(inBufferSizeInFloat);
         mOutputMQ = std::make_shared<DataMQ>(outBufferSizeInFloat);
 
         if (!mStatusMQ->isValid() || !mInputMQ->isValid() || !mOutputMQ->isValid()) {
-            LOG(ERROR) << __func__ << " created invalid FMQ";
+            LOG(ERROR) << __func__ << " created invalid FMQ, statusMQ: " << mStatusMQ->isValid()
+                       << " inputMQ: " << mInputMQ->isValid()
+                       << " outputMQ: " << mOutputMQ->isValid();
         }
-        mWorkBuffer.reserve(std::max(inBufferSizeInFloat, outBufferSizeInFloat));
+
+        ::android::status_t status =
+                EventFlag::createEventFlag(mStatusMQ->getEventFlagWord(), &mEfGroup);
+        if (status != ::android::OK || !mEfGroup) {
+            LOG(ERROR) << __func__ << " create EventFlagGroup failed ";
+            return;
+        }
+        mWorkBuffer.resize(std::max(inBufferSizeInFloat, outBufferSizeInFloat));
     }
+
     mProcessData = processData;
-    LOG(ERROR) << __func__ << " context created";
+}
+
+EffectContext::~EffectContext() {
+    if (mEfGroup) {
+        ::android::hardware::EventFlag::deleteEventFlag(&mEfGroup);
+    }
 }
 
 // reset buffer status by abandon input data in FMQ
 void EffectContext::resetBuffer() {
     if (mProcessData) {
-        auto buffer = static_cast<float *>(mWorkBuffer.data());
-        std::vector<IEffect::Status> status(mStatusMQ->availableToRead());
-        mInputMQ->read(buffer, mInputMQ->availableToRead());
+        auto buffer = static_cast<float*>(mWorkBuffer.data());
+        if (mStatusMQ) {
+            std::vector<IEffect::Status> status(mStatusMQ->availableToRead());
+        }
+        if (mInputMQ) {
+            mInputMQ->read(buffer, mInputMQ->availableToRead());
+        }
     }
 }
 
-void EffectContext::dupeFmq(IEffect::OpenEffectReturn *effectRet) {
-    if (effectRet && mProcessData) {
+void EffectContext::dupeFmqWithReopen(IEffect::OpenEffectReturn* effectRet) {
+    if (!mProcessData) return;
+    if (!mInputMQ) {
+        mInputMQ = std::make_shared<DataMQ>(mCommon.input.frameCount * mInputFrameSize /
+                                            sizeof(float));
+    }
+    if (!mOutputMQ) {
+        mOutputMQ = std::make_shared<DataMQ>(mCommon.output.frameCount * mOutputFrameSize /
+                                             sizeof(float));
+    }
+    dupeFmq(effectRet);
+}
+
+void EffectContext::dupeFmq(IEffect::OpenEffectReturn* effectRet) {
+    if (!mProcessData) return;
+    if (effectRet && mStatusMQ && mInputMQ && mOutputMQ) {
         effectRet->statusMQ = mStatusMQ->dupeDesc();
         effectRet->inputDataMQ = mInputMQ->dupeDesc();
         effectRet->outputDataMQ = mOutputMQ->dupeDesc();
     }
 }
 
-float *EffectContext::getWorkBuffer() {
-    return static_cast<float *>(mWorkBuffer.data());
+float* EffectContext::getWorkBuffer() {
+    return static_cast<float*>(mWorkBuffer.data());
 }
+
+size_t EffectContext::getWorkBufferSize() const {
+    return mWorkBuffer.size();
+}
+
 std::shared_ptr<EffectContext::StatusMQ> EffectContext::getStatusFmq() const {
     return mStatusMQ;
 }
@@ -123,7 +151,7 @@ int EffectContext::getIoHandle() const {
 }
 
 RetCode EffectContext::setOutputDevice(
-        const std::vector<aidl::android::media::audio::common::AudioDeviceDescription> &device) {
+        const std::vector<aidl::android::media::audio::common::AudioDeviceDescription>& device) {
     mOutputDevice = device;
     return RetCode::SUCCESS;
 }
@@ -133,7 +161,7 @@ std::vector<aidl::android::media::audio::common::AudioDeviceDescription>
     return mOutputDevice;
 }
 
-RetCode EffectContext::setAudioMode(const aidl::android::media::audio::common::AudioMode &mode) {
+RetCode EffectContext::setAudioMode(const aidl::android::media::audio::common::AudioMode& mode) {
     mMode = mode;
     return RetCode::SUCCESS;
 }
@@ -142,7 +170,7 @@ aidl::android::media::audio::common::AudioMode EffectContext::getAudioMode() {
 }
 
 RetCode EffectContext::setAudioSource(
-        const aidl::android::media::audio::common::AudioSource &source) {
+        const aidl::android::media::audio::common::AudioSource& source) {
     mSource = source;
     return RetCode::SUCCESS;
 }
@@ -151,7 +179,7 @@ aidl::android::media::audio::common::AudioSource EffectContext::getAudioSource()
     return mSource;
 }
 
-RetCode EffectContext::setVolumeStereo(const Parameter::VolumeStereo &volumeStereo) {
+RetCode EffectContext::setVolumeStereo(const Parameter::VolumeStereo& volumeStereo) {
     mVolumeStereo = volumeStereo;
     return RetCode::SUCCESS;
 }
@@ -160,15 +188,102 @@ Parameter::VolumeStereo EffectContext::getVolumeStereo() {
     return mVolumeStereo;
 }
 
-RetCode EffectContext::setCommon(const Parameter::Common &common) {
+RetCode EffectContext::setCommon(const Parameter::Common& common) {
+    if (mCommon != common) {
+        LOG(VERBOSE) << __func__ << " Param Change from " << mCommon.toString();
+        LOG(VERBOSE) << __func__ << " to " << common.toString();
+    }
+    LOG(VERBOSE) << __func__ << common.toString();
+    auto& input = common.input;
+    auto& output = common.output;
+
+    if (input.base.format.pcm != aidl::android::media::audio::common::PcmType::FLOAT_32_BIT ||
+        output.base.format.pcm != aidl::android::media::audio::common::PcmType::FLOAT_32_BIT) {
+        LOG(ERROR) << __func__ << " illegal IO, input "
+                   << ::android::internal::ToString(input.base.format) << ", output "
+                   << ::android::internal::ToString(output.base.format);
+        return RetCode::ERROR_ILLEGAL_PARAMETER;
+    }
+
+    if (auto ret = updateIOFrameSize(common); ret != RetCode::SUCCESS) {
+        return ret;
+    }
+
+    mInputChannelCount = getChannelCount(input.base.channelMask);
+    mOutputChannelCount = getChannelCount(output.base.channelMask);
+    if (mInputChannelCount == 0 || mOutputChannelCount == 0) {
+        LOG(ERROR) << __func__ << " illegal channel count input " << mInputChannelCount
+                   << ", output " << mOutputChannelCount;
+        return RetCode::ERROR_ILLEGAL_PARAMETER;
+    }
+
     mCommon = common;
-    LOG(INFO) << __func__ << mCommon.toString();
     return RetCode::SUCCESS;
 }
 
 Parameter::Common EffectContext::getCommon() {
-    LOG(INFO) << __func__ << mCommon.toString();
+    LOG(VERBOSE) << __func__ << mCommon.toString();
     return mCommon;
+}
+
+EventFlag* EffectContext::getStatusEventFlag() {
+    return mEfGroup;
+}
+
+RetCode EffectContext::updateIOFrameSize(const Parameter::Common& common) {
+    const auto prevInputFrameSize = mInputFrameSize;
+    const auto prevOutputFrameSize = mOutputFrameSize;
+    mInputFrameSize = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
+            common.input.base.format, common.input.base.channelMask);
+    mOutputFrameSize = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
+            common.output.base.format, common.output.base.channelMask);
+
+    if (!mProcessData) {
+        LOG(VERBOSE) << __func__ << " effect does not process data";
+        return RetCode::SUCCESS;
+    }
+    // workBuffer and data MQ not allocated yet, no need to update
+    if (mWorkBuffer.size() == 0 || !mInputMQ || !mOutputMQ) {
+        return RetCode::SUCCESS;
+    }
+    // IEffect::reopen introduced in android.hardware.audio.effect-V2
+    if (mVersion < kReopenSupportedVersion) {
+        LOG(WARNING) << __func__ << " skipped for HAL version " << mVersion;
+        return RetCode::SUCCESS;
+    }
+    bool needUpdateMq = false;
+    if (mInputFrameSize != prevInputFrameSize ||
+        mCommon.input.frameCount != common.input.frameCount) {
+        mInputMQ.reset();
+        needUpdateMq = true;
+    }
+    if (mOutputFrameSize != prevOutputFrameSize ||
+        mCommon.output.frameCount != common.output.frameCount) {
+        mOutputMQ.reset();
+        needUpdateMq = true;
+    }
+
+    if (needUpdateMq) {
+        mWorkBuffer.resize(std::max(common.input.frameCount * mInputFrameSize / sizeof(float),
+                                    common.output.frameCount * mOutputFrameSize / sizeof(float)));
+        return notifyDataMqUpdate();
+    }
+    return RetCode::SUCCESS;
+}
+
+// this should only be called for software effects
+RetCode EffectContext::notifyDataMqUpdate() {
+    if (!mEfGroup) {
+        LOG(ERROR) << __func__ << ": invalid EventFlag group";
+        return RetCode::ERROR_EVENT_FLAG_ERROR;
+    }
+
+    if (const auto ret = mEfGroup->wake(kEventFlagDataMqUpdate); ret != ::android::OK) {
+        LOG(ERROR) << __func__ << ": wake failure with ret " << ret;
+        return RetCode::ERROR_EVENT_FLAG_ERROR;
+    }
+    LOG(DEBUG) << __func__ << " : signal client for reopen";
+    return RetCode::SUCCESS;
 }
 
 RetCode EffectContext::setOffload(bool offload) {

@@ -27,6 +27,7 @@
 #include <Utils.h>
 #include <android-base/logging.h>
 #include <fmq/AidlMessageQueue.h>
+#include <fmq/EventFlag.h>
 
 #include <aidl/android/hardware/audio/effect/BnEffect.h>
 #include "EffectTypes.h"
@@ -49,20 +50,23 @@ class EffectContext {
     void initMessageQueues(bool processData);
     virtual ~EffectContext();
 
+    void setVersion(int version) { mVersion = version; }
     std::shared_ptr<StatusMQ> getStatusFmq() const;
     std::shared_ptr<DataMQ> getInputDataFmq() const;
     std::shared_ptr<DataMQ> getOutputDataFmq() const;
 
     float* getWorkBuffer();
+    size_t getWorkBufferSize() const;
 
     // reset buffer status by abandon input data in FMQ
     void resetBuffer();
-
     void dupeFmq(IEffect::OpenEffectReturn* effectRet);
     size_t getInputFrameSize() const;
     size_t getOutputFrameSize() const;
     int getSessionId() const;
     int getIoHandle() const;
+
+    virtual void dupeFmqWithReopen(IEffect::OpenEffectReturn* effectRet);
 
     virtual RetCode setOutputDevice(
             const std::vector<aidl::android::media::audio::common::AudioDeviceDescription>& device);
@@ -81,12 +85,17 @@ class EffectContext {
 
     virtual RetCode setCommon(const Parameter::Common& common);
     virtual Parameter::Common getCommon();
+
+    virtual ::android::hardware::EventFlag* getStatusEventFlag();
+
     virtual RetCode setOffload(bool offload);
 
   protected:
-    // common parameters
+    int mVersion = 0;
     size_t mInputFrameSize = 0;
     size_t mOutputFrameSize = 0;
+    size_t mInputChannelCount = 0;
+    size_t mOutputChannelCount = 0;
     Parameter::Common mCommon = {};
     std::vector<aidl::android::media::audio::common::AudioDeviceDescription> mOutputDevice = {};
     aidl::android::media::audio::common::AudioMode mMode =
@@ -94,6 +103,9 @@ class EffectContext {
     aidl::android::media::audio::common::AudioSource mSource =
             aidl::android::media::audio::common::AudioSource::SYS_RESERVED_INVALID;
     Parameter::VolumeStereo mVolumeStereo = {};
+    RetCode updateIOFrameSize(const Parameter::Common& common);
+    RetCode notifyDataMqUpdate();
+
     bool mOffload;
 
   private:
@@ -105,5 +117,7 @@ class EffectContext {
     // TODO handle effect process input and output
     // work buffer set by effect instances, the access and update are in same thread
     std::vector<float> mWorkBuffer = {};
+
+    ::android::hardware::EventFlag* mEfGroup = nullptr;
 };
 } // namespace aidl::qti::effects

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -34,10 +34,12 @@ class OffloadBundleAidl final : public EffectImpl {
             const aidl::android::hardware::audio::effect::Parameter::Id& id,
             aidl::android::hardware::audio::effect::Parameter::Specific* specific) override;
 
+    ndk::ScopedAStatus setParameterCommon(const Parameter& param) override;
+
     std::shared_ptr<EffectContext> createContext(
             const aidl::android::hardware::audio::effect::Parameter::Common& common,
             bool processData) override;
-    std::shared_ptr<EffectContext> getContext() override;
+
     RetCode releaseContext() override;
 
     ndk::ScopedAStatus commandImpl(
@@ -46,6 +48,7 @@ class OffloadBundleAidl final : public EffectImpl {
     std::string getEffectName() override { return *mEffectName; }
 
   private:
+    void stopEffectIfNeeded(const Parameter::Common& common);
     std::shared_ptr<OffloadBundleContext> mContext;
     OffloadBundleEffectType mType = OffloadBundleEffectType::EQUALIZER;
 

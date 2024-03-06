@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -103,10 +103,6 @@ std::shared_ptr<EffectContext> VoiceProcessing::createContext(const Parameter::C
                                                                             processData);
     }
 
-    return mContext;
-}
-
-std::shared_ptr<EffectContext> VoiceProcessing::getContext() {
     return mContext;
 }
 

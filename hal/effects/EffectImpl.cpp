@@ -16,18 +16,22 @@
 
 /*
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "AHAL_EffectImplQti"
+
 #include "effect-impl/EffectImpl.h"
+#include <memory>
 #include "effect-impl/EffectTypes.h"
 #include "include/effect-impl/EffectTypes.h"
 
 using aidl::android::hardware::audio::effect::IEffect;
 using aidl::android::hardware::audio::effect::State;
 using aidl::android::media::audio::common::PcmType;
+using ::android::hardware::EventFlag;
+using ::aidl::android::hardware::audio::effect::kEventFlagNotEmpty;
 
 extern "C" binder_exception_t destroyEffect(const std::shared_ptr<IEffect>& instanceSp) {
     State state;
@@ -51,47 +55,75 @@ ndk::ScopedAStatus EffectImpl::open(const Parameter::Common& common,
     RETURN_IF(common.input.base.format.pcm != common.output.base.format.pcm ||
                       common.input.base.format.pcm != PcmType::FLOAT_32_BIT,
               EX_ILLEGAL_ARGUMENT, "dataMustBe32BitsFloat");
+    std::lock_guard lg(mImplMutex);
     RETURN_OK_IF(mState != State::INIT);
     // check if the effects needs data processing or not, based on that init worker thread & FMQs
-    bool processData = !isOffloadOrBypass();
-    auto context = createContext(common, processData);
-    RETURN_IF(!context, EX_NULL_POINTER, "createContextFailed");
+    mProcessData = !isOffloadOrBypass();
+    mImplContext = createContext(common, mProcessData);
+    RETURN_IF(!mImplContext, EX_NULL_POINTER, "nullContext");
+
+    int version = 0;
+    RETURN_IF(!getInterfaceVersion(&version).isOk(), EX_UNSUPPORTED_OPERATION,
+              "FailedToGetInterfaceVersion");
+    mImplContext->setVersion(version);
 
     if (specific.has_value()) {
         RETURN_IF_ASTATUS_NOT_OK(setParameterSpecific(specific.value()), "setSpecParamErr");
     }
 
     mState = State::IDLE;
-    setContext(context);
-    if (processData) {
-        context->dupeFmq(ret);
+
+    if (mProcessData) {
+        mEventFlag = mImplContext->getStatusEventFlag();
+        mImplContext->dupeFmq(ret);
         RETURN_IF(createThread(getEffectName()) != RetCode::SUCCESS, EX_UNSUPPORTED_OPERATION,
                   "FailedToCreateWorker");
     } else {
-        LOG(VERBOSE) << " effect does not process data";
+        LOG(VERBOSE) << __func__ << " " << getEffectName() << " effect does not process data";
     }
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus EffectImpl::close() {
-    RETURN_OK_IF(mState == State::INIT);
-    RETURN_IF(mState == State::PROCESSING, EX_ILLEGAL_STATE, "closeAtProcessing");
+ndk::ScopedAStatus EffectImpl::reopen(OpenEffectReturn* ret) {
+    std::lock_guard lg(mImplMutex);
+    RETURN_IF(mState == State::INIT, EX_ILLEGAL_STATE, "alreadyClosed");
 
+    LOG(DEBUG) << getEffectName() <<"  " << __func__;
+    // TODO:  add reopen implementation
+    RETURN_IF(!mImplContext, EX_NULL_POINTER, "nullContext");
+    mImplContext->dupeFmqWithReopen(ret);
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus EffectImpl::close() {
+    {
+        std::lock_guard lg(mImplMutex);
+        RETURN_OK_IF(mState == State::INIT);
+        RETURN_IF(mState == State::PROCESSING, EX_ILLEGAL_STATE, "closeAtProcessing");
+        mState = State::INIT;
+    }
+
+    RETURN_IF(notifyEventFlag(kEventFlagNotEmpty) != RetCode::SUCCESS, EX_ILLEGAL_STATE,
+              "notifyEventFlagFailed");
     // stop the worker thread, ignore the return code
     RETURN_IF(destroyThread() != RetCode::SUCCESS, EX_UNSUPPORTED_OPERATION,
               "FailedToDestroyWorker");
-    mState = State::INIT;
-    RETURN_IF(releaseContext() != RetCode::SUCCESS, EX_UNSUPPORTED_OPERATION,
-              "FailedToCreateWorker");
+
+    {
+        std::lock_guard lg(mImplMutex);
+        releaseContext();
+        mImplContext.reset();
+    }
 
     LOG(DEBUG) << getEffectName() << "  " << __func__;
     return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus EffectImpl::setParameter(const Parameter& param) {
-    LOG(DEBUG) << getEffectName() << "  " << __func__ << " with: " << param.toString();
+    std::lock_guard lg(mImplMutex);
+    LOG(VERBOSE) << getEffectName() << __func__ << " with: " << param.toString();
 
-    const auto tag = param.getTag();
+    const auto& tag = param.getTag();
     switch (tag) {
         case Parameter::common:
         case Parameter::deviceDescription:
@@ -114,7 +146,8 @@ ndk::ScopedAStatus EffectImpl::setParameter(const Parameter& param) {
 }
 
 ndk::ScopedAStatus EffectImpl::getParameter(const Parameter::Id& id, Parameter* param) {
-    LOG(DEBUG) << getEffectName() << "  " << __func__ << id.toString();
+    std::lock_guard lg(mImplMutex);
+    LOG(VERBOSE) << getEffectName() << "  " << __func__ << id.toString();
     auto tag = id.getTag();
     switch (tag) {
         case Parameter::Id::commonTag: {
@@ -131,40 +164,42 @@ ndk::ScopedAStatus EffectImpl::getParameter(const Parameter::Id& id, Parameter* 
             break;
         }
     }
-    LOG(DEBUG) << getEffectName() << "  " << __func__ << param->toString();
+    LOG(VERBOSE) << getEffectName() << __func__ << id.toString() << param->toString();
     return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus EffectImpl::setParameterCommon(const Parameter& param) {
-    auto context = getContext();
-    RETURN_IF(!context, EX_NULL_POINTER, "nullContext");
+    RETURN_IF(!mImplContext, EX_NULL_POINTER, "nullContext");
 
-    auto tag = param.getTag();
+    const auto& tag = param.getTag();
+
+    LOG(VERBOSE) << getEffectName() << __func__ << param.toString();
     switch (tag) {
         case Parameter::common:
-            RETURN_IF(context->setCommon(param.get<Parameter::common>()) != RetCode::SUCCESS,
+            RETURN_IF(mImplContext->setCommon(param.get<Parameter::common>()) != RetCode::SUCCESS,
                       EX_ILLEGAL_ARGUMENT, "setCommFailed");
             break;
         case Parameter::deviceDescription:
-            RETURN_IF(context->setOutputDevice(param.get<Parameter::deviceDescription>()) !=
+            RETURN_IF(mImplContext->setOutputDevice(param.get<Parameter::deviceDescription>()) !=
                               RetCode::SUCCESS,
                       EX_ILLEGAL_ARGUMENT, "setDeviceFailed");
             break;
         case Parameter::mode:
-            RETURN_IF(context->setAudioMode(param.get<Parameter::mode>()) != RetCode::SUCCESS,
+            RETURN_IF(mImplContext->setAudioMode(param.get<Parameter::mode>()) != RetCode::SUCCESS,
                       EX_ILLEGAL_ARGUMENT, "setModeFailed");
             break;
         case Parameter::source:
-            RETURN_IF(context->setAudioSource(param.get<Parameter::source>()) != RetCode::SUCCESS,
+            RETURN_IF(mImplContext->setAudioSource(param.get<Parameter::source>()) !=
+                              RetCode::SUCCESS,
                       EX_ILLEGAL_ARGUMENT, "setSourceFailed");
             break;
         case Parameter::volumeStereo:
-            RETURN_IF(context->setVolumeStereo(param.get<Parameter::volumeStereo>()) !=
+            RETURN_IF(mImplContext->setVolumeStereo(param.get<Parameter::volumeStereo>()) !=
                               RetCode::SUCCESS,
                       EX_ILLEGAL_ARGUMENT, "setVolumeStereoFailed");
             break;
         case Parameter::offload:
-            RETURN_IF(context->setOffload(param.get<Parameter::offload>()) != RetCode::SUCCESS,
+            RETURN_IF(mImplContext->setOffload(param.get<Parameter::offload>()) != RetCode::SUCCESS,
                       EX_ILLEGAL_ARGUMENT, "setOffloadError");
             break;
         default: {
@@ -178,28 +213,27 @@ ndk::ScopedAStatus EffectImpl::setParameterCommon(const Parameter& param) {
 }
 
 ndk::ScopedAStatus EffectImpl::getParameterCommon(const Parameter::Tag& tag, Parameter* param) {
-    auto context = getContext();
-    RETURN_IF(!context, EX_NULL_POINTER, "nullContext");
+    RETURN_IF(!mImplContext, EX_NULL_POINTER, "nullContext");
 
     switch (tag) {
         case Parameter::common: {
-            param->set<Parameter::common>(context->getCommon());
+            param->set<Parameter::common>(mImplContext->getCommon());
             break;
         }
         case Parameter::deviceDescription: {
-            param->set<Parameter::deviceDescription>(context->getOutputDevice());
+            param->set<Parameter::deviceDescription>(mImplContext->getOutputDevice());
             break;
         }
         case Parameter::mode: {
-            param->set<Parameter::mode>(context->getAudioMode());
+            param->set<Parameter::mode>(mImplContext->getAudioMode());
             break;
         }
         case Parameter::source: {
-            param->set<Parameter::source>(context->getAudioSource());
+            param->set<Parameter::source>(mImplContext->getAudioSource());
             break;
         }
         case Parameter::volumeStereo: {
-            param->set<Parameter::volumeStereo>(context->getVolumeStereo());
+            param->set<Parameter::volumeStereo>(mImplContext->getVolumeStereo());
             break;
         }
         default: {
@@ -218,24 +252,28 @@ ndk::ScopedAStatus EffectImpl::getState(State* state) {
 }
 
 ndk::ScopedAStatus EffectImpl::command(CommandId command) {
-    RETURN_IF(mState == State::INIT, EX_ILLEGAL_STATE, "CommandStateError");
+    std::lock_guard lg(mImplMutex);
+    RETURN_IF(mState == State::INIT, EX_ILLEGAL_STATE, "instanceNotOpen");
     LOG(DEBUG) << getEffectName() << "  " << __func__ << ": receive command: " << toString(command)
                << " at state " << toString(mState);
 
     switch (command) {
         case CommandId::START:
-            RETURN_IF(mState == State::INIT, EX_ILLEGAL_STATE, "instanceNotOpen");
             RETURN_OK_IF(mState == State::PROCESSING);
             RETURN_IF_ASTATUS_NOT_OK(commandImpl(command), "commandImplFailed");
-            startThread();
             mState = State::PROCESSING;
+            RETURN_IF(notifyEventFlag(kEventFlagNotEmpty) != RetCode::SUCCESS, EX_ILLEGAL_STATE,
+                      "notifyEventFlagFailed");
+            startThread();
             break;
         case CommandId::STOP:
         case CommandId::RESET:
             RETURN_OK_IF(mState == State::IDLE);
+            mState = State::IDLE;
+            RETURN_IF(notifyEventFlag(kEventFlagNotEmpty) != RetCode::SUCCESS, EX_ILLEGAL_STATE,
+                      "notifyEventFlagFailed");
             stopThread();
             RETURN_IF_ASTATUS_NOT_OK(commandImpl(command), "commandImplFailed");
-            mState = State::IDLE;
             break;
         default:
             LOG(DEBUG) << getEffectName() << "  " << __func__ << " instance still processing";
@@ -247,17 +285,44 @@ ndk::ScopedAStatus EffectImpl::command(CommandId command) {
 }
 
 ndk::ScopedAStatus EffectImpl::commandImpl(CommandId command) {
-    auto context = getContext();
-    RETURN_IF(!context, EX_NULL_POINTER, "nullContext");
+    RETURN_IF(!mImplContext, EX_NULL_POINTER, "nullContext");
     if (command == CommandId::RESET) {
-        context->resetBuffer();
+        mImplContext->resetBuffer();
     }
     return ndk::ScopedAStatus::ok();
+}
+
+std::shared_ptr<EffectContext> EffectImpl::createContext(const Parameter::Common& common,
+                                                         bool processData) {
+    return std::make_shared<EffectContext>(common, processData);
+}
+
+RetCode EffectImpl::releaseContext() {
+    if (mImplContext) {
+        mImplContext.reset();
+    }
+    return RetCode::SUCCESS;
 }
 
 void EffectImpl::cleanUp() {
     command(CommandId::STOP);
     close();
+}
+
+RetCode EffectImpl::notifyEventFlag(uint32_t flag) {
+    if (!mProcessData) {
+        return RetCode::SUCCESS;
+    }
+
+    if (!mEventFlag) {
+        LOG(ERROR) << getEffectName() << __func__ << ": StatusEventFlag invalid";
+        return RetCode::ERROR_EVENT_FLAG_ERROR;
+    }
+    if (const auto ret = mEventFlag->wake(flag); ret != ::android::OK) {
+        LOG(ERROR) << getEffectName() << __func__ << ": wake failure with ret " << ret;
+        return RetCode::ERROR_EVENT_FLAG_ERROR;
+    }
+    return RetCode::SUCCESS;
 }
 
 IEffect::Status EffectImpl::status(binder_status_t status, size_t consumed, size_t produced) {
@@ -268,12 +333,57 @@ IEffect::Status EffectImpl::status(binder_status_t status, size_t consumed, size
     return ret;
 }
 
+void EffectImpl::process() {
+    // ATRACE_CALL();
+    /**
+     * wait for the EventFlag without lock, it's ok because the mEfGroup pointer will not change
+     * in the life cycle of workerThread (threadLoop).
+     */
+    uint32_t efState = 0;
+    if (!mEventFlag ||
+        ::android::OK != mEventFlag->wait(kEventFlagNotEmpty, &efState, 0 /* no timeout */,
+                                          true /* retry */) ||
+        !(efState & kEventFlagNotEmpty)) {
+        LOG(ERROR) << getEffectName() << __func__ << ": StatusEventFlag - " << mEventFlag
+                   << " efState - " << std::hex << efState;
+        return;
+    }
+
+    {
+        std::lock_guard lg(mImplMutex);
+        if (mState != State::PROCESSING) {
+            LOG(DEBUG) << getEffectName() << " skip process in state: " << toString(mState);
+            return;
+        }
+        RETURN_VALUE_IF(!mImplContext, void(), "nullContext");
+        auto statusMQ = mImplContext->getStatusFmq();
+        auto inputMQ = mImplContext->getInputDataFmq();
+        auto outputMQ = mImplContext->getOutputDataFmq();
+        auto buffer = mImplContext->getWorkBuffer();
+        if (!inputMQ || !outputMQ) {
+            return;
+        }
+
+        assert(mImplContext->getWorkBufferSize() >=
+               std::max(inputMQ->availableToRead(), outputMQ->availableToWrite()));
+        auto processSamples = std::min(inputMQ->availableToRead(), outputMQ->availableToWrite());
+        if (processSamples) {
+            inputMQ->read(buffer, processSamples);
+            IEffect::Status status = effectProcessImpl(buffer, buffer, processSamples);
+            outputMQ->write(buffer, status.fmqProduced);
+            statusMQ->writeBlocking(&status, 1);
+            LOG(VERBOSE) << getEffectName() << __func__ << ": done processing, effect consumed "
+                         << status.fmqConsumed << " produced " << status.fmqProduced;
+        }
+    }
+}
+
 // A placeholder processing implementation to copy samples from input to output
 IEffect::Status EffectImpl::effectProcessImpl(float* in, float* out, int samples) {
     for (int i = 0; i < samples; i++) {
         *out++ = *in++;
     }
-    LOG(DEBUG) << getEffectName() << __func__ << " done processing " << samples << " samples";
+    LOG(VERBOSE) << getEffectName() << __func__ << " done processing " << samples << " samples";
     return {STATUS_OK, samples, samples};
 }
 

@@ -16,7 +16,7 @@
 
 /*
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -40,10 +40,11 @@ extern "C" __attribute__((visibility("default"))) binder_status_t registerServic
     }
     LOG(INFO) << __func__ << ": start factory with configFile:" << configFile;
     auto effectFactory = ndk::SharedRefBase::make<aidl::qti::effects::Factory>(configFile);
-
+    int version = 0;
+    effectFactory->getInterfaceVersion(&version);
     std::string serviceName = std::string() + effectFactory->descriptor + "/default";
     binder_status_t status =
             AServiceManager_addService(effectFactory->asBinder().get(), serviceName.c_str());
-    LOG(VERBOSE) << __func__ << " status: " << status;
+    LOG(DEBUG) << __func__ << " " << serviceName << " version " << version << " status " << status;
     return status;
 }

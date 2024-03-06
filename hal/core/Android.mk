@@ -79,7 +79,7 @@ LOCAL_SHARED_LIBRARIES := \
     android.hardware.common-V2-ndk \
     android.media.audio.common.types-V3-ndk \
     android.hardware.audio.core-V2-ndk \
-    android.hardware.audio.effect-V1-ndk \
+    $(LATEST_ANDROID_HARDWARE_AUDIO_EFFECT) \
     android.hardware.audio.core.sounddose-V1-ndk \
     libar-pal \
     libaudioserviceexampleimpl \
