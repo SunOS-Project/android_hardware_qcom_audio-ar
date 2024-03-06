@@ -65,6 +65,7 @@ class Platform {
             noexcept;
     bool isSoundCardUp() const noexcept;
     bool isSoundCardDown() const noexcept;
+    bool isValidAlsaAddr(const std::vector<int>& alsaAddress) const noexcept;
     size_t getFrameCount(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) const;
     size_t getMinimumStreamSizeFrames(
