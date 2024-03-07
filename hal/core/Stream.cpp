@@ -130,6 +130,7 @@ std::string StreamWorkerCommonLogic::init() {
 void StreamWorkerCommonLogic::populateReply(StreamDescriptor::Reply* reply,
                                             bool isConnected) const {
     reply->status = STATUS_OK;
+    reply->latencyMs = mContext->getNominalLatencyMs();
     if (isConnected) {
         reply->observable.frames = mContext->getFrameCount();
         reply->observable.timeNs = ::android::elapsedRealtimeNano();
@@ -402,8 +403,6 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
 
     StreamDescriptor::Reply reply{};
     reply.status = STATUS_BAD_VALUE;
-    // DEBUG, provide a default latency for any command
-    reply.latencyMs = 10;
     using Tag = StreamDescriptor::Command::Tag;
     switch (command.getTag()) {
         case Tag::halReservedExit:

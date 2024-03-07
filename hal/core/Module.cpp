@@ -150,6 +150,12 @@ void Module::cleanUpPatch(int32_t patchId) {
     erase_all_values(mPatches, std::set<int32_t>{patchId});
 }
 
+int32_t Module::getNominalLatencyMs(const AudioPortConfig& mixPortConfig) {
+    // Arbitrary value. Implementations must override this method to provide their actual latency.
+    static constexpr int32_t kLatencyMs = 5;
+    return kLatencyMs;
+}
+
 ndk::ScopedAStatus Module::createStreamContext(
         int32_t in_portConfigId, int64_t in_bufferSizeFrames,
         std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> asyncCallback,
@@ -187,13 +193,14 @@ ndk::ScopedAStatus Module::createStreamContext(
     StreamContext::DebugParameters params{mDebug.streamTransientStateDelayMs,
                                           mVendorDebug.forceTransientBurst,
                                           mVendorDebug.forceSynchronousDrain};
+    const int32_t& nominalLatency = getNominalLatencyMs(*portConfigIt);
     StreamContext temp(
             std::make_unique<StreamContext::CommandMQ>(1, true /*configureEventFlagWord*/),
             std::make_unique<StreamContext::ReplyMQ>(1, true /*configureEventFlagWord*/),
             portConfigIt->format.value(), portConfigIt->channelMask.value(),
             portConfigIt->sampleRate.value().value,
             std::make_unique<StreamContext::DataMQ>(frameSize * in_bufferSizeFrames), asyncCallback,
-            outEventCallback, *portConfigIt, params);
+            outEventCallback, *portConfigIt, params, nominalLatency);
     if (temp.isValid()) {
         *out_context = std::move(temp);
     } else {

@@ -333,6 +333,10 @@ void ModulePrimary::onExternalDeviceConnectionChanged(
     }
 }
 
+int32_t ModulePrimary::getNominalLatencyMs(const AudioPortConfig& mixPortConfig) {
+    return mPlatform.getLatencyMs(mixPortConfig);
+}
+
 ndk::ScopedAStatus ModulePrimary::getSupportedPlaybackRateFactors(
         SupportedPlaybackRateFactors* _aidl_return) {
     LOG(DEBUG) << __func__ << " speed supported " << mOffloadSpeedSupported;
