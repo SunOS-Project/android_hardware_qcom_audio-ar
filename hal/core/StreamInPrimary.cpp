@@ -215,7 +215,7 @@ ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd, int64_t* bu
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
-    LOG(INFO) << __func__ << mLogPrefix << " stream is configured";
+    LOG(INFO) << __func__ << mLogPrefix << ": stream is configured";
 
     return ndk::ScopedAStatus::ok();
 }
