@@ -676,13 +676,11 @@ void StreamInPrimary::configure() {
         return;
     }
     LOG(VERBOSE) << __func__ << mLogPrefix << " pal_stream_set_buffer_size successful";
+
     if (mTag == Usecase::COMPRESS_CAPTURE) {
-        auto palParamPayload = std::get<CompressCapture>(mExt).getPayloadCodecInfo();
-        if (int32_t ret = ::pal_stream_set_param(
-                    this->mPalHandle, PAL_PARAM_ID_CODEC_CONFIGURATION,
-                    reinterpret_cast<pal_param_payload*>(palParamPayload.get()));
-            ret) {
-            LOG(VERBOSE) << __func__ << mLogPrefix << " pal_stream_set_param failed!!! ret:" << ret;
+        std::get<CompressCapture>(mExt).setPalHandle(mPalHandle);
+        if (bool isConfigured = std::get<CompressCapture>(mExt).configureCodecInfo();
+            !isConfigured) {
             ::pal_stream_close(mPalHandle);
             mPalHandle = nullptr;
             return;
@@ -694,13 +692,6 @@ void StreamInPrimary::configure() {
         ::pal_stream_close(mPalHandle);
         mPalHandle = nullptr;
         return;
-    }
-
-    LOG(VERBOSE) << __func__ << mLogPrefix << " pal_stream_start successful";
-
-    // configure mExt
-    if (mTag == Usecase::COMPRESS_CAPTURE) {
-        std::get<CompressCapture>(mExt).setPalHandle(mPalHandle);
     }
 
     if (!mEffectsApplied)

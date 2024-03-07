@@ -722,12 +722,28 @@ size_t CompressCapture::getLatencyMs() {
     return mPCMSamplesPerFrame * kMilliSeconds / mSampleRate;
 }
 
-std::unique_ptr<uint8_t[]> CompressCapture::getPayloadCodecInfo() const {
+bool CompressCapture::configureCodecInfo(){
+    /* check for global cut-off frequency*/
+    if (mPalSndEnc.aac_enc.global_cutoff_freq <= 0 /* not configured*/) {
+        const std::string kAACCutOffFrequencyProp{"vendor.audio.compress_capture.aac.cut_off_freq"};
+        mPalSndEnc.aac_enc.global_cutoff_freq =
+                ::android::base::GetIntProperty<int32_t>(kAACCutOffFrequencyProp, 0);
+    }
+
     auto dataPtr = std::make_unique<uint8_t[]>(sizeof(pal_param_payload) + sizeof(pal_snd_enc_t));
     auto palParamPayload = reinterpret_cast<pal_param_payload*>(dataPtr.get());
     palParamPayload->payload_size = sizeof(pal_snd_enc_t);
-    memcpy(palParamPayload->payload, &mPalSndEnc, sizeof(pal_snd_enc_t));
-    return std::move(dataPtr);
+    auto payloadPtr = reinterpret_cast<pal_snd_enc_t*>(dataPtr.get() + sizeof(pal_param_payload));
+    *payloadPtr = mPalSndEnc;
+
+    if (int32_t ret = ::pal_stream_set_param(mCompressHandle, PAL_PARAM_ID_CODEC_CONFIGURATION,
+                                             palParamPayload); ret) {
+        LOG(ERROR) << __func__ << " PAL_PARAM_ID_CODEC_CONFIGURATION failed!!! ret:" << ret;
+        return false;
+    }
+
+    LOG(VERBOSE) << __func__ << " PAL_PARAM_ID_CODEC_CONFIGURATION configured";
+    return true;
 }
 
 ndk::ScopedAStatus CompressCapture::setVendorParameters(
