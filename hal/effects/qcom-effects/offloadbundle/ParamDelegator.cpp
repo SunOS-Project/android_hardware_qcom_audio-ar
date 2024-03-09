@@ -1,6 +1,6 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -34,14 +34,14 @@ const int kReverbOpenSlToOffloadMap[] = {15, 16, 17, 18, 19, 20};
         return ret;                                       \
     }
 
-#define VALUE_OR_RETURN(ptr)                                 \
-    ({                                                       \
-        auto temp = (ptr);                                   \
-        if (temp.get() == nullptr) {                         \
-            ALOGE("%s could not allocate memory", __func__); \
-            return -ENOMEM;                                  \
-        }                                                    \
-        std::move(temp);                                     \
+#define VALUE_OR_RETURN(ptr)                                       \
+    ({                                                             \
+        auto temp = (ptr);                                         \
+        if (temp.get() == nullptr) {                               \
+            LOG(ERROR) << __func__ << "could not allocate memory"; \
+            return -ENOMEM;                                        \
+        }                                                          \
+        std::move(temp);                                           \
     })
 
 using CustomDeletor = void (*)(void *);

@@ -154,6 +154,9 @@ class GlobalOffloadSession {
 
         if (mActiveIoHandles.count(ioHandle)) {
             mActiveIoHandles.erase(ioHandle);
+            LOG(VERBOSE) << __func__ << " Removed ioHandle " << ioHandle << " sessions "
+                         << mSessionsMap.size() << " activeHandles "
+                         << mActiveIoHandles.count(ioHandle);
         }
     }
 

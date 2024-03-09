@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -33,7 +33,7 @@ class VolumeListener final : public EffectImpl {
 
     std::shared_ptr<EffectContext> createContext(const Parameter::Common& common,
                                                  bool processData) override;
-    std::shared_ptr<EffectContext> getContext() override;
+
     RetCode releaseContext() override;
 
     ndk::ScopedAStatus setParameterCommon(const Parameter& param) override;

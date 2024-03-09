@@ -1,5 +1,22 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (C) 2022 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -40,6 +57,7 @@ class EffectImpl : public BnEffect, public EffectThread {
                                     OpenEffectReturn* ret) override;
     virtual ndk::ScopedAStatus close() override;
     virtual ndk::ScopedAStatus command(CommandId id) override;
+    virtual ndk::ScopedAStatus reopen(OpenEffectReturn* ret) override;
 
     virtual ndk::ScopedAStatus getState(State* state) override;
     virtual ndk::ScopedAStatus setParameter(const Parameter& param) override;
@@ -55,17 +73,32 @@ class EffectImpl : public BnEffect, public EffectThread {
                                                     Parameter::Specific* specific) = 0;
 
     virtual std::string getEffectName() = 0;
-    virtual IEffect::Status effectProcessImpl(float* in, float* out, int samples) override;
+    virtual std::shared_ptr<EffectContext> createContext(const Parameter::Common& common,
+                                                         bool processData);
+
+    virtual RetCode releaseContext() = 0;
 
     /**
-     * Effect context methods must be implemented by each effect.
-     * Each effect can derive from EffectContext and define its own context, but must upcast to
-     * EffectContext for EffectImpl to use.
+     * @brief effectProcessImpl is running in worker thread which created in EffectThread.
+     *
+     * EffectThread will make sure effectProcessImpl only be called after startThread() successful
+     * and before stopThread() successful.
+     *
+     * effectProcessImpl implementation must not call any EffectThread interface, otherwise it will
+     * cause deadlock.
+     *
+     * @param in address of input float buffer.
+     * @param out address of output float buffer.
+     * @param samples number of samples to process.
+     * @return IEffect::Status
      */
-    virtual std::shared_ptr<EffectContext> createContext(const Parameter::Common& common,
-                                                         bool processData) = 0;
-    virtual std::shared_ptr<EffectContext> getContext() = 0;
-    virtual RetCode releaseContext() = 0;
+    virtual IEffect::Status effectProcessImpl(float* in, float* out, int samples);
+
+    /**
+     * process() get data from data MQs, and call effectProcessImpl() for effect data processing.
+     * Its important for the implementation to use mImplMutex for context synchronization.
+     */
+    void process() override;
 
   protected:
     State mState = State::INIT;
@@ -74,6 +107,9 @@ class EffectImpl : public BnEffect, public EffectThread {
 
     IEffect::Status status(binder_status_t status, size_t consumed, size_t produced);
     void cleanUp();
+
+    std::mutex mImplMutex;
+    std::shared_ptr<EffectContext> mImplContext;
 
     /**
      * Optional CommandId handling methods for effects to override.
@@ -84,7 +120,13 @@ class EffectImpl : public BnEffect, public EffectThread {
      */
     virtual ndk::ScopedAStatus commandImpl(CommandId id);
 
+    RetCode notifyEventFlag(uint32_t flag);
+
+    // used with data processing.
+    ::android::hardware::EventFlag* mEventFlag;
+
   private:
+    bool mProcessData = false;
     bool isOffloadOrBypass() {
         return (mDescriptor->common.flags.hwAcceleratorMode == Flags::HardwareAccelerator::TUNNEL ||
                 mDescriptor->common.flags.bypass);
