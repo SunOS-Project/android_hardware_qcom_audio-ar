@@ -187,6 +187,9 @@ class ModulePrimary final : public Module {
 
     std::vector<::aidl::android::hardware::audio::core::VendorParameter> processGetVendorParameters(
             const std::vector<std::string>&);
+    // GetHandler for HDR
+    std::vector<::aidl::android::hardware::audio::core::VendorParameter> onGetHDRParameters(
+            const std::vector<std::string>&);
     // GetHandler for Telephony
     std::vector<::aidl::android::hardware::audio::core::VendorParameter> onGetTelephonyParameters(
             const std::vector<std::string>&);

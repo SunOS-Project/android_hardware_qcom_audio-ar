@@ -204,4 +204,8 @@ VendorParameter makeVendorParameter(const std::string& id, const std::string& va
     return param;
 }
 
+std::string makeParamValue(bool const& isTrue) noexcept {
+    return isTrue ? "true" : "false";
+}
+
 } // namespace qti::audio::core

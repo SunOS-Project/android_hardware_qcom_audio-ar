@@ -608,10 +608,15 @@ void StreamInPrimary::configure() {
     }
     if (mTag == Usecase::PCM_RECORD) {
         attr->type = PAL_STREAM_DEEP_BUFFER;
-        if (const auto& source = getAudioSource(mMixPortConfig);
-            (source && source.value() == AudioSource::ECHO_REFERENCE)) {
-            LOG(INFO) << __func__ << mLogPrefix << ": echo reference capture";
-            attr->type = PAL_STREAM_RAW;
+        const auto& source = getAudioSource(mMixPortConfig);
+        if (source) {
+            if (source.value() == AudioSource::ECHO_REFERENCE) {
+                attr->type = PAL_STREAM_RAW;
+                LOG(INFO) << __func__ << mLogPrefix << ": echo reference capture";
+            } else if (source.value() == AudioSource::UNPROCESSED) {
+                attr->type = PAL_STREAM_RAW;
+                LOG(INFO) << __func__ << mLogPrefix << ": unprocessed capture";
+            }
         }
     } else if (mTag == Usecase::COMPRESS_CAPTURE) {
         attr->type = PAL_STREAM_COMPRESSED;

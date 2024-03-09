@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -18,12 +18,14 @@ namespace qti::audio::core::Parameters {
 
 // HDR Recording
 const static std::string kHdrRecord{"hdr_record_on"};
+const static std::string kHdrChannelCount{"hdr_audio_channel_count"};
+const static std::string kHdrSamplingRate{"hdr_audio_sampling_rate"};
 const static std::string kWnr{"wnr_on"};
 const static std::string kAns{"ans_on"};
 const static std::string kOrientation{"orientation"};
 const static std::string kInverted{"inverted"};
-const static std::string kHdrChannelCount{"hdr_audio_channel_count"};
-const static std::string kHdrSamplingRate{"hdr_audio_sampling_rate"};
+const static std::string kFacing{"facing"};
+
 
 // voice
 const static std::string kVoiceCallState{"call_state"};

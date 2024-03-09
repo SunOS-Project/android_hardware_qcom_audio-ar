@@ -249,4 +249,12 @@ auto findKeyOrDefault(const M& m, const K& key, K defaultValue) {
 */
 ::aidl::android::hardware::audio::core::VendorParameter makeVendorParameter(const std::string& id,
                                                                             const std::string& value);
+
+/*
+* convert bool value to the corresponding string value
+* true -> "true"
+* false -> "false"
+*/
+std::string makeParamValue(bool const&) noexcept;
+
 } // namespace qti::audio::core

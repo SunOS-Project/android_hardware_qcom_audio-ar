@@ -141,6 +141,34 @@ class Platform {
     bool updateScreenState(const bool isTurnedOn) noexcept;
     bool isScreenTurnedOn() const noexcept;
 
+    bool isHDREnabled() const { return mHDREnabled; }
+    void setHDREnabled(bool const& enable) { mHDREnabled = enable; }
+
+    int32_t getHDRSampleRate() const { return mHDRSampleRate; }
+
+    void setHDRSampleRate(int32_t const& sampleRate) { mHDRSampleRate = sampleRate; }
+
+    int32_t getHDRChannelCount() const { return mHDRChannelCount; }
+
+    void setHDRChannelCount(int32_t const& channelCount) { mHDRChannelCount = channelCount; }
+
+    bool isWNREnabled() const { return mWNREnabled; }
+    void setWNREnabled(bool const& enable) { mWNREnabled = enable; }
+
+    bool isANREnabled() const { return mANREnabled; }
+    void setANREnabled(bool const& enable) { mANREnabled = enable; }
+
+    bool isInverted() const { return mInverted; }
+    void setInverted(bool const& enable) { mInverted = enable; }
+
+    std::string getOrientation() const { return mOrientation; }
+
+    void setOrientation(std::string const& value) { mOrientation = value; }
+
+    std::string getFacing() const { return mFacing; }
+
+    void setFacing(std::string const& value) { mFacing = value; }
+
     /*
     * @brief creates a pal payload for a speed factor and sets to PAL
     * @param handle : pal stream handle
@@ -232,5 +260,16 @@ class Platform {
     ::aidl::android::hardware::audio::core::IModule::ScreenRotation mCurrentScreenRotation{
             ::aidl::android::hardware::audio::core::IModule::ScreenRotation::DEG_0};
     bool mOffloadSpeedSupported = false;
+
+    /* HDR */
+    bool mHDREnabled{false};
+    int32_t mHDRSampleRate{0};
+    int32_t mHDRChannelCount{0};
+    bool mWNREnabled{false};
+    bool mANREnabled{false};
+    bool mInverted{false};
+    std::string mOrientation{""};
+    std::string mFacing{""};
+
 };
 } // namespace qti::audio::core
