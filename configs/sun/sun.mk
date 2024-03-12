@@ -88,6 +88,7 @@ PRODUCT_COPY_FILES += \
     $(CONFIG_PAL_SRC_DIR)/card-defs.xml:$(TARGET_COPY_OUT_VENDOR)/etc/card-defs.xml \
     $(CONFIG_PAL_SRC_DIR)/mixer_paths_sun_qrd.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_sun_qrd.xml \
     $(CONFIG_PAL_SRC_DIR)/mixer_paths_sun_mtp.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_sun_mtp.xml \
+    $(CONFIG_PAL_SRC_DIR)/mixer_paths_sun_mtp_wsa883x_qmp.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_sun_mtp_wsa883x_qmp.xml \
     $(CONFIG_PAL_SRC_DIR)/mixer_paths_sun_cdp.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_sun_cdp.xml \
     $(CONFIG_PAL_SRC_DIR)/mixer_paths_sun_qrd_sku2.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_sun_qrd_sku2.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_sun_qrd.xml:$(CONFIG_SKU_OUT_DIR)/resourcemanager_sun_qrd.xml \
