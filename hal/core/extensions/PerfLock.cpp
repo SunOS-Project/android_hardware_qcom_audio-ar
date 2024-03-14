@@ -46,7 +46,6 @@ bool PerfLock::init() {
     if (libHandle == nullptr) {
         const char* error = dlerror();
         LOG(INFO) << __func__ << " Failed to dlopen:" << kPerfLockLibrary << " " << error;
-        dlclose(libHandle);
         return false;
     }
 
