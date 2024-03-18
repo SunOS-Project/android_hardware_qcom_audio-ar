@@ -1,5 +1,22 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (C) 2022 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -35,7 +52,8 @@ enum class RetCode {
     ERROR_NULL_POINTER,      /* NULL pointer */
     ERROR_ALIGNMENT_ERROR,   /* Memory alignment error */
     ERROR_BLOCK_SIZE_EXCEED, /* Maximum block size exceeded */
-    ERROR_EFFECT_LIB_ERROR
+    ERROR_EFFECT_LIB_ERROR,  /* Effect implementation library error */
+    ERROR_EVENT_FLAG_ERROR   /* Error with effect event flags */
 };
 
 static const int INVALID_AUDIO_SESSION_ID = -1;
@@ -56,6 +74,8 @@ inline std::ostream& operator<<(std::ostream& out, const RetCode& code) {
             return out << "ERROR_BLOCK_SIZE_EXCEED";
         case RetCode::ERROR_EFFECT_LIB_ERROR:
             return out << "ERROR_EFFECT_LIB_ERROR";
+        case RetCode::ERROR_EVENT_FLAG_ERROR:
+            return out << "ERROR_EVENT_FLAG_ERROR";
     }
 
     return out << "EnumError: " << code;

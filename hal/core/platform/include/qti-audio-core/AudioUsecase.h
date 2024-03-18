@@ -109,8 +109,8 @@ class UltraFastRecord {
   public:
     constexpr static int32_t kSampleRate = 48000;
     // The below values at the moment are not generic, TODO make generic
-    constexpr static size_t kPeriodSize = 1024; // as per WFD requirement
-    constexpr static size_t kPeriodCount = 4;                        // as per WFD requirement
+    constexpr static size_t kPeriodSize = 480;
+    constexpr static size_t kPeriodCount = 4;
     // This Use case behave differently when the device connected is input AFE proxy
     bool mIsWFDCapture{false};
 };
@@ -215,7 +215,6 @@ class CompressPlayback final {
             const std::vector<::aidl::android::hardware::audio::core::VendorParameter>&
                     in_parameters,
             bool in_async);
-    void getPositionInFrames(int64_t* dspFrames);
     void updateOffloadMetadata(
             const ::aidl::android::hardware::audio::common::AudioOffloadMetadata& offloadMetaData);
     void updateSourceMetadata(
@@ -299,7 +298,7 @@ class CompressCapture final {
     ndk::ScopedAStatus getVendorParameters(
             const std::vector<std::string>& in_ids,
             std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return);
-    std::unique_ptr<uint8_t[]> getPayloadCodecInfo() const;
+    bool configureCodecInfo();
     int32_t getAACMinBitrateValue();
 
     int32_t getAACMaxBitrateValue();
@@ -321,11 +320,21 @@ class CompressCapture final {
 class PcmOffloadPlayback final {
   public:
     constexpr static size_t kPeriodDurationMs = 80;
-    constexpr static size_t kPeriodCount = 4;
+    constexpr static size_t kPeriodCount = 2;
     constexpr static size_t kPlatformDelayMs = 30;
     constexpr static size_t kMinPeriodSize = 512;
     constexpr static size_t kMaxPeriodSize = 240 * 1024;
     static size_t getPeriodSize(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
+
+    /*
+    * Earlier in Hidl, getBufferSize was used, which used to provide buffer size of stream.
+    * now in AIDL when a patch is created framecount is queried.
+    * Ideally totalBytes (bufferSizeInBytes) = framecount * framesize.
+    * while framesize = (channelCount * sizeof(audio_format))
+    * // TODO remove this comment, once all usecase are unified with the these signatures.
+    */
+    static size_t getFrameCount(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
 
   private:

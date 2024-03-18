@@ -12,6 +12,7 @@
 #include <aidl/android/media/audio/common/AudioPort.h>
 #include <aidl/android/media/audio/common/AudioPortConfig.h>
 #include <extensions/AudioExtension.h>
+#include <system/audio.h>
 
 #include <PalApi.h>
 #include <qti-audio-core/AudioUsecase.h>
@@ -64,7 +65,7 @@ class Platform {
             noexcept;
     bool isSoundCardUp() const noexcept;
     bool isSoundCardDown() const noexcept;
-    size_t getIOBufferSizeInFrames(
+    size_t getFrameCount(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) const;
     size_t getMinimumStreamSizeFrames(
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
@@ -81,6 +82,37 @@ class Platform {
             const Usecase& tag,
             const std::vector<::aidl::android::media::audio::common::AudioDevice>& setDevices)
             const;
+    /*
+    * @breif In order to get stream position in the DSP pipeline
+    * 
+    * @param, 
+    * Input Parameters: 
+    * palHandle, a valid stream pal handle
+    * sampleRate, a valid stream sample rate
+    * 
+    * Output Parameters:
+    * dspFrames, num of frames delivered by DSP
+    */
+    void getPositionInFrames(pal_stream_handle_t* palHandle, int32_t const& sampleRate,
+                                   int64_t* const dspFrames) const;
+
+    /*
+    * @brief requiresBufferReformat is used to check if format converter is needed for
+    * a PCM format or not, it is not applicable for compressed formats.
+    * It is possible that framework can use a format which might not
+    * be supported at below layers, so HAL needs to convert the buffer in desired format
+    * before writing.
+    *
+    * @param portConfig : mixport config of the stream.
+    * return return a pair of input and output audio_format_t in case a format converter
+    * is needed, otherwise nullopt.
+    * For example, mix port using audio format FLOAT is not supported, closest to FLOAT,
+    * INT_32 can be used as target format. so, return a pair of
+    * <AUDIO_FORMAT_PCM_FLOAT, AUDIO_FORMAT_PCM_32_BIT>
+    * Caller can utilize this to create a converter based of provided input, output formats.
+    */
+    static std::optional<std::pair<audio_format_t, audio_format_t>> requiresBufferReformat(
+            const ::aidl::android::media::audio::common::AudioPortConfig& portConfig);
 
     /*
     * @brief creates a pal payload for a pal volume and sets to PAL
@@ -108,6 +140,34 @@ class Platform {
     bool setStreamMicMute(pal_stream_handle_t* streamHandlePtr, const bool muted);
     bool updateScreenState(const bool isTurnedOn) noexcept;
     bool isScreenTurnedOn() const noexcept;
+
+    bool isHDREnabled() const { return mHDREnabled; }
+    void setHDREnabled(bool const& enable) { mHDREnabled = enable; }
+
+    int32_t getHDRSampleRate() const { return mHDRSampleRate; }
+
+    void setHDRSampleRate(int32_t const& sampleRate) { mHDRSampleRate = sampleRate; }
+
+    int32_t getHDRChannelCount() const { return mHDRChannelCount; }
+
+    void setHDRChannelCount(int32_t const& channelCount) { mHDRChannelCount = channelCount; }
+
+    bool isWNREnabled() const { return mWNREnabled; }
+    void setWNREnabled(bool const& enable) { mWNREnabled = enable; }
+
+    bool isANREnabled() const { return mANREnabled; }
+    void setANREnabled(bool const& enable) { mANREnabled = enable; }
+
+    bool isInverted() const { return mInverted; }
+    void setInverted(bool const& enable) { mInverted = enable; }
+
+    std::string getOrientation() const { return mOrientation; }
+
+    void setOrientation(std::string const& value) { mOrientation = value; }
+
+    std::string getFacing() const { return mFacing; }
+
+    void setFacing(std::string const& value) { mFacing = value; }
 
     /*
     * @brief creates a pal payload for a speed factor and sets to PAL
@@ -200,5 +260,16 @@ class Platform {
     ::aidl::android::hardware::audio::core::IModule::ScreenRotation mCurrentScreenRotation{
             ::aidl::android::hardware::audio::core::IModule::ScreenRotation::DEG_0};
     bool mOffloadSpeedSupported = false;
+
+    /* HDR */
+    bool mHDREnabled{false};
+    int32_t mHDRSampleRate{0};
+    int32_t mHDRChannelCount{0};
+    bool mWNREnabled{false};
+    bool mANREnabled{false};
+    bool mInverted{false};
+    std::string mOrientation{""};
+    std::string mFacing{""};
+
 };
 } // namespace qti::audio::core

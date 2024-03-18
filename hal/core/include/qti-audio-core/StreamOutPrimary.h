@@ -22,8 +22,6 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     virtual ~StreamOutPrimary() override;
     int32_t setAggregateSourceMetadata(bool voiceActive) override;
 
-    operator const char*() const noexcept;
-
     // Methods of 'DriverInterface'.
     ::android::status_t init() override;
     ::android::status_t drain(
@@ -126,6 +124,7 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     struct pal_device mHapticsDevice;
     std::unique_ptr<uint8_t[]> mHapticsBuffer{nullptr};
     size_t mHapticsBufSize{0};
+    ::android::status_t convertBufferAndWrite(const void* buffer, size_t frameCount);
     // This API splits and writes audio and haptics streams
     ::android::status_t hapticsWrite(const void *buffer, size_t frameCount);
 
@@ -140,7 +139,11 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     AudioExtension& mAudExt{AudioExtension::getInstance()};
 
   private:
+    std::string mLogPrefix = "";
     bool isHwVolumeSupported();
+
+    // optional buffer format converter, if stream input and output formats are different
+    std::optional<std::unique_ptr<BufferFormatConverter>> mBufferFormatConverter;
 };
 
 } // namespace qti::audio::core

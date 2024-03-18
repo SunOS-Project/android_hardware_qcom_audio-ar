@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -140,6 +140,34 @@ ndk::ScopedAStatus OffloadBundleAidl::getDescriptor(
     return ndk::ScopedAStatus::ok();
 }
 
+void OffloadBundleAidl::stopEffectIfNeeded(const Parameter::Common& common) {
+    int ioHandle = common.ioHandle;
+    int previousHandle = mContext->getIoHandle();
+    if (ioHandle != previousHandle) {
+        LOG(DEBUG) << getEffectName() << __func__ << " stop on previous handle " << previousHandle
+                   << " new handle " << ioHandle;
+        aidl::qti::effects::GlobalOffloadSession::getGlobalSession().stopEffect(previousHandle);
+    }
+}
+
+ndk::ScopedAStatus OffloadBundleAidl::setParameterCommon(const Parameter& param) {
+    RETURN_IF(!mContext, EX_NULL_POINTER, "nullContext");
+
+    const auto& tag = param.getTag();
+
+    LOG(VERBOSE) << mType << " " << __func__ << param.toString();
+    if (tag == Parameter::common) {
+        stopEffectIfNeeded(param.get<Parameter::common>());
+        RETURN_IF(mContext->setCommon(param.get<Parameter::common>()) != RetCode::SUCCESS,
+                  EX_ILLEGAL_ARGUMENT, "setCommFailed");
+    } else {
+        // for rest of params use base class.
+        return EffectImpl::setParameterCommon(param);
+    }
+
+    return ndk::ScopedAStatus::ok();
+}
+
 ndk::ScopedAStatus OffloadBundleAidl::setParameterSpecific(const Parameter::Specific& specific) {
     LOG(DEBUG) << __func__ << " specific " << specific.toString();
     RETURN_IF(!mContext, EX_NULL_POINTER, "nullContext");
@@ -165,6 +193,7 @@ ndk::ScopedAStatus OffloadBundleAidl::setParameterSpecific(const Parameter::Spec
 
 ndk::ScopedAStatus OffloadBundleAidl::setParameterEqualizer(const Parameter::Specific& specific) {
     auto& eq = specific.get<Parameter::Specific::equalizer>();
+    RETURN_IF(!inRange(eq, kEqRanges), EX_ILLEGAL_ARGUMENT, "outOfRange");
     auto eqTag = eq.getTag();
     switch (eqTag) {
         case Equalizer::preset:
@@ -211,6 +240,18 @@ ndk::ScopedAStatus OffloadBundleAidl::setParameterVirtualizer(const Parameter::S
                               RetCode::SUCCESS,
                       EX_ILLEGAL_ARGUMENT, "setStrengthFailed");
             return ndk::ScopedAStatus::ok();
+        }
+        case Virtualizer::device: {
+            RETURN_IF(mContext->setForcedDevice(vr.get<Virtualizer::device>()) != RetCode::SUCCESS,
+                      EX_ILLEGAL_ARGUMENT, "setDeviceFailed");
+            return ndk::ScopedAStatus::ok();
+        }
+        case Virtualizer::speakerAngles:
+            FALLTHROUGH_INTENDED;
+        case Virtualizer::vendor: {
+            LOG(ERROR) << __func__ << " unsupported tag: " << toString(vrTag);
+            return ndk::ScopedAStatus::fromExceptionCodeWithMessage(EX_ILLEGAL_ARGUMENT,
+                                                                    "VirtualizerTagNotSupported");
         }
         default:
             LOG(ERROR) << __func__ << " unsupported parameter " << specific.toString();
@@ -314,11 +355,20 @@ ndk::ScopedAStatus OffloadBundleAidl::getParameterBassBoost(const BassBoost::Id&
 
 ndk::ScopedAStatus OffloadBundleAidl::getParameterVirtualizer(const Virtualizer::Id& id,
                                                               Parameter::Specific* specific) {
-    RETURN_IF(id.getTag() != Virtualizer::Id::commonTag, EX_ILLEGAL_ARGUMENT,
-              "VirtualizerTagNotSupported");
+    RETURN_IF((id.getTag() != Virtualizer::Id::commonTag) &&
+                      (id.getTag() != Virtualizer::Id::speakerAnglesPayload),
+              EX_ILLEGAL_ARGUMENT, "VirtualizerTagNotSupported");
 
     RETURN_IF(!mContext, EX_NULL_POINTER, "nullContext");
     Virtualizer vrParam;
+
+    if (id.getTag() == Virtualizer::Id::speakerAnglesPayload) {
+        auto angles = mContext->getSpeakerAngles(id.get<Virtualizer::Id::speakerAnglesPayload>());
+        RETURN_IF(angles.size() == 0, EX_ILLEGAL_ARGUMENT, "getSpeakerAnglesFailed");
+        Virtualizer param = Virtualizer::make<Virtualizer::speakerAngles>(angles);
+        specific->set<Parameter::Specific::virtualizer>(param);
+        return ndk::ScopedAStatus::ok();
+    }
 
     auto tag = id.get<Virtualizer::Id::commonTag>();
     switch (tag) {
@@ -326,8 +376,14 @@ ndk::ScopedAStatus OffloadBundleAidl::getParameterVirtualizer(const Virtualizer:
             vrParam.set<Virtualizer::strengthPm>(mContext->getVirtualizerStrength());
             break;
         }
-        default: {
-            LOG(ERROR) << __func__ << " not handled tag: " << toString(tag);
+        case Virtualizer::device: {
+            vrParam.set<Virtualizer::device>(mContext->getForcedDevice());
+            break;
+        }
+        case Virtualizer::speakerAngles:
+            FALLTHROUGH_INTENDED;
+        case Virtualizer::vendor: {
+            LOG(ERROR) << __func__ << " unsupported tag: " << toString(tag);
             return ndk::ScopedAStatus::fromExceptionCodeWithMessage(EX_ILLEGAL_ARGUMENT,
                                                                     "VirtualizerTagNotSupported");
         }
@@ -335,6 +391,7 @@ ndk::ScopedAStatus OffloadBundleAidl::getParameterVirtualizer(const Virtualizer:
 
     specific->set<Parameter::Specific::virtualizer>(vrParam);
     return ndk::ScopedAStatus::ok();
+
 }
 
 std::shared_ptr<EffectContext> OffloadBundleAidl::createContext(const Parameter::Common& common,
@@ -555,9 +612,6 @@ ndk::ScopedAStatus OffloadBundleAidl::getParameterEnvironmentalReverb(
 
     specific->set<Parameter::Specific::environmentalReverb>(envReverbParam);
     return ndk::ScopedAStatus::ok();
-}
-std::shared_ptr<EffectContext> OffloadBundleAidl::getContext() {
-    return mContext;
 }
 
 RetCode OffloadBundleAidl::releaseContext() {

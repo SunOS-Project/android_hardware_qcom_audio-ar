@@ -63,8 +63,6 @@ AUDIO_TEST += ar_util_in_test_example
 AUDIO_MODULES := ftm_test_config
 AUDIO_MODULES += ftm_test_config_sun-qrd-snd-card
 AUDIO_MODULES += ftm_test_config_sun-qrd-sku2-snd-card
-AUDIO_MODULES += ftm_test_config_cliffs-mtp-wsa883x-snd-card
-AUDIO_MODULES += ftm_test_config_cliffs-qrd-snd-card
 AUDIO_MODULES += audioadsprpcd
 AUDIO_MODULES += MTP_acdb_cal.acdb
 AUDIO_MODULES += MTP_workspaceFileXml.qwsp
@@ -82,8 +80,8 @@ AUDIO_MODULES += fai__2.0.0_0.1__3.0.0_0.0__eai_1.36_enpu2.pmd
 AUDIO_MODULES += fai__2.7.2_0.0__3.0.0_0.0__eai_1.36_enpu2.pmd
 AUDIO_MODULES += fai__2.7.20_0.0__3.0.0_0.0__eai_1.36_enpu2.pmd
 AUDIO_MODULES += fai__3.0.0_0.0__eai_1.36_enpu2.pmd
-AUDIO_MODULES += ffv__7.0.1_0.1__eai_4.2.1_enpu5.pmd
-AUDIO_MODULES += ffv__7.0.2_0.2__eai_4.2.1_enpu5.pmd
+AUDIO_MODULES += ffv__7.0.1_0.1__eai_4.6.0_enpu5.pmd
+AUDIO_MODULES += ffv__7.0.2_0.2__eai_4.6.0_enpu5.pmd
 AUDIO_MODULES += click.pcm
 AUDIO_MODULES += double_click.pcm
 AUDIO_MODULES += heavy_click.pcm
@@ -110,16 +108,11 @@ AUDIO_MODULES += mm-audio-ftm
 AUDIO_MODULES += libmcs
 AUDIO_MODULES += libquasar
 AUDIO_MODULES += sensors.dynamic_sensor_hal
-
-ifeq ($(PRODUCT_ENABLE_QESDK),true)
 AUDIO_MODULES += libvui_dmgr
 AUDIO_MODULES += libvui_dmgr_client
 AUDIO_MODULES += qsap_voiceui
-AUDIO_MODULES += qsap_voiceui.rc
 AUDIO_MODULES += qsap_voiceui.policy
-endif
-
-AUDIO_MODULES += libaudiocollector
+AUDIO_MODULES += libaudiofeaturestats
 AUDIO_MODULES += libhotword_intf
 AUDIO_MODULES += libcustomva_intf
 AUDIO_MODULES += libvui_intf
@@ -145,5 +138,26 @@ AUDIO_MODULES += \
     libaudiocorehal.qti \
     libaudioeffecthal.qti
 
+LATEST_ANDROID_HARDWARE_AUDIO_EFFECT := android.hardware.audio.effect-V2-ndk
+LATEST_ANDROID_HARDWARE_COMMON := android.hardware.common-V2-ndk
+LATEST_ANDROID_MEDIA_ADUIO_COMMON_TYPES := android.media.audio.common.types-V3-ndk
+LATEST_ANDROID_HARDWARE_COMMON_FMQ := android.hardware.common.fmq-V1-ndk
 
+# to have similar to cc_defaults in make files
+EFFECTS_DEFAULTS_SHARED_LIBRARIES := \
+    $(LATEST_ANDROID_HARDWARE_AUDIO_EFFECT) \
+    $(LATEST_ANDROID_HARDWARE_COMMON) \
+    $(LATEST_ANDROID_MEDIA_ADUIO_COMMON_TYPES) \
+    $(LATEST_ANDROID_HARDWARE_COMMON_FMQ) \
+    libaudioaidlcommon \
+    libbase \
+    libbinder_ndk \
+    libcutils \
+    libfmq \
+    libutils
+
+EFFECTS_DEFAULTS_HEADERS_LIBRARIES := \
+    libaudioeffectsaidlqti_headers \
+    libaudio_system_headers \
+    libsystem_headers
 endif

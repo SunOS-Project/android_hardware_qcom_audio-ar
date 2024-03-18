@@ -15,7 +15,6 @@
 #include <qti-audio-core/Platform.h>
 #include <qti-audio-core/PlatformUtils.h>
 #include <qti-audio/PlatformConverter.h>
-#include <system/audio.h>
 
 #include <aidl/qti/audio/core/VString.h>
 #include <cutils/properties.h>
@@ -52,14 +51,14 @@ namespace qti::audio::core {
 
 btsco_lc3_cfg_t Platform::btsco_lc3_cfg = {};
 
-size_t Platform::getIOBufferSizeInFrames(
+size_t Platform::getFrameCount(
         const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) const {
     Usecase tag = getUsecaseTag(mixPortConfig);
     size_t numFrames = 0;
     if (tag == Usecase::DEEP_BUFFER_PLAYBACK) {
         numFrames = DeepBufferPlayback::kPeriodSize;
     } else if (tag == Usecase::PCM_OFFLOAD_PLAYBACK) {
-        numFrames = PcmOffloadPlayback::getPeriodSize(mixPortConfig);
+        numFrames = PcmOffloadPlayback::getFrameCount(mixPortConfig);
     } else if (tag == Usecase::LOW_LATENCY_PLAYBACK) {
         numFrames = LowLatencyPlayback::kPeriodSize;
     } else if (tag == Usecase::PCM_RECORD) {
@@ -97,8 +96,7 @@ size_t Platform::getIOBufferSizeInFrames(
     } else if (tag == Usecase::HAPTICS_PLAYBACK) {
         numFrames = HapticsPlayback::kPeriodSize;
     }
-    LOG(VERBOSE) << __func__ << " IOBufferSizeInFrames:" << std::to_string(numFrames) << " for "
-                 << getName(tag);
+    LOG(VERBOSE) << __func__ << " frames: " << numFrames << " for " << getName(tag);
     return numFrames;
 }
 
@@ -116,7 +114,7 @@ size_t Platform::getMinimumStreamSizeFrames(const std::vector<AudioPortConfig*>&
     };
 
     const auto& mixPortConfig = isMixPortConfig(*sources.at(0)) ? *(sources.at(0)) : *(sinks.at(0));
-    return getIOBufferSizeInFrames(mixPortConfig);
+    return getFrameCount(mixPortConfig);
 }
 
 std::unique_ptr<pal_stream_attributes> Platform::getPalStreamAttributes(
@@ -332,6 +330,23 @@ std::vector<pal_device> Platform::configureAndFetchPalDevices(
     customizePalDevices(mixPortConfig,tag,palDevices);
 
     return palDevices;
+}
+
+void Platform::getPositionInFrames(pal_stream_handle_t* palHandle, int32_t const& sampleRate,
+                                         int64_t* const dspFrames) const {
+    pal_session_time tstamp;
+    if (int32_t ret = ::pal_get_timestamp(palHandle, &tstamp); ret) {
+        LOG(ERROR) << __func__ << " pal_get_timestamp failure, ret:" << ret;
+        return;
+    }
+
+    uint64_t sessionTimeUs =
+            ((static_cast<decltype(sessionTimeUs)>(tstamp.session_time.value_msw)) << 32 |
+             tstamp.session_time.value_lsw);
+    // sessionTimeUs to frames
+    *dspFrames = static_cast<int64_t>((sessionTimeUs / 1000) * (sampleRate / 1000));
+    LOG(VERBOSE) << __func__ << " dsp frames consumed:" << *dspFrames;
+    return;
 }
 
 int Platform::setVolume(pal_stream_handle_t* handle, const std::vector<float>& volumes) const {
@@ -1145,6 +1160,17 @@ int Platform::setLatencyMode(uint32_t mode) {
 
      return ret;
 }
+
+std::optional<std::pair<audio_format_t, audio_format_t>> Platform::requiresBufferReformat(
+        const AudioPortConfig& portConfig) {
+    const auto& audioFormat = portConfig.format.value();
+
+    if (audioFormat.pcm == PcmType::FLOAT_32_BIT) {
+        return std::make_pair(AUDIO_FORMAT_PCM_FLOAT, AUDIO_FORMAT_PCM_32_BIT);
+    }
+    return std::nullopt;
+}
+
 // start of private
 bool Platform::getBtConfig(pal_param_bta2dp_t* bTConfig) {
     if (bTConfig == nullptr) {

@@ -120,6 +120,7 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
         }
     } else if (flagsTag == AudioIoFlags::Tag::input) {
         auto& inFlags = mixPortConfig.flags.value().get<AudioIoFlags::Tag::input>();
+        tag = Usecase::PCM_RECORD;
         if (inFlags == noneFlags) {
             tag = Usecase::PCM_RECORD;
             if (mixUsecaseTag == AudioPortMixExtUseCase::source) {
@@ -219,7 +220,7 @@ PcmRecord::HdrMode PcmRecord::getHdrMode() {
     }
     const std::string kHdrArmProperty{"vendor.audio.hdr.record.enable"};
     const bool isArmEnabled = ::android::base::GetBoolProperty(kHdrArmProperty, false);
-    const bool isHdrSetOnPlatform = platform.getParameter("hdr_record_on") == "true" ? true : false;
+    const bool isHdrSetOnPlatform = platform.isHDREnabled();
     if (isArmEnabled && isHdrSetOnPlatform) {
         return HdrMode::ARM;
     }
@@ -228,21 +229,16 @@ PcmRecord::HdrMode PcmRecord::getHdrMode() {
 
 void PcmRecord::setHdrOnPalDevice(pal_device* palDeviceIn) {
     const auto& platform = Platform::getInstance();
-    const bool isOrientationLandscape =
-            platform.getParameter("orientation") == "landscape" ? true : false;
-    const bool isInverted = platform.getParameter("inverted") == "true" ? true : false;
+    const bool isOrientationLandscape = platform.getOrientation() == "landscape";
+    const bool isInverted = platform.isInverted();
     if (isOrientationLandscape && !isInverted) {
-        strlcpy(palDeviceIn->custom_config.custom_key, "unprocessed-hdr-mic-landscape",
-                sizeof(palDeviceIn->custom_config.custom_key));
+        setPalDeviceCustomKey(*palDeviceIn, "unprocessed-hdr-mic-landscape");
     } else if (!isOrientationLandscape && !isInverted) {
-        strlcpy(palDeviceIn->custom_config.custom_key, "unprocessed-hdr-mic-portrait",
-                sizeof(palDeviceIn->custom_config.custom_key));
+        setPalDeviceCustomKey(*palDeviceIn, "unprocessed-hdr-mic-portrait");
     } else if (isOrientationLandscape && isInverted) {
-        strlcpy(palDeviceIn->custom_config.custom_key, "unprocessed-hdr-mic-inverted-landscape",
-                sizeof(palDeviceIn->custom_config.custom_key));
+        setPalDeviceCustomKey(*palDeviceIn, "unprocessed-hdr-mic-inverted-landscape");
     } else if (!isOrientationLandscape && isInverted) {
-        strlcpy(palDeviceIn->custom_config.custom_key, "unprocessed-hdr-mic-inverted-portrait",
-                sizeof(palDeviceIn->custom_config.custom_key));
+        setPalDeviceCustomKey(*palDeviceIn, "unprocessed-hdr-mic-inverted-portrait");
     }
     LOG(DEBUG) << __func__
                << " setting custom config:" << std::string(palDeviceIn->custom_config.custom_key);
@@ -312,6 +308,8 @@ void CompressPlayback::configureDefault() {
         mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADIF ||
         mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS ||
         mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC ||
+        mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_HE_V1 ||
+        mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_HE_V2 ||
         mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_LC) {
         mPalSndDec.aac_dec.audio_obj_type = 29;
         mPalSndDec.aac_dec.pce_bits_size = 0;
@@ -526,6 +524,8 @@ ndk::ScopedAStatus CompressPlayback::setVendorParameters(
         }
         mPalSndDec.wma_dec.avg_bit_rate = mOffloadMetadata.averageBitRatePerSecond;
 
+        LOG(VERBOSE) << __func__ << ": averageBitRatePerSecond "
+                                 << mOffloadMetadata.averageBitRatePerSecond;
         if (auto value = getIntValueFromVString(in_parameters, Wma::kBlockAlign); value) {
             mPalSndDec.wma_dec.super_block_align = value.value();
         }
@@ -617,20 +617,19 @@ bool CompressPlayback::configureGapLessMetadata() const {
     gapLessPtr->encoderPadding = mOffloadMetadata.paddingFrames;
     LOG(VERBOSE) << __func__ << ": encoderDelay:" << gapLessPtr->encoderDelay
                  << ", encoderPadding:" << gapLessPtr->encoderPadding;
-    if (int32_t ret = ::pal_stream_set_param(mCompressPlaybackHandle, PAL_PARAM_ID_GAPLESS_MDATA,
+    if (mCompressPlaybackHandle) {
+        if (int32_t ret = ::pal_stream_set_param(mCompressPlaybackHandle, PAL_PARAM_ID_GAPLESS_MDATA,
                                              payloadPtr);
-        ret) {
-        LOG(ERROR) << __func__ << ": failed PAL_PARAM_ID_GAPLESS_MDATA!! ret:" << ret;
-        return false;
+            ret) {
+            LOG(ERROR) << __func__ << ": failed PAL_PARAM_ID_GAPLESS_MDATA!! ret:" << ret;
+            return false;
+        }
     }
     return true;
 }
 
 void CompressPlayback::updateOffloadMetadata(
         const ::aidl::android::hardware::audio::common::AudioOffloadMetadata& offloadMetaData) {
-    if(mCompressPlaybackHandle == nullptr){
-        return;
-    }
     mOffloadMetadata = offloadMetaData;
     mSampleRate = mOffloadMetadata.sampleRate;
     mChannelLayout = mOffloadMetadata.channelMask;
@@ -672,27 +671,13 @@ size_t CompressPlayback::getPeriodBufferSize(
     }
 
     const std::string kCompressPeriodSizeProp{"vendor.audio.offload.buffer.size.kb"};
-    auto propPeriodSize = ::android::base::GetUintProperty<size_t>(kCompressPeriodSizeProp,
-                                                                   CompressPlayback::kPeriodSize);
+    auto propPeriodSize =
+            ::android::base::GetUintProperty<size_t>(kCompressPeriodSizeProp, 0) * 1024;
+
     if (propPeriodSize > periodSize) {
         periodSize = propPeriodSize;
     }
     return periodSize;
-}
-
-void CompressPlayback::getPositionInFrames(int64_t* dspFrames) {
-    pal_session_time tstamp;
-    if (int32_t ret = pal_get_timestamp(mCompressPlaybackHandle, &tstamp); ret) {
-        LOG(ERROR) << __func__ << " pal_get_timestamp failure, ret:" << ret;
-        return;
-    }
-
-    uint64_t sessionTimeUs =
-            ((static_cast<decltype(sessionTimeUs)>(tstamp.session_time.value_msw)) << 32 |
-             tstamp.session_time.value_lsw);
-    // sessionTimeUs to frames
-    *dspFrames = static_cast<int64_t>(sessionTimeUs / 1000 * mSampleRate / 1000);
-    return;
 }
 
 // end of compress playback
@@ -732,12 +717,28 @@ size_t CompressCapture::getLatencyMs() {
     return mPCMSamplesPerFrame * kMilliSeconds / mSampleRate;
 }
 
-std::unique_ptr<uint8_t[]> CompressCapture::getPayloadCodecInfo() const {
+bool CompressCapture::configureCodecInfo(){
+    /* check for global cut-off frequency*/
+    if (mPalSndEnc.aac_enc.global_cutoff_freq <= 0 /* not configured*/) {
+        const std::string kAACCutOffFrequencyProp{"vendor.audio.compress_capture.aac.cut_off_freq"};
+        mPalSndEnc.aac_enc.global_cutoff_freq =
+                ::android::base::GetIntProperty<int32_t>(kAACCutOffFrequencyProp, 0);
+    }
+
     auto dataPtr = std::make_unique<uint8_t[]>(sizeof(pal_param_payload) + sizeof(pal_snd_enc_t));
     auto palParamPayload = reinterpret_cast<pal_param_payload*>(dataPtr.get());
     palParamPayload->payload_size = sizeof(pal_snd_enc_t);
-    memcpy(palParamPayload->payload, &mPalSndEnc, sizeof(pal_snd_enc_t));
-    return std::move(dataPtr);
+    auto payloadPtr = reinterpret_cast<pal_snd_enc_t*>(dataPtr.get() + sizeof(pal_param_payload));
+    *payloadPtr = mPalSndEnc;
+
+    if (int32_t ret = ::pal_stream_set_param(mCompressHandle, PAL_PARAM_ID_CODEC_CONFIGURATION,
+                                             palParamPayload); ret) {
+        LOG(ERROR) << __func__ << " PAL_PARAM_ID_CODEC_CONFIGURATION failed!!! ret:" << ret;
+        return false;
+    }
+
+    LOG(VERBOSE) << __func__ << " PAL_PARAM_ID_CODEC_CONFIGURATION configured";
+    return true;
 }
 
 ndk::ScopedAStatus CompressCapture::setVendorParameters(
@@ -895,7 +896,23 @@ size_t PcmOffloadPlayback::getPeriodSize(
 
     periodSize = ALIGN(periodSize, (frameSize * 32));
 
+    if (auto res = Platform::requiresBufferReformat(mixPortConfig)) {
+        audio_format_t inFormat = res->first;
+        audio_format_t outFormat = res->second;
+        periodSize =
+                (periodSize * audio_bytes_per_sample(inFormat)) / audio_bytes_per_sample(outFormat);
+    }
+
     return periodSize;
+}
+
+size_t PcmOffloadPlayback::getFrameCount(
+        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
+    const auto frameSize =
+            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
+
+    auto periodSize = getPeriodSize(mixPortConfig);
+    return periodSize / frameSize;
 }
 
 // end of PcmOffloadPlayback

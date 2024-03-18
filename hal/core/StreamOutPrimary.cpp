@@ -1,5 +1,4 @@
 /*
- * Changes from Qualcomm Innovation Center are provided under the following license:
  * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
@@ -10,12 +9,11 @@
 
 #include <android-base/logging.h>
 #include <audio_utils/clock.h>
+#include <extensions/PerfLock.h>
 #include <hardware/audio.h>
 #include <qti-audio-core/Module.h>
 #include <qti-audio-core/ModulePrimary.h>
 #include <qti-audio-core/StreamOutPrimary.h>
-#include <system/audio.h>
-#include <extensions/PerfLock.h>
 #include <qti-audio/PlatformConverter.h>
 
 using aidl::android::hardware::audio::common::AudioOffloadMetadata;
@@ -83,7 +81,12 @@ StreamOutPrimary::StreamOutPrimary(StreamContext&& context, const SourceMetadata
     }
 
     mHwVolumeSupported = isHwVolumeSupported();
-    LOG(DEBUG) << __func__ << *this;
+
+    std::ostringstream os;
+    os << " : usecase: " << mTagName;
+    os << " IoHandle: " << mMixPortConfig.ext.get<AudioPortExt::Tag::mix>().handle << " ";
+    mLogPrefix = os.str();
+    LOG(DEBUG) << __func__ << mLogPrefix;
 }
 
 bool StreamOutPrimary::isHwVolumeSupported() {
@@ -101,14 +104,7 @@ bool StreamOutPrimary::isHwVolumeSupported() {
 
 StreamOutPrimary::~StreamOutPrimary() {
     shutdown();
-    LOG(DEBUG) << __func__ << *this;
-}
-
-StreamOutPrimary::operator const char*() const noexcept {
-    std::ostringstream os;
-    os << " : usecase: " << mTagName;
-    os << " IoHandle: " << mMixPortConfig.ext.get<AudioPortExt::Tag::mix>().handle << " ";
-    return os.str().c_str();
+    LOG(DEBUG) << __func__ << mLogPrefix;
 }
 
 // start of methods called from IModule
@@ -118,7 +114,7 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
     mConnectedDevices = devices;
 
     if (mConnectedDevices.empty()) {
-        LOG(DEBUG) << __func__ << *this << ": stream is not connected";
+        LOG(DEBUG) << __func__ << mLogPrefix << ": stream is not connected";
         return ndk::ScopedAStatus::ok();
     }
 
@@ -126,7 +122,7 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
     mPlatform.setPrimaryPlaybackDevices(mConnectedDevices);
 
     if (!mPalHandle) {
-        LOG(WARNING) << __func__ << *this << ": stream is not configured";
+        LOG(WARNING) << __func__ << mLogPrefix << ": stream is not configured";
         return ndk::ScopedAStatus::ok();
     }
 
@@ -134,18 +130,18 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
             mPlatform.configureAndFetchPalDevices(mMixPortConfig, mTag, mConnectedDevices);
 
     if (connectedPalDevices.size() != mConnectedDevices.size()) {
-        LOG(ERROR) << __func__ << *this << ": pal devices size != aidl devices size";
+        LOG(ERROR) << __func__ << mLogPrefix << ": pal devices size != aidl devices size";
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
    if (int32_t ret = ::pal_stream_set_device(mPalHandle, connectedPalDevices.size(),
                                               connectedPalDevices.data());
         ret) {
-        LOG(ERROR) << __func__ << *this << " failed to set devices on stream, ret:" << ret;
+        LOG(ERROR) << __func__ << mLogPrefix << " failed to set devices on stream, ret:" << ret;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
-    LOG(DEBUG) << __func__ << *this << " connected to " << mConnectedDevices;
+    LOG(DEBUG) << __func__ << mLogPrefix << " connected to " << mConnectedDevices;
 
     return ndk::ScopedAStatus::ok();
 }
@@ -155,20 +151,20 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
                                                          int32_t* bufferSizeFrames) {
     PerfLock perfLock;
     if (mTag != Usecase::MMAP_PLAYBACK) {
-        LOG(ERROR) << __func__ << *this << " cannot call on non-MMAP stream types";
+        LOG(ERROR) << __func__ << mLogPrefix << " cannot call on non-MMAP stream types";
         return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
     }
 
     auto attr = mPlatform.getPalStreamAttributes(mMixPortConfig, false);
     if (!attr) {
-        LOG(ERROR) << __func__ << *this << " can't get pal attributes";
+        LOG(ERROR) << __func__ << mLogPrefix << " can't get pal attributes";
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
     attr->type = PAL_STREAM_ULTRA_LOW_LATENCY;
     auto palDevices =
             mPlatform.configureAndFetchPalDevices(mMixPortConfig, mTag, mConnectedDevices);
     if (!palDevices.size()) {
-        LOG(ERROR) << __func__ << *this << " no connected devices on stream";
+        LOG(ERROR) << __func__ << mLogPrefix << " no connected devices on stream";
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
     uint64_t cookie = reinterpret_cast<uint64_t>(this);
@@ -177,7 +173,7 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
     if (int32_t ret = ::pal_stream_open(attr.get(), palDevices.size(), palDevices.data(), 0,
                                         nullptr, palFn, cookie, &(this->mPalHandle));
         ret) {
-        LOG(ERROR) << __func__ << *this << " pal stream open failed, ret:" << std::to_string(ret);
+        LOG(ERROR) << __func__ << mLogPrefix << " pal stream open failed, ret:" << std::to_string(ret);
         mPalHandle = nullptr;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
@@ -185,13 +181,13 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
     const size_t ringBufSizeInBytes = getPeriodSize();
     const size_t ringBufCount = getPeriodCount();
     auto palBufferConfig = mPlatform.getPalBufferConfig(ringBufSizeInBytes, ringBufCount);
-    LOG(DEBUG) << __func__ << *this << " set pal_stream_set_buffer_size to "
-                 << std::to_string(ringBufSizeInBytes) << " with count "
-                 << std::to_string(ringBufCount);
+    LOG(DEBUG) << __func__ << mLogPrefix << " set pal_stream_set_buffer_size to "
+               << std::to_string(ringBufSizeInBytes) << " with count "
+               << std::to_string(ringBufCount);
     if (int32_t ret =
                 ::pal_stream_set_buffer_size(this->mPalHandle, nullptr, palBufferConfig.get());
         ret) {
-        LOG(ERROR) << __func__ << *this
+        LOG(ERROR) << __func__ << mLogPrefix
                    << " pal_stream_set_buffer_size failed!!! ret:" << std::to_string(ret);
         ::pal_stream_close(mPalHandle);
         mPalHandle = nullptr;
@@ -205,19 +201,19 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
     int32_t ret = std::get<MMapPlayback>(mExt).createMMapBuffer(frameSize, fd, burstSizeFrames,
                                                                 flags, bufferSizeFrames);
     if (ret != 0) {
-        LOG(ERROR) << __func__ << *this << " create MMap buffer failed!";
+        LOG(ERROR) << __func__ << mLogPrefix << " create MMap buffer failed!";
         ::pal_stream_close(mPalHandle);
         mPalHandle = nullptr;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
     if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
-        LOG(ERROR) << __func__ << *this << " pal stream start failed, ret:" << std::to_string(ret);
+        LOG(ERROR) << __func__ << mLogPrefix << " pal stream start failed, ret:" << std::to_string(ret);
         ::pal_stream_close(mPalHandle);
         mPalHandle = nullptr;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
-    LOG(INFO) << __func__ << *this << ": stream configured";
+    LOG(INFO) << __func__ << mLogPrefix << ": stream is configured";
 
     if (!mVolumes.empty()) {
         setHwVolume(mVolumes);
@@ -237,7 +233,7 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
 ::android::status_t StreamOutPrimary::drain(
         ::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode mode) {
     if (!mPalHandle) {
-        LOG(WARNING) << __func__ << *this << ": stream is not configured";
+        LOG(WARNING) << __func__ << mLogPrefix << ": stream is not configured";
         return ::android::OK;
     }
     auto palDrainMode =
@@ -245,25 +241,25 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
                     ? PAL_DRAIN
                     : PAL_DRAIN_PARTIAL;
     if (int32_t ret = ::pal_stream_drain(mPalHandle, palDrainMode); ret) {
-        LOG(ERROR) << __func__ << *this << " failed to drain the stream, ret:" << ret;
+        LOG(ERROR) << __func__ << mLogPrefix << " failed to drain the stream, ret:" << ret;
         return ret;
     }
-    LOG(DEBUG) << __func__ << *this << " drained ";
+    LOG(DEBUG) << __func__ << mLogPrefix << " drained ";
     return ::android::OK;
 }
 
 ::android::status_t StreamOutPrimary::flush() {
     if (!mPalHandle) {
-        LOG(WARNING) << __func__ << *this << ": stream is not configured ";
+        LOG(WARNING) << __func__ << mLogPrefix << ": stream is not configured ";
         return ::android::OK;
     }
     if (mTag == Usecase::MMAP_PLAYBACK || mTag == Usecase::LOW_LATENCY_PLAYBACK ||
         mTag == Usecase::ULL_PLAYBACK) {
-        LOG(VERBOSE) << __func__ << *this << " unsupported operation!!, Hence ignored";
+        LOG(VERBOSE) << __func__ << mLogPrefix << " unsupported operation!!, Hence ignored";
         return ::android::OK;
     }
     if (int32_t ret = ::pal_stream_flush(mPalHandle); ret) {
-        LOG(ERROR) << __func__ << *this << " failed to flush the stream, ret:" << ret;
+        LOG(ERROR) << __func__ << mLogPrefix << " failed to flush the stream, ret:" << ret;
         return ret;
     }
 
@@ -271,56 +267,56 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
         std::get<CompressPlayback>(mExt).reconfigureOnFlush();
     }
 
-    LOG(DEBUG) << __func__ << *this;
+    LOG(DEBUG) << __func__ << mLogPrefix;
     return ::android::OK;
 }
 
 ::android::status_t StreamOutPrimary::pause() {
     if (!mPalHandle) {
-        LOG(WARNING) << __func__ << *this << ": stream is not configured ";
+        LOG(WARNING) << __func__ << mLogPrefix << ": stream is not configured ";
         return ::android::OK;
     }
 
     if (mTag == Usecase::LOW_LATENCY_PLAYBACK || mTag == Usecase::ULL_PLAYBACK) {
-        LOG(VERBOSE) << __func__ << *this << " unsupported operation!!, Hence ignored";
+        LOG(VERBOSE) << __func__ << mLogPrefix << " unsupported operation!!, Hence ignored";
         return ::android::OK;
     }
 
     if (mTag == Usecase::MMAP_PLAYBACK) {
         if (int32_t ret = pal_stream_stop(mPalHandle); ret) {
-            LOG(ERROR) << __func__ << *this
+            LOG(ERROR) << __func__ << mLogPrefix
                        << " failed to stop MMAP stream, ret:" << std::to_string(ret);
             return ret;
         }
     } else {
         if (int32_t ret = pal_stream_pause(mPalHandle); ret) {
-            LOG(ERROR) << __func__ << *this
+            LOG(ERROR) << __func__ << mLogPrefix
                        << " failed to pause the stream, ret:" << std::to_string(ret);
             return ret;
         }
     }
     mIsPaused = true;
-    LOG(DEBUG) << __func__ << *this;
+    LOG(DEBUG) << __func__ << mLogPrefix;
     return ::android::OK;
 }
 
 void StreamOutPrimary::resume() {
     if (mTag == Usecase::MMAP_PLAYBACK) {
         if (int32_t ret = pal_stream_start(mPalHandle); ret) {
-            LOG(ERROR) << __func__ << *this << " failed to start the stream, ret:" << ret;
+            LOG(ERROR) << __func__ << mLogPrefix << " failed to start the stream, ret:" << ret;
         }
     } else {
         if (int32_t ret = ::pal_stream_resume(mPalHandle); ret) {
-            LOG(ERROR) << __func__ << *this << " failed to resume the stream, ret:" << ret;
+            LOG(ERROR) << __func__ << mLogPrefix << " failed to resume the stream, ret:" << ret;
         }
     }
-    LOG(DEBUG) << __func__ << *this;
+    LOG(DEBUG) << __func__ << mLogPrefix;
     mIsPaused = false;
 }
 
 ::android::status_t StreamOutPrimary::standby() {
     if (!mPalHandle) {
-        LOG(WARNING) << __func__ << *this << ": stream is not configured ";
+        LOG(WARNING) << __func__ << mLogPrefix << ": stream is not configured ";
         return ::android::OK;
     }
 
@@ -329,14 +325,14 @@ void StreamOutPrimary::resume() {
     }
 
     shutdown();
-    LOG(DEBUG) << __func__ << *this;
+    LOG(DEBUG) << __func__ << mLogPrefix;
     return ::android::OK;
 }
 
 ::android::status_t StreamOutPrimary::start() {
     // hardware is expected to up on start
     // but we are doing on first write
-    LOG(VERBOSE) << __func__ << *this;
+    LOG(VERBOSE) << __func__ << mLogPrefix;
     return ::android::OK;
 }
 
@@ -347,7 +343,7 @@ void StreamOutPrimary::resume() {
         PerfLock perfLock;
         configure();
         if (!mPalHandle) {
-            LOG(ERROR) << __func__ << *this << ": failed to configure";
+            LOG(ERROR) << __func__ << mLogPrefix << ": failed to configure";
             *actualFrameCount = frameCount;
             return onWriteError(frameCount);
         }
@@ -364,13 +360,15 @@ void StreamOutPrimary::resume() {
         return ::android::OK;
     }
     ssize_t bytesWritten;
-    if (mTag == Usecase::HAPTICS_PLAYBACK && mHapticsPalHandle) {
+    if (mBufferFormatConverter.has_value()) {
+        bytesWritten = convertBufferAndWrite(buffer, frameCount);
+    } else if (mTag == Usecase::HAPTICS_PLAYBACK && mHapticsPalHandle) {
         bytesWritten = hapticsWrite(buffer, frameCount);
     } else {
         bytesWritten = ::pal_stream_write(mPalHandle, &palBuffer);
     }
     if (bytesWritten < 0) {
-        LOG(ERROR) << __func__ << *this << " write failed, ret: " << bytesWritten;
+        LOG(ERROR) << __func__ << mLogPrefix << " write failed, ret: " << bytesWritten;
         *actualFrameCount = frameCount;
         if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
             *actualFrameCount = static_cast<size_t>(bytesWritten / mFrameSizeBytes);
@@ -381,7 +379,7 @@ void StreamOutPrimary::resume() {
     *actualFrameCount = static_cast<size_t>(bytesWritten / mFrameSizeBytes);
 
 #ifdef VERY_VERBOSE_LOGGING
-    LOG(VERBOSE) << __func__ << *this << ": byteswritten: " << bytesWritten;
+    LOG(VERBOSE) << __func__ << mLogPrefix << ": byteswritten: " << bytesWritten;
 #endif
 
     // Todo findout write latency
@@ -389,6 +387,22 @@ void StreamOutPrimary::resume() {
     return ::android::OK;
 }
 
+::android::status_t StreamOutPrimary::convertBufferAndWrite(const void* buffer, size_t frameCount) {
+    auto& converter = *mBufferFormatConverter.value();
+    if (auto result = converter.convert(buffer, frameCount * mFrameSizeBytes)) {
+        pal_buffer palBuffer{};
+        palBuffer.buffer = result->first;
+        palBuffer.size = result->second;
+        ssize_t bytesWritten = ::pal_stream_write(mPalHandle, &palBuffer);
+        if (bytesWritten >= 0) {
+            bytesWritten = (bytesWritten * converter.getInputBytesPerSample()) /
+                           converter.getOutputBytesPerSample();
+            return bytesWritten;
+        }
+    }
+
+    return -EINVAL;
+}
 ::android::status_t StreamOutPrimary::hapticsWrite(const void* buffer, size_t frameCount) {
     int ret = 0;
     bool allocHapticsBuffer = false;
@@ -456,11 +470,9 @@ void StreamOutPrimary::resume() {
         return ::android::OK;
     }
 
-    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        std::get<CompressPlayback>(mExt).getPositionInFrames(&(reply->observable.frames));
-#ifdef VERY_VERBOSE_LOGGING
-        LOG(VERBOSE) << __func__ << *this << " dspFrames consumed " << reply->observable.frames;
-#endif
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK || mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
+        mPlatform.getPositionInFrames(mPalHandle, mMixPortConfig.sampleRate.value().value,
+                                            &(reply->observable.frames));
     } else if (mTag == Usecase::MMAP_PLAYBACK) {
         if (int32_t ret = std::get<MMapPlayback>(mExt).getMMapPosition(&(reply->hardware.frames),
                                                                        &(reply->hardware.timeNs));
@@ -468,7 +480,7 @@ void StreamOutPrimary::resume() {
             return ::android::BAD_VALUE;
         }
 #ifdef VERY_VERBOSE_LOGGING
-        LOG(VERBOSE) << __func__ << *this << " frames " << reply->hardware.frames << " timeNs "
+        LOG(VERBOSE) << __func__ << mLogPrefix << " frames " << reply->hardware.frames << " timeNs "
                      << reply->hardware.timeNs;
 #endif
     }
@@ -483,7 +495,7 @@ void StreamOutPrimary::resume() {
             reply->observable.frames -= btExtraFrames;
         }
 #ifdef VERY_VERBOSE_LOGGING
-        LOG(VERBOSE) << __func__ << *this << ": bluetooth latencyMs:" << latencyMs;
+        LOG(VERBOSE) << __func__ << mLogPrefix << ": bluetooth latencyMs:" << latencyMs;
 #endif
     }
 
@@ -514,7 +526,7 @@ void StreamOutPrimary::shutdown() {
     mIsPaused = false;
     mPalHandle = nullptr;
     mHapticsPalHandle = nullptr;
-    LOG(VERBOSE) << __func__ << *this;
+    LOG(VERBOSE) << __func__ << mLogPrefix;
 }
 
 bool StreamOutPrimary::isDrainReady() {
@@ -543,35 +555,35 @@ bool StreamOutPrimary::isTransferReady() {
 ndk::ScopedAStatus StreamOutPrimary::updateOffloadMetadata(
         const AudioOffloadMetadata& in_offloadMetadata) {
     if (isClosed()) {
-        LOG(ERROR) << __func__ << *this << ": stream was closed";
+        LOG(ERROR) << __func__ << mLogPrefix << ": stream was closed";
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
     if (!mOffloadInfo.has_value()) {
-        LOG(ERROR) << __func__ << *this << ": not a compressed offload stream";
+        LOG(ERROR) << __func__ << mLogPrefix << ": not a compressed offload stream";
         return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
     }
     if (in_offloadMetadata.sampleRate < 0) {
-        LOG(ERROR) << __func__ << *this
+        LOG(ERROR) << __func__ << mLogPrefix
                    << ": invalid sample rate value: " << in_offloadMetadata.sampleRate;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
     if (in_offloadMetadata.averageBitRatePerSecond < 0) {
-        LOG(ERROR) << __func__ << *this
+        LOG(ERROR) << __func__ << mLogPrefix
                    << ": invalid average BPS value: " << in_offloadMetadata.averageBitRatePerSecond;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
     if (in_offloadMetadata.delayFrames < 0) {
-        LOG(ERROR) << __func__ << *this
+        LOG(ERROR) << __func__ << mLogPrefix
                    << ": invalid delay frames value: " << in_offloadMetadata.delayFrames;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
     if (in_offloadMetadata.paddingFrames < 0) {
-        LOG(ERROR) << __func__ << *this
+        LOG(ERROR) << __func__ << mLogPrefix
                    << ": invalid padding frames value: " << in_offloadMetadata.paddingFrames;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
     if (mTag != Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        LOG(WARNING) << __func__ << *this << ": expected CompressOffloadPlayback instead of "
+        LOG(WARNING) << __func__ << mLogPrefix << ": expected CompressOffloadPlayback instead of "
                      << mTagName;
         return ndk::ScopedAStatus::ok();
     }
@@ -610,27 +622,27 @@ ndk::ScopedAStatus StreamOutPrimary::setHwVolume(const std::vector<float>& in_ch
     };
 
     if (!isVolumeInRange(in_channelVolumes)) {
-        LOG(ERROR) << __func__ << *this << " out of range volume "
+        LOG(ERROR) << __func__ << mLogPrefix << " out of range volume "
                    << ::android::internal::ToString(in_channelVolumes);
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
 
     if (!mPalHandle) {
         mVolumes = in_channelVolumes;
-        LOG(DEBUG) << __func__ << *this << " cache volume "
+        LOG(DEBUG) << __func__ << mLogPrefix << " cache volume "
                    << ::android::internal::ToString(in_channelVolumes);
         return ndk::ScopedAStatus::ok();
     }
 
     if (int32_t ret = mPlatform.setVolume(mPalHandle, in_channelVolumes); ret) {
-        LOG(ERROR) << __func__ << *this << " failed to set volume";
+        LOG(ERROR) << __func__ << mLogPrefix << " failed to set volume";
         mVolumes = {};
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
     mVolumes = in_channelVolumes;
 
-    LOG(DEBUG) << __func__ << *this << ::android::internal::ToString(mVolumes);
+    LOG(DEBUG) << __func__ << mLogPrefix << ::android::internal::ToString(mVolumes);
     return ndk::ScopedAStatus::ok();
 }
 
@@ -664,12 +676,12 @@ ndk::ScopedAStatus StreamOutPrimary::setPlaybackRateParameters(
 
 ndk::ScopedAStatus StreamOutPrimary::updateMetadataCommon(const Metadata& metadata) {
     if (isClosed()) {
-        LOG(ERROR) << __func__ << *this << ": stream was closed";
+        LOG(ERROR) << __func__ << mLogPrefix << ": stream was closed";
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
     if (metadata.index() != mMetadata.index()) {
-        LOG(FATAL) << __func__ << *this << ": changing metadata variant is not allowed";
+        LOG(FATAL) << __func__ << mLogPrefix << ": changing metadata variant is not allowed";
     }
     mMetadata = metadata;
 
@@ -707,7 +719,7 @@ int32_t StreamOutPrimary::setAggregateSourceMetadata(bool voiceActive) {
     outStreams.erase(std::remove_if(outStreams.begin(), outStreams.end(), removeStreams),
                      outStreams.end());
 
-    LOG(VERBOSE) << __func__ << *this << " out streams not empty size is " << outStreams.size();
+    LOG(VERBOSE) << __func__ << mLogPrefix << " out streams not empty size is " << outStreams.size();
 
     for (auto it = outStreams.begin(); it < outStreams.end(); it++) {
         if (it->lock() && !it->lock()->isClosed()) {
@@ -717,8 +729,8 @@ int32_t StreamOutPrimary::setAggregateSourceMetadata(bool voiceActive) {
         } else {
         }
     }
-    LOG(VERBOSE) << __func__ << *this << " out streams size after deleting : " << outStreams.size()
-               << " total track count " << track_count_total;
+    LOG(VERBOSE) << __func__ << mLogPrefix << " out streams size after deleting : " << outStreams.size()
+                 << " total track count " << track_count_total;
 
     if (track_count_total <= 0) {
         ModulePrimary::outListMutex.unlock();
@@ -748,9 +760,9 @@ int32_t StreamOutPrimary::setAggregateSourceMetadata(bool voiceActive) {
                     btSourceMetadata.tracks->usage = static_cast<audio_usage_t>(item.usage);
                     btSourceMetadata.tracks->content_type =
                             static_cast<audio_content_type_t>(item.contentType);
-                    LOG(VERBOSE) << __func__ << *this << " source metadata usage is "
-                               << btSourceMetadata.tracks->usage << " content is "
-                               << btSourceMetadata.tracks->content_type;
+                    LOG(VERBOSE) << __func__ << mLogPrefix << " source metadata usage is "
+                                 << btSourceMetadata.tracks->usage << " content is "
+                                 << btSourceMetadata.tracks->content_type;
                     ++btSourceMetadata.tracks;
                 }
             }
@@ -783,9 +795,9 @@ ndk::ScopedAStatus StreamOutPrimary::setVendorParameters(
 ndk::ScopedAStatus StreamOutPrimary::addEffect(
         const std::shared_ptr<::aidl::android::hardware::audio::effect::IEffect>& in_effect) {
     if (in_effect == nullptr) {
-        LOG(VERBOSE) << __func__ << *this << ": null effect";
+        LOG(VERBOSE) << __func__ << mLogPrefix << ": null effect";
     } else {
-        LOG(VERBOSE) << __func__ << *this << ": effect Binder" << in_effect->asBinder().get();
+        LOG(VERBOSE) << __func__ << mLogPrefix << ": effect Binder" << in_effect->asBinder().get();
     }
     return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
 }
@@ -793,9 +805,9 @@ ndk::ScopedAStatus StreamOutPrimary::addEffect(
 ndk::ScopedAStatus StreamOutPrimary::removeEffect(
         const std::shared_ptr<::aidl::android::hardware::audio::effect::IEffect>& in_effect) {
     if (in_effect == nullptr) {
-        LOG(VERBOSE) << __func__ << *this << ": null effect";
+        LOG(VERBOSE) << __func__ << mLogPrefix << ": null effect";
     } else {
-        LOG(VERBOSE) << __func__ << *this << ": effect Binder" << in_effect->asBinder().get();
+        LOG(VERBOSE) << __func__ << mLogPrefix << ": effect Binder" << in_effect->asBinder().get();
     }
     return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
 }
@@ -865,16 +877,16 @@ size_t StreamOutPrimary::getPlatformDelay() const noexcept {
 ::android::status_t StreamOutPrimary::onWriteError(const size_t sleepFrameCount) {
     shutdown();
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        LOG(ERROR) << __func__ << *this << ": cannot afford write failure";
+        LOG(ERROR) << __func__ << mLogPrefix << ": cannot afford write failure";
         return ::android::OK;
     }
     auto& sampleRate = mMixPortConfig.sampleRate.value().value;
     if (sampleRate == 0) {
-        LOG(ERROR) << __func__ << *this << ": cannot afford write failure, sampleRate is zero";
+        LOG(ERROR) << __func__ << mLogPrefix << ": cannot afford write failure, sampleRate is zero";
         return ::android::UNEXPECTED_NULL;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds((sleepFrameCount * 1000) / sampleRate));
-    LOG(WARNING) << __func__ << *this << ": ignoring this write";
+    LOG(WARNING) << __func__ << mLogPrefix << ": ignoring this write";
     return ::android::OK;
 }
 
@@ -888,7 +900,7 @@ void StreamOutPrimary::configure() {
     auto attr = mPlatform.getPalStreamAttributes(mMixPortConfig, false);
 
     if (!attr) {
-        LOG(ERROR) << __func__ << *this << " no pal attributes found";
+        LOG(ERROR) << __func__ << mLogPrefix << " no pal attributes found";
         return;
     }
 
@@ -924,16 +936,16 @@ void StreamOutPrimary::configure() {
             return ;
         }
     } else {
-        LOG(ERROR) << __func__ << *this << " invalid usecase to configure";
+        LOG(ERROR) << __func__ << mLogPrefix << " invalid usecase to configure";
         return;
     }
 
-    LOG(VERBOSE) << __func__ << *this << " assigned pal stream type:" << attr->type;
+    LOG(VERBOSE) << __func__ << mLogPrefix << " assigned pal stream type:" << attr->type;
 
     auto palDevices =
             mPlatform.configureAndFetchPalDevices(mMixPortConfig, mTag, mConnectedDevices);
     if (!palDevices.size()) {
-        LOG(ERROR) << __func__ << *this << " no connected devices on stream!!";
+        LOG(ERROR) << __func__ << mLogPrefix << " no connected devices on stream!!";
         return;
     }
 
@@ -957,7 +969,7 @@ void StreamOutPrimary::configure() {
     if (int32_t ret = ::pal_stream_open(attr.get(), palDevices.size(), palDevices.data(), 0,
                                         nullptr, palFn, cookie, &(this->mPalHandle));
         ret) {
-        LOG(ERROR) << __func__ << *this << " pal stream open failed!!! ret:" << ret;
+        LOG(ERROR) << __func__ << mLogPrefix << " pal stream open failed!!! ret:" << ret;
         mPalHandle = nullptr;
         return;
     }
@@ -966,14 +978,14 @@ void StreamOutPrimary::configure() {
         hapticChannelLayout = AudioChannelLayout::make<AudioChannelLayout::Tag::layoutMask>
            (mMixPortConfig.channelMask.value().get<AudioChannelLayout::Tag::layoutMask>() & (AudioChannelLayout::LAYOUT_HAPTIC_AB));
 
-        LOG(DEBUG) << __func__ << " pal channel info for haptics stream "
+        LOG(ERROR) << __func__ << mLogPrefix << " pal channel info for haptics stream "
                << hapticChannelLayout.toString();
 
         palHapticChannelInfo = PlatformConverter::getPalChannelInfoForChannelCount(
           getChannelCount(hapticChannelLayout));
 
         if (palHapticChannelInfo == nullptr) {
-            LOG(ERROR) << __func__ << " failed to find corresponding pal channel info for haptics"
+            LOG(ERROR) << __func__ << mLogPrefix << " failed to find pal channel info for haptics"
                << hapticChannelLayout.toString();
             return ;
         }
@@ -996,7 +1008,7 @@ void StreamOutPrimary::configure() {
                           palFn, cookie, &(this->mHapticsPalHandle));
 
         if (ret) {
-                LOG(ERROR) << __func__<< " pal Haptics Stream Open Error ret:"
+                LOG(ERROR) << __func__ << mLogPrefix << " pal Haptics Stream Open Error ret:"
                 << ret;
             }
     }
@@ -1013,14 +1025,23 @@ void StreamOutPrimary::configure() {
     }
 
     const size_t ringBufCount = getPeriodCount();
+
+    if (auto converter = Platform::requiresBufferReformat(mMixPortConfig);
+        converter && !mBufferFormatConverter.has_value()) {
+        mBufferFormatConverter = std::make_unique<BufferFormatConverter>(
+                converter->first, converter->second, ringBufSizeInBytes);
+        LOG(DEBUG) << __func__ << mLogPrefix << "created format converter from format "
+                   << converter->first << " to format " << converter->second;
+    }
+
     auto palBufferConfig = mPlatform.getPalBufferConfig(ringBufSizeInBytes, ringBufCount);
-    LOG(DEBUG) << __func__ << *this << "set pal_stream_set_buffer_size to "
-                 << std::to_string(ringBufSizeInBytes) << " with count "
-                 << std::to_string(ringBufCount);
+    LOG(DEBUG) << __func__ << mLogPrefix << "set pal_stream_set_buffer_size to "
+               << std::to_string(ringBufSizeInBytes) << " with count "
+               << std::to_string(ringBufCount);
     if (int32_t ret =
                 ::pal_stream_set_buffer_size(this->mPalHandle, nullptr, palBufferConfig.get());
         ret) {
-        LOG(ERROR) << __func__ << *this << " pal_stream_set_buffer_size failed!!! ret:" << ret;
+        LOG(ERROR) << __func__ << mLogPrefix << " pal_stream_set_buffer_size failed!!! ret:" << ret;
         ::pal_stream_close(mPalHandle);
         mPalHandle = nullptr;
         return;
@@ -1034,7 +1055,7 @@ void StreamOutPrimary::configure() {
         if (int32_t ret =
                  ::pal_stream_set_buffer_size(this->mHapticsPalHandle, nullptr, hapticsPalBufferConfig.get());
             ret) {
-            LOG(ERROR) << __func__ << *this << " pal_stream_set_buffer_size failed!!! ret:" << ret;
+            LOG(ERROR) << __func__ << mLogPrefix << " pal_stream_set_buffer_size failed!!! ret:" << ret;
             ::pal_stream_close(mHapticsPalHandle);
             mHapticsPalHandle = nullptr;
             return;
@@ -1047,7 +1068,7 @@ void StreamOutPrimary::configure() {
     }
 
     if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
-        LOG(ERROR) << __func__ << *this << " pal_stream_start failed, ret:" << ret;
+        LOG(ERROR) << __func__ << mLogPrefix << " pal_stream_start failed, ret:" << ret;
         ::pal_stream_close(mPalHandle);
         mPalHandle = nullptr;
         return;
@@ -1055,7 +1076,7 @@ void StreamOutPrimary::configure() {
 
     if (mTag == Usecase::HAPTICS_PLAYBACK && mHapticsPalHandle) {
         if (int32_t ret = ::pal_stream_start(this->mHapticsPalHandle); ret) {
-            LOG(ERROR) << __func__ << *this << " failed to start haptics stream. ret:" << ret;
+            LOG(ERROR) << __func__ << mLogPrefix << " failed to start haptics stream. ret:" << ret;
             ::pal_stream_close(mHapticsPalHandle);
             mHapticsPalHandle = nullptr;
             return;
@@ -1065,7 +1086,7 @@ void StreamOutPrimary::configure() {
 
     if (karaoke) mAudExt.mKarokeExtension->karaoke_start();
 
-    LOG(VERBOSE) << __func__ << *this << " pal_stream_start successful";
+    LOG(VERBOSE) << __func__ << mLogPrefix << " pal_stream_start successful";
 
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         // Must be after pal stream start
@@ -1077,11 +1098,11 @@ void StreamOutPrimary::configure() {
     }
 
     if (mPlaybackRate != sDefaultPlaybackRate) {
-        LOG(DEBUG) << __func__ << *this << ": using playspeed " << mPlaybackRate.speed;
+        LOG(DEBUG) << __func__ << mLogPrefix << ": using playspeed " << mPlaybackRate.speed;
         mPlatform.setPlaybackRate(mPalHandle, mTag, mPlaybackRate);
     }
 
-    LOG(INFO) << __func__ << *this << ": stream is configured";
+    LOG(INFO) << __func__ << mLogPrefix << ": stream is configured";
     enableOffloadEffects(true);
 }
 
@@ -1090,7 +1111,7 @@ void StreamOutPrimary::enableOffloadEffects(const bool enable) {
         auto& ioHandle = mMixPortConfig.ext.get<AudioPortExt::Tag::mix>().handle;
         if (enable) {
             mHalEffects.startEffect(ioHandle, mPalHandle);
-            LOG(VERBOSE) << __func__ << *this;
+            LOG(VERBOSE) << __func__ << mLogPrefix;
         } else {
             mHalEffects.stopEffect(ioHandle);
         }
@@ -1114,7 +1135,7 @@ ndk::ScopedAStatus StreamOutPrimary::getRecommendedLatencyModes(
 ndk::ScopedAStatus StreamOutPrimary::setLatencyMode(
             ::aidl::android::media::audio::common::AudioLatencyMode in_mode) {
 
-    LOG(DEBUG) << __func__ << *this << ": latency mode " << toString(in_mode);
+    LOG(DEBUG) << __func__ << mLogPrefix << ": latency mode " << toString(in_mode);
     int ret = 0;
 
     if (!hasBluetoothA2dpDevice(mConnectedDevices)) {

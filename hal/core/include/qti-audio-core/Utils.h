@@ -26,6 +26,7 @@
 #include <aidl/android/media/audio/common/AudioDevice.h>
 #include <aidl/android/media/audio/common/AudioPortConfig.h>
 #include <aidl/qti/audio/core/VString.h>
+#include <system/audio.h>
 #include <algorithm>
 #include <map>
 #include <numeric>
@@ -33,6 +34,43 @@
 #include <vector>
 
 namespace qti::audio::core {
+
+/*
+* Helper class used by streams when the target audio format differs
+* from input audio format. This can happen if underlying layers don't support certain formats.
+* In that case, convert the unsupported format to supported format
+* using a aux buffer.
+*/
+class BufferFormatConverter {
+  public:
+    BufferFormatConverter(audio_format_t inFormat, audio_format_t outFormat, size_t bufSize);
+    ~BufferFormatConverter() = default;
+
+    /*
+    * @brief converts the input buffer from input format to output format.
+    * @param buffer, buffer to be converted.
+    * @param bytes total number of bytes in the buffer.
+    * @returns pointer to converted buffer and size of converted buffer in case of success.
+    * nullopt in case when bytes exceed the allocated size during setup.
+    */
+    std::optional<std::pair<uint8_t*, size_t>> convert(const void* buffer, size_t bytes);
+    size_t getInputBytesPerSample() { return mInBytesPerSample; }
+    size_t getOutputBytesPerSample() { return mOutBytesPerSample; }
+
+  private:
+    audio_format_t mInFormat = AUDIO_FORMAT_PCM_16_BIT;
+    audio_format_t mOutFormat = AUDIO_FORMAT_PCM_16_BIT;
+    std::unique_ptr<uint8_t[]> mBuffer{nullptr};
+    size_t mAllocSize;
+    size_t mOutBytesPerSample;
+    size_t mInBytesPerSample;
+
+    // Disallow copy and move assignments / constructors.
+    BufferFormatConverter(const BufferFormatConverter&) = delete;
+    BufferFormatConverter& operator=(const BufferFormatConverter&) = delete;
+    BufferFormatConverter& operator=(BufferFormatConverter&& other) = delete;
+    BufferFormatConverter(BufferFormatConverter&& other) = delete;
+};
 
 bool isMixPortConfig(const ::aidl::android::media::audio::common::AudioPortConfig&) noexcept;
 
@@ -64,6 +102,9 @@ bool hasOutputDirectFlag(const ::aidl::android::media::audio::common::AudioIoFla
 
 bool hasOutputCompressOffloadFlag(
         const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
+
+std::optional<aidl::android::media::audio::common::AudioSource> getAudioSource(
+        const ::aidl::android::media::audio::common::AudioPortConfig&) noexcept;
 
 std::vector<int32_t> getActiveInputMixPortConfigIds(
         const std::vector<::aidl::android::media::audio::common::AudioPortConfig>&
@@ -208,4 +249,12 @@ auto findKeyOrDefault(const M& m, const K& key, K defaultValue) {
 */
 ::aidl::android::hardware::audio::core::VendorParameter makeVendorParameter(const std::string& id,
                                                                             const std::string& value);
+
+/*
+* convert bool value to the corresponding string value
+* true -> "true"
+* false -> "false"
+*/
+std::string makeParamValue(bool const&) noexcept;
+
 } // namespace qti::audio::core

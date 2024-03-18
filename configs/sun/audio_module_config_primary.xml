@@ -118,7 +118,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <devicePort tagName="wired_headphones" deviceType="OUT_HEADPHONE" role="sink" connection="analog">
             <profile samplingRates="48000" channelLayouts="LAYOUT_STEREO" formatType="PCM" pcmType="INT_16_BIT" />
         </devicePort>
-        <devicePort tagName="line_out" deviceType="OUT_DEVICE" role="sink" attached="true" connection="analog">
+        <devicePort tagName="line_out" deviceType="OUT_DEVICE" role="sink" connection="analog">
             <profile samplingRates="48000" channelLayouts="LAYOUT_STEREO" formatType="PCM" pcmType="INT_16_BIT" />
         </devicePort>
         <devicePort tagName="bt_sco_out" deviceType="OUT_DEVICE" connection="bt-sco" role="sink">

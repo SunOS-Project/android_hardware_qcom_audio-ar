@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -90,13 +90,13 @@ void GlobalVolumeListenerSession::releaseSession(int sessionId) {
     }
     // recalculate the checkAndSetGainDepCal once any sesesion closes.
     checkAndSetGainDepCal_l();
-    LOG(DEBUG) << __func__ << "Exit: sessionId " << sessionId << "total sessions "
-               << mSessionsMap.size();
+    LOG(VERBOSE) << __func__ << "Exit: sessionId " << sessionId << "total sessions "
+                 << mSessionsMap.size();
 }
 
 RetCode GlobalVolumeListenerSession::setOutputDevice(int sessionId,
                                                      const AudioDeviceDescriptionVector &devices) {
-    LOG(DEBUG) << __func__ << " sessionId " << sessionId;
+    LOG(VERBOSE) << __func__ << " sessionId " << sessionId;
     std::lock_guard lg(mSessionMutex);
     if (mSessionsMap.find(sessionId) != mSessionsMap.end()) {
         auto &context = mSessionsMap[sessionId];
@@ -119,7 +119,7 @@ RetCode GlobalVolumeListenerSession::setVolumeStereo(int sessionId,
 }
 
 RetCode GlobalVolumeListenerSession::enable(int sessionId) {
-    LOG(DEBUG) << __func__ << " sessionId " << sessionId;
+    LOG(VERBOSE) << __func__ << " sessionId " << sessionId;
     std::lock_guard lg(mSessionMutex);
     RetCode status = RetCode::SUCCESS;
     if (mSessionsMap.find(sessionId) != mSessionsMap.end()) {
@@ -131,7 +131,7 @@ RetCode GlobalVolumeListenerSession::enable(int sessionId) {
 }
 
 RetCode GlobalVolumeListenerSession::disable(int sessionId) {
-    LOG(DEBUG) << __func__ << " sessionId " << sessionId;
+    LOG(VERBOSE) << __func__ << " sessionId " << sessionId;
     std::lock_guard lg(mSessionMutex);
     RetCode status = RetCode::SUCCESS;
     if (mSessionsMap.find(sessionId) != mSessionsMap.end()) {
@@ -187,7 +187,7 @@ void GlobalVolumeListenerSession::applyUpdatedCalibration(float newVolume) {
         if (gainDepCalLevel != mCurrentGainDepCalLevel) {
             // decision made .. send new level now
             if (!sendGainDepCalibration(gainDepCalLevel)) {
-                ALOGE("%s: Failed to set gain dep cal level", __func__);
+                LOG(ERROR) << __func__ << " Failed to set gain dep cal level";
             } else {
                 // Success in setting the gain dep cal level, store new level and Volume
                 mCurrentGainDepCalLevel = gainDepCalLevel;

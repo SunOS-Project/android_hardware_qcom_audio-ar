@@ -5,10 +5,11 @@
 
 #define LOG_TAG "AHAL_Utils_QTI"
 
-#include <android-base/logging.h>
-#include <qti-audio-core/Utils.h>
 #include <aidl/android/media/audio/common/AudioInputFlags.h>
 #include <aidl/android/media/audio/common/AudioOutputFlags.h>
+#include <android-base/logging.h>
+#include <audio_utils/format.h>
+#include <qti-audio-core/Utils.h>
 
 using ::aidl::android::media::audio::common::AudioDevice;
 using ::aidl::android::media::audio::common::AudioDeviceDescription;
@@ -19,12 +20,46 @@ using ::aidl::android::media::audio::common::AudioPortExt;
 using ::aidl::android::media::audio::common::AudioIoFlags;
 using ::aidl::android::media::audio::common::AudioInputFlags;
 using ::aidl::android::media::audio::common::AudioOutputFlags;
+using ::aidl::android::media::audio::common::AudioPortExt;
+using ::aidl::android::media::audio::common::AudioSource;
+using ::aidl::android::media::audio::common::AudioPortMixExtUseCase;
 
 using ::aidl::android::hardware::audio::core::VendorParameter;
 
 using ::aidl::qti::audio::core::VString;
 
 namespace qti::audio::core {
+
+BufferFormatConverter::BufferFormatConverter(audio_format_t inFormat, audio_format_t outFormat,
+                                             size_t bufSize) {
+    mInFormat = inFormat;
+    mOutFormat = outFormat;
+    mAllocSize = bufSize;
+    mInBytesPerSample = audio_bytes_per_sample(inFormat);
+    mOutBytesPerSample = audio_bytes_per_sample(outFormat);
+    int sizeoffloat = sizeof(float);
+    mBuffer = std::make_unique<uint8_t[]>(mAllocSize);
+    if (!mBuffer) {
+        LOG(ERROR) << __func__ << " failed to init convert buffer";
+        // alloc size to 0, so convert won't operate
+        mAllocSize = 0;
+    }
+    LOG(VERBOSE) << __func__ << "inFormat " << inFormat << " outFormat " << mOutFormat
+                 << " inBytesPerSample " << mInBytesPerSample << " outBytesPerSample "
+                 << mOutBytesPerSample << " size " << mAllocSize;
+}
+
+std::optional<std::pair<uint8_t*, size_t>> BufferFormatConverter::convert(const void* buffer,
+                                                                          size_t bytes) {
+    if (bytes > mAllocSize) {
+        LOG(ERROR) << " Error writing" << bytes << " to convertBuffer of capacity " << mAllocSize;
+        return std::nullopt;
+    }
+    size_t frames = bytes / mInBytesPerSample;
+    memcpy_by_audio_format(mBuffer.get(), mOutFormat, buffer, mInFormat, frames);
+    uint8_t* outBuffer = reinterpret_cast<uint8_t*>(mBuffer.get());
+    return std::make_pair(outBuffer, frames * mOutBytesPerSample);
+}
 
 bool isMixPortConfig(const AudioPortConfig& audioPortConfig) noexcept {
     return audioPortConfig.ext.getTag() == AudioPortExt::Tag::mix;
@@ -111,6 +146,20 @@ bool hasOutputCompressOffloadFlag(const AudioIoFlags& ioFlags) noexcept {
     return false;
 }
 
+std::optional<AudioSource> getAudioSource(const AudioPortConfig& mixPortconfig) noexcept {
+    if (mixPortconfig.ext.getTag() != AudioPortExt::Tag::mix) {
+        LOG(ERROR) << __func__ << ": not a mix port, " << mixPortconfig.toString();
+        return std::nullopt;
+    }
+    if (mixPortconfig.ext.get<AudioPortExt::Tag::mix>().usecase.getTag() !=
+        AudioPortMixExtUseCase::Tag::source) {
+        LOG(ERROR) << __func__ << ": no source provided, " << mixPortconfig.toString();
+        return std::nullopt;
+    }
+    return mixPortconfig.ext.get<AudioPortExt::Tag::mix>()
+            .usecase.get<AudioPortMixExtUseCase::Tag::source>();
+}
+
 std::vector<int32_t> getActiveInputMixPortConfigIds(
         const std::vector<AudioPortConfig>& activePortConfigs) {
     std::vector<int32_t> result;
@@ -153,6 +202,10 @@ VendorParameter makeVendorParameter(const std::string& id, const std::string& va
         LOG(ERROR) << __func__ << ": failed to set parcel for " << param.id;
     }
     return param;
+}
+
+std::string makeParamValue(bool const& isTrue) noexcept {
+    return isTrue ? "true" : "false";
 }
 
 } // namespace qti::audio::core
