@@ -304,6 +304,8 @@ std::vector<pal_device> Platform::convertToPalDevices(
                 return {};
             }
             const auto& deviceAddressAlsa = deviceAddress.get<AudioDeviceAddress::Tag::alsa>();
+            if (!isValidAlsaAddr(deviceAddressAlsa))
+                return {};
             palDevices[i].address.card_id = deviceAddressAlsa[0];
             palDevices[i].address.device_num = deviceAddressAlsa[1];
         } else if (isHdmiDevice(device)) {
@@ -384,6 +386,8 @@ std::vector<::aidl::android::media::audio::common::AudioProfile> Platform::getUs
     }
     const auto& deviceAddressAlsa =
             devicePortExt.device.address.get<AudioDeviceAddress::Tag::alsa>();
+    if (!isValidAlsaAddr(deviceAddressAlsa))
+        return {};
     const auto cardId = deviceAddressAlsa[0];
     const auto deviceId = deviceAddressAlsa[1];
 
@@ -503,6 +507,8 @@ bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
         }
         const auto& deviceAddressAlsa =
                 devicePortExt.device.address.get<AudioDeviceAddress::Tag::alsa>();
+        if (!isValidAlsaAddr(deviceAddressAlsa))
+            return false;
         const auto cardId = deviceAddressAlsa[0];
         const auto deviceId = deviceAddressAlsa[1];
         deviceConnection->device_config.usb_addr.card_id = cardId;
@@ -1045,6 +1051,15 @@ bool Platform::isSoundCardDown() const noexcept {
     return false;
 }
 
+bool Platform::isValidAlsaAddr(const std::vector<int>& alsaAddress) const noexcept {
+    if (alsaAddress.size() != 2 || alsaAddress[0] < 0 || alsaAddress[1] < 0) {
+        LOG(ERROR) << __func__
+                   << ": malformed alsa address: "
+                   << ::android::internal::ToString(alsaAddress);
+        return false;
+    }
+    return true;
+}
 uint32_t Platform::getBluetoothLatencyMs(const std::vector<AudioDevice>& bluetoothDevices) {
     pal_param_bta2dp_t btConfig{};
     for (const auto& device : bluetoothDevices) {
