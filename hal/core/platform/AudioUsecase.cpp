@@ -66,6 +66,8 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
                                  1 << flagCastToint(AudioOutputFlags::GAPLESS_OFFLOAD));
     constexpr auto fastRecordFlags =
             static_cast<int32_t>(1 << flagCastToint(AudioInputFlags::FAST));
+    constexpr auto ullRecordFlags = static_cast<int32_t>(
+        1 << flagCastToint(AudioInputFlags::FAST)| 1 << flagCastToint(AudioInputFlags::RAW));
     constexpr auto compressCaptureFlags =
             static_cast<int32_t>(1 << flagCastToint(AudioInputFlags::DIRECT));
     constexpr auto lowLatencyPlaybackFlags =
@@ -130,7 +132,7 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
                     tag = Usecase::VOICE_CALL_RECORD;
                 }
             }
-        } else if (inFlags == fastRecordFlags) {
+        } else if (inFlags == fastRecordFlags || inFlags == ullRecordFlags) {
             tag = Usecase::FAST_RECORD;
             if (streamSampleRate == UltraFastRecord::kSampleRate) {
                 tag = Usecase::ULTRA_FAST_RECORD;

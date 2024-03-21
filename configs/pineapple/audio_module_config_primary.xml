@@ -83,6 +83,9 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <mixPort name="fast_input" role="sink" flags="FAST">
             <profile samplingRates="8000 11025 12000 16000 22050 24000 32000 44100 48000" channelLayouts="LAYOUT_MONO LAYOUT_STEREO LAYOUT_2POINT1 LAYOUT_2POINT0POINT2 LAYOUT_3POINT0POINT2 LAYOUT_5POINT1" channelMasks="INDEX_MASK_3" formatType="PCM" pcmType="INT_16_BIT" />
         </mixPort>
+        <mixPort name="fast_raw_input" role="sink" flags="FAST RAW">
+            <profile samplingRates="8000 11025 12000 16000 22050 24000 32000 44100 48000" channelLayouts="LAYOUT_MONO LAYOUT_STEREO LAYOUT_2POINT1 LAYOUT_2POINT0POINT2 LAYOUT_3POINT0POINT2 LAYOUT_5POINT1" channelMasks="INDEX_MASK_3" formatType="PCM" pcmType="INT_16_BIT" />
+        </mixPort>
         <mixPort name="voip_record" role="sink" flags="VOIP_TX">
             <profile samplingRates="8000 16000 32000 48000" channelLayouts="LAYOUT_MONO"
                 formatType="PCM" pcmType="INT_16_BIT" />
@@ -246,6 +249,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <!-- input routes -->
         <route type="mix" sink="primary_in" sources="built_in_mic,built_in_back_mic,wired_headset_mic,bt_sco_headset_mic,fm_tuner_mic,telephony_rx,bt_a2dp_mic,echo_reference_mic,bt_le_mic,proxy_input_device" />
         <route type="mix" sink="fast_input" sources="built_in_mic,built_in_back_mic,bt_sco_headset_mic,usb_mic,usb_headset_mic,wired_headset_mic,proxy_input_device" />
+        <route type="mix" sink="fast_raw_input" sources="built_in_mic,built_in_back_mic,bt_sco_headset_mic,usb_mic,usb_headset_mic,wired_headset_mic,proxy_input_device" />
         <route type="mix" sink="compress_in" sources="built_in_mic,built_in_back_mic,wired_headset_mic,bt_sco_headset_mic,usb_mic,usb_headset_mic,bt_a2dp_mic,echo_reference_mic,bt_le_mic,proxy_input_device" />
         <route type="mix" sink="telephony_tx" sources="voice_tx,in_call_music,built_in_mic,built_in_back_mic,wired_headset_mic,bt_sco_headset_mic,bt_a2dp_mic,echo_reference_mic,bt_le_mic,usb_mic,usb_headset_mic" />
         <route type="mix" sink="mmap_no_irq_in" sources="built_in_mic,built_in_back_mic,bt_sco_headset_mic,usb_mic,usb_headset_mic,wired_headset_mic" />
