@@ -63,18 +63,24 @@ class PrimaryPlayback final {
   public:
     constexpr static size_t kPeriodSize = 1920;
     constexpr static size_t kPeriodCount = 2;
+    constexpr static size_t kPlatformDelayMs = 29;
+    constexpr static size_t kPeriodDurationMs = 40;
 };
 
 class DeepBufferPlayback final {
   public:
     constexpr static size_t kPeriodSize = 1920;
     constexpr static size_t kPeriodCount = 2;
+    constexpr static size_t kPeriodDurationMs = 40;
+    constexpr static size_t kPlatformDelayMs = 29;
 };
 
 class LowLatencyPlayback final {
   public:
     constexpr static size_t kPeriodSize = 240;
     constexpr static size_t kPeriodCount = 2;
+    constexpr static size_t kPlatformDelayMs = 13;
+    constexpr static size_t kPeriodDurationMs = 4;
 };
 
 class PcmRecord {
@@ -82,6 +88,7 @@ class PcmRecord {
     constexpr static uint32_t kCaptureDurationMs = 20;
     constexpr static uint32_t kPeriodCount = 4;
     constexpr static size_t kFMQMinFrameSize = 160;
+    constexpr static size_t kPlatformDelayMs = 20;
     static size_t getMinFrames(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
     enum class HdrMode : uint8_t {
@@ -101,6 +108,7 @@ class FastRecord {
   public:
     constexpr static size_t kPeriodSize = 240;
     constexpr static size_t kPeriodCount = 4;
+    constexpr static size_t kPlatformDelayMs = 20;
     static size_t getPeriodSize(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
 };
@@ -119,6 +127,8 @@ class CompressPlayback final {
   public:
     static constexpr size_t kPeriodSize = 32 * 1024;
     static constexpr size_t kPeriodCount = 4;
+    static constexpr int32_t kLatencyMs = 50;
+    static constexpr size_t kPlatformDelayMs = 30;
     class Flac final {
       public:
         static constexpr size_t kPeriodSize = 256 * 1024;
@@ -247,6 +257,7 @@ class CompressPlayback final {
 
 class CompressCapture final {
   public:
+    constexpr static size_t kPlatformDelayMs = 20;
     class Aac final {
       public:
         inline static const std::string kDSPAacBitRate{"dsp_aac_audio_bitrate"};
@@ -345,6 +356,7 @@ class VoipPlayback final {
   public:
     constexpr static size_t kBufferDurationMs = 20;
     constexpr static size_t kPeriodCount = 2;
+    constexpr static size_t kPlatformDelayMs = 30;
     static size_t getPeriodSize(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
 };
@@ -379,7 +391,7 @@ class UllPlayback {
   public:
     constexpr static size_t kPeriodSize = 48; // 1ms
     constexpr static size_t kPeriodMultiplier = 3;
-    constexpr static size_t kPlatformDelayMs = (4 * 1000LL);
+    constexpr static size_t kPlatformDelayMs = 4;
     constexpr static uint32_t kPeriodCount = 512;
     static size_t getPeriodSize(
             const ::aidl::android::media::audio::common::AudioFormatDescription& formatDescription,
@@ -389,7 +401,7 @@ class UllPlayback {
 class MMapPlayback {
   public:
     constexpr static size_t kPeriodSize = 48; // 1ms
-    constexpr static size_t kPlatformDelayMs = (3 * 1000LL);
+    constexpr static size_t kPlatformDelayMs = 3;
     constexpr static uint32_t kPeriodCount = 512;
     void setPalHandle(pal_stream_handle_t* handle);
     int32_t createMMapBuffer(int64_t frameSize, int32_t* fd, int64_t* burstSizeFrames,
@@ -432,6 +444,8 @@ class HapticsPlayback {
     public:
     constexpr static size_t kPeriodSize = 240; //same as low-latency
     constexpr static size_t kPeriodCount = 2;
+    constexpr static size_t kPlatformDelayMs = 30;
+    constexpr static size_t kPeriodDurationMs = 4;
 };
 
 } // namespace qti::audio::core

@@ -160,6 +160,14 @@ std::optional<AudioSource> getAudioSource(const AudioPortConfig& mixPortconfig) 
             .usecase.get<AudioPortMixExtUseCase::Tag::source>();
 }
 
+std::optional<int32_t> getSampleRate(const AudioPortConfig& portConfig) noexcept {
+    if (portConfig.sampleRate) {
+        return portConfig.sampleRate.value().value;
+    }
+    LOG(ERROR) << __func__ << ": no sample rate in port config " << portConfig.toString();
+    return std::nullopt;
+}
+
 std::vector<int32_t> getActiveInputMixPortConfigIds(
         const std::vector<AudioPortConfig>& activePortConfigs) {
     std::vector<int32_t> result;

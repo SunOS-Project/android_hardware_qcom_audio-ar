@@ -98,7 +98,7 @@ class StreamContext {
             std::shared_ptr<::aidl::android::hardware::audio::core::IStreamOutEventCallback>
                     outEventCallback,
             ::aidl::android::media::audio::common::AudioPortConfig mixPortConfig,
-            DebugParameters debugParameters)
+            DebugParameters debugParameters, const int nominalLatency)
         : mCommandMQ(std::move(commandMQ)),
           mInternalCommandCookie(std::rand()),
           mReplyMQ(std::move(replyMQ)),
@@ -109,6 +109,7 @@ class StreamContext {
           mAsyncCallback(asyncCallback),
           mOutEventCallback(outEventCallback),
           mMixPortConfig(mixPortConfig),
+          mNominalLatency(nominalLatency),
           mDebugParameters(debugParameters) {}
     StreamContext(StreamContext&& other)
         : mCommandMQ(std::move(other.mCommandMQ)),
@@ -122,7 +123,8 @@ class StreamContext {
           mOutEventCallback(std::move(other.mOutEventCallback)),
           mMixPortConfig(std::move(other.mMixPortConfig)),
           mDebugParameters(std::move(other.mDebugParameters)),
-          mFrameCount(other.mFrameCount) {}
+          mFrameCount(other.mFrameCount),
+          mNominalLatency(other.mNominalLatency) {}
     StreamContext& operator=(StreamContext&& other) {
         mCommandMQ = std::move(other.mCommandMQ);
         mInternalCommandCookie = other.mInternalCommandCookie;
@@ -136,6 +138,7 @@ class StreamContext {
         mMixPortConfig = std::move(other.mMixPortConfig);
         mDebugParameters = std::move(other.mDebugParameters);
         mFrameCount = other.mFrameCount;
+        mNominalLatency =  other.mNominalLatency;
         return *this;
     }
 
@@ -182,6 +185,7 @@ class StreamContext {
     const ::aidl::android::media::audio::common::AudioPortConfig& getMixPortConfig() const {
         return mMixPortConfig;
     }
+    int32_t getNominalLatencyMs() const { return mNominalLatency; }
 
   private:
     std::unique_ptr<CommandMQ> mCommandMQ;
@@ -198,6 +202,7 @@ class StreamContext {
             mOutEventCallback; // Only used by output streams
     DebugParameters mDebugParameters;
     long mFrameCount = 0;
+    int32_t mNominalLatency = 0;
 };
 
 // This interface provides operations of the stream which are executed on the worker thread.

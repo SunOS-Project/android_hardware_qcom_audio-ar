@@ -569,6 +569,66 @@ bool Platform::isUHQAEnabled() const noexcept {
     return mIsUHQAEnabled;
 }
 
+int32_t Platform::getLatencyMs(const AudioPortConfig& mixPortConfig,
+                               Usecase const& inTag) const {
+    if (mixPortConfig.ext.getTag() != AudioPortExt::Tag::mix) {
+        LOG(ERROR) << __func__
+                   << ": cannot deduce latency for port config which is not a mix port, "
+                   << mixPortConfig.toString();
+        return 0;
+    }
+
+    int32_t latencyMs = 0;
+
+    const auto& tag = (inTag == Usecase::INVALID ? getUsecaseTag(mixPortConfig) : inTag);
+
+    // decide the latency based on usecase
+    if (tag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        latencyMs = CompressPlayback::kLatencyMs * 2;
+    } else if (tag == Usecase::LOW_LATENCY_PLAYBACK) {
+        latencyMs = LowLatencyPlayback::kPeriodDurationMs * LowLatencyPlayback::kPeriodCount +
+                    LowLatencyPlayback::kPlatformDelayMs;
+    } else if (tag == Usecase::PCM_OFFLOAD_PLAYBACK) {
+        latencyMs = PcmOffloadPlayback::kPeriodDurationMs * PcmOffloadPlayback::kPeriodCount +
+                    PcmOffloadPlayback::kPlatformDelayMs;
+    } else if (tag == Usecase::DEEP_BUFFER_PLAYBACK) {
+        latencyMs = DeepBufferPlayback::kPeriodDurationMs * DeepBufferPlayback::kPeriodCount +
+                    DeepBufferPlayback::kPlatformDelayMs;
+    } else if (tag == Usecase::VOIP_PLAYBACK) {
+        latencyMs = VoipPlayback::kBufferDurationMs * VoipPlayback::kPeriodCount +
+                    VoipPlayback::kPlatformDelayMs;
+    } else if (tag == Usecase::SPATIAL_PLAYBACK) {
+        latencyMs = SpatialPlayback::kPeriodDurationMs * SpatialPlayback::kPeriodCount +
+                    SpatialPlayback::kPlatformDelayMs;
+    } else if (tag == Usecase::ULL_PLAYBACK) {
+        latencyMs = UllPlayback::kPeriodSize * UllPlayback::kPeriodMultiplier +
+                    UllPlayback::kPlatformDelayMs;
+    } else if (tag == Usecase::MMAP_PLAYBACK) {
+        latencyMs = MMapPlayback::kPeriodSize + MMapPlayback::kPlatformDelayMs;
+    } else if (tag == Usecase::HAPTICS_PLAYBACK) {
+        latencyMs = HapticsPlayback::kPeriodDurationMs * HapticsPlayback::kPeriodCount +
+                    HapticsPlayback::kPlatformDelayMs;
+    } else if (tag == Usecase::PCM_RECORD) {
+        latencyMs = PcmRecord::kCaptureDurationMs * PcmRecord::kPeriodCount +
+                    PcmRecord::kPlatformDelayMs;
+    } else if (tag == Usecase::COMPRESS_CAPTURE) {
+        latencyMs = CompressCapture::kPlatformDelayMs;
+    } else {
+        LOG(ERROR) << __func__ << ": no match for usecase, " << getName(tag);
+    }
+
+    if (latencyMs == 0) {
+        latencyMs = kDefaultLatencyMs;
+        LOG(WARNING) << __func__
+                     << ": none of the usecase matched, configured default latencyMs:" << latencyMs;
+    } else {
+        LOG(VERBOSE) << __func__ << ": nominal latency configured:" << latencyMs
+                  << ", for usecase: " << getName(tag);
+    }
+
+    return latencyMs;
+}
+
 void Platform::setFTMSpeakerProtectionMode(uint32_t const heatUpTime, uint32_t const runTime,
                                            bool const isFactoryTest, bool const isValidationMode,
                                            bool const isDynamicCalibration) const noexcept {

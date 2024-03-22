@@ -170,6 +170,10 @@ class Platform {
 
     void setFacing(std::string const& value) { mFacing = value; }
 
+    int32_t getLatencyMs(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
+            Usecase const& inTag = Usecase::INVALID) const;
+
     /*
     * @brief creates a pal payload for a speed factor and sets to PAL
     * @param handle : pal stream handle
@@ -248,6 +252,7 @@ class Platform {
     constexpr static uint32_t kDefaultOutputSampleRate = 48000;
     constexpr static uint32_t kDefaultPCMBidWidth = 16;
     constexpr static pal_audio_fmt_t kDefaultPalPCMFormat = PAL_AUDIO_FMT_PCM_S16_LE;
+    constexpr static int32_t kDefaultLatencyMs = 51;
 
   private:
     std::vector<::aidl::android::media::audio::common::AudioDevice> mPrimaryPlaybackDevices{};
