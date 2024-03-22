@@ -333,6 +333,9 @@ void StreamOutPrimary::resume() {
     // hardware is expected to up on start
     // but we are doing on first write
     LOG(VERBOSE) << __func__ << mLogPrefix;
+    if (mPalHandle && mIsPaused) {
+        resume();
+    }
     return ::android::OK;
 }
 
