@@ -820,7 +820,7 @@ size_t StreamOutPrimary::getPeriodSize() const noexcept {
     } else if (mTag == Usecase::DEEP_BUFFER_PLAYBACK) {
         return DeepBufferPlayback::kPeriodSize * mFrameSizeBytes;
     } else if (mTag == Usecase::LOW_LATENCY_PLAYBACK) {
-        return LowLatencyPlayback::kPeriodSize * mFrameSizeBytes;
+        return LowLatencyPlayback::getBufferSize(mMixPortConfig);
     } else if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         return CompressPlayback::getPeriodBufferSize(mMixPortConfig.format.value());
     } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
@@ -830,8 +830,7 @@ size_t StreamOutPrimary::getPeriodSize() const noexcept {
     } else if (mTag == Usecase::SPATIAL_PLAYBACK) {
         return SpatialPlayback::kPeriodSize * mFrameSizeBytes;
     } else if (mTag == Usecase::ULL_PLAYBACK) {
-        return UllPlayback::getPeriodSize(mMixPortConfig.format.value(),
-                                          mMixPortConfig.channelMask.value());
+        return UllPlayback::getBufferSize(mMixPortConfig);
     } else if (mTag == Usecase::MMAP_PLAYBACK) {
         return MMapPlayback::getPeriodSize(mMixPortConfig.format.value(),
                                            mMixPortConfig.channelMask.value());

@@ -60,7 +60,7 @@ size_t Platform::getFrameCount(
     } else if (tag == Usecase::PCM_OFFLOAD_PLAYBACK) {
         numFrames = PcmOffloadPlayback::getFrameCount(mixPortConfig);
     } else if (tag == Usecase::LOW_LATENCY_PLAYBACK) {
-        numFrames = LowLatencyPlayback::kPeriodSize;
+        numFrames = LowLatencyPlayback::getMinFrames(mixPortConfig);
     } else if (tag == Usecase::PCM_RECORD) {
         numFrames = PcmRecord::getMinFrames(mixPortConfig);
     } else if (tag == Usecase::FAST_RECORD) {
@@ -76,7 +76,7 @@ size_t Platform::getFrameCount(
     } else if (tag == Usecase::COMPRESS_CAPTURE) {
         numFrames = CompressCapture::getPeriodBufferSize(mixPortConfig.format.value());
     } else if (tag == Usecase::ULL_PLAYBACK) {
-        numFrames = UllPlayback::kPeriodSize;
+        numFrames = UllPlayback::getMinFrames(mixPortConfig);
     } else if (tag == Usecase::MMAP_PLAYBACK) {
         numFrames = MMapPlayback::kPeriodSize;
     } else if (tag == Usecase::MMAP_RECORD) {
