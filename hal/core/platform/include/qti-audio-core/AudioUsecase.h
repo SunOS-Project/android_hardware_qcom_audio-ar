@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <numeric>
+#include <unordered_set>
 
 #define DIV_ROUND_UP(x, y) (((x) + (y) - 1) / (y))
 #define ALIGN(x, y) ((y) * DIV_ROUND_UP((x), (y)))
@@ -81,6 +82,11 @@ class LowLatencyPlayback final {
     constexpr static size_t kPeriodCount = 2;
     constexpr static size_t kPlatformDelayMs = 13;
     constexpr static size_t kPeriodDurationMs = 4;
+    static std::unordered_set<size_t> kSupportedFrameSizes;
+    static size_t getMinFrames(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
+    static size_t getBufferSize(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
 };
 
 class PcmRecord {
@@ -396,6 +402,11 @@ class UllPlayback {
     static size_t getPeriodSize(
             const ::aidl::android::media::audio::common::AudioFormatDescription& formatDescription,
             const ::aidl::android::media::audio::common::AudioChannelLayout& channelLayout);
+
+    static size_t getMinFrames(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
+    static size_t getBufferSize(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
 };
 
 class MMapPlayback {

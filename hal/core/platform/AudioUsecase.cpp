@@ -200,6 +200,38 @@ std::string getName(const Usecase tag) {
 }
 // start of pcm record
 
+// [LowLatencyPlayback Start]
+std::unordered_set<size_t> LowLatencyPlayback::kSupportedFrameSizes = {160, 192, 240, 320, 480};
+
+size_t LowLatencyPlayback::getMinFrames(const AudioPortConfig& mixPortConfig) {
+    const std::string kPeriodSizeProp = "vendor.audio_hal.period_size";
+    auto frameSize = ::android::base::GetUintProperty<size_t>(kPeriodSizeProp,
+                                                              LowLatencyPlayback::kPeriodSize);
+    if (kSupportedFrameSizes.count(frameSize)) {
+        return frameSize;
+    }
+    return LowLatencyPlayback::kPeriodSize;
+}
+
+size_t LowLatencyPlayback::getBufferSize(const AudioPortConfig& mixPortConfig) {
+    auto minFrames = getMinFrames(mixPortConfig);
+    auto frameSizeInBytes =
+            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
+    return minFrames * frameSizeInBytes;
+}
+
+// [LowLatencyPlayback End]
+
+size_t UllPlayback::getMinFrames(const AudioPortConfig& mixPortConfig) {
+    return UllPlayback::kPeriodSize * UllPlayback::kPeriodMultiplier;
+}
+
+size_t UllPlayback::getBufferSize(const AudioPortConfig& mixPortConfig) {
+    auto frameSizeInBytes =
+            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
+    return UllPlayback::kPeriodSize * frameSizeInBytes;
+}
+
 // static
 size_t PcmRecord::getMinFrames(const AudioPortConfig& mixPortConfig) {
     size_t minFrames = kCaptureDurationMs * (mixPortConfig.sampleRate.value().value / 1000);
