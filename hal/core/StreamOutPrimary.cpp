@@ -370,9 +370,6 @@ void StreamOutPrimary::resume() {
     if (bytesWritten < 0) {
         LOG(ERROR) << __func__ << mLogPrefix << " write failed, ret: " << bytesWritten;
         *actualFrameCount = frameCount;
-        if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-            *actualFrameCount = static_cast<size_t>(bytesWritten / mFrameSizeBytes);
-        }
         return onWriteError(frameCount);
     }
 
