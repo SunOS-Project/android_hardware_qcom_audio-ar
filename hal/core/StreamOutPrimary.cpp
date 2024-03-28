@@ -464,15 +464,27 @@ void StreamOutPrimary::resume() {
     return (ret < 0 ? ret :  (frameSize*frameCount));
 }
 
+void StreamOutPrimary::updateCachedFrames(size_t cachedFrames) {
+    mCachedFrames = cachedFrames;
+}
+
 ::android::status_t StreamOutPrimary::refinePosition(
         ::aidl::android::hardware::audio::core::StreamDescriptor::Reply* reply) {
     if (!mPalHandle) {
         return ::android::OK;
     }
 
-    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK || mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         mPlatform.getPositionInFrames(mPalHandle, mMixPortConfig.sampleRate.value().value,
                                             &(reply->observable.frames));
+    } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
+        if (mPlatform.isSoundCardUp()) {
+            mPlatform.getPositionInFrames(mPalHandle, mMixPortConfig.sampleRate.value().value,
+                                                &(reply->observable.frames));
+        } else {
+            reply->observable.frames += mCachedFrames;
+            updateCachedFrames(reply->observable.frames);
+        }
     } else if (mTag == Usecase::MMAP_PLAYBACK) {
         if (int32_t ret = std::get<MMapPlayback>(mExt).getMMapPosition(&(reply->hardware.frames),
                                                                        &(reply->hardware.timeNs));
