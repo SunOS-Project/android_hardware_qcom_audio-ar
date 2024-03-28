@@ -340,6 +340,9 @@ FmExtension::FmExtension() : AudioExtensionBase(kFmLibrary) {
             fm_set_params = NULL;
             fm_running_status = NULL;
         }
+    } else {
+        fm_set_params = NULL;
+        fm_running_status = NULL;
     }
 }
 
