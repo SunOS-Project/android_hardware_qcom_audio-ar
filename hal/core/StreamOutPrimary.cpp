@@ -902,7 +902,7 @@ size_t StreamOutPrimary::getPlatformDelay() const noexcept {
 }
 
 void StreamOutPrimary::configure() {
-
+    const auto startTime = std::chrono::steady_clock::now();
     std::unique_ptr<pal_channel_info> palNonHapticChannelInfo;
     std::unique_ptr<pal_channel_info> palHapticChannelInfo;
     AudioChannelLayout channelLayout;
@@ -984,6 +984,7 @@ void StreamOutPrimary::configure() {
         attr->flags = static_cast<pal_stream_flags_t>(PAL_STREAM_FLAG_MMAP);
     }
 
+    const auto palOpenApiStartTime = std::chrono::steady_clock::now();
     if (int32_t ret = ::pal_stream_open(attr.get(), palDevices.size(), palDevices.data(), 0,
                                         nullptr, palFn, cookie, &(this->mPalHandle));
         ret) {
@@ -1030,6 +1031,9 @@ void StreamOutPrimary::configure() {
                 << ret;
             }
     }
+
+    const auto palOpenApiEndTime = std::chrono::steady_clock::now();
+
     if (karaoke) {
         int size = palDevices.size();
         mAudExt.mKarokeExtension->karaoke_open(palDevices[size - 1].id, palFn,
@@ -1085,6 +1089,7 @@ void StreamOutPrimary::configure() {
         std::get<CompressPlayback>(mExt).setAndConfigureCodecInfo(mPalHandle);
     }
 
+    const auto palStartApiStartTime = std::chrono::steady_clock::now();
     if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
         LOG(ERROR) << __func__ << mLogPrefix << " pal_stream_start failed, ret:" << ret;
         ::pal_stream_close(mPalHandle);
@@ -1101,6 +1106,7 @@ void StreamOutPrimary::configure() {
         }
     }
 
+    const auto palStartApiEndTime = std::chrono::steady_clock::now();
 
     if (karaoke) mAudExt.mKarokeExtension->karaoke_start();
 
@@ -1122,6 +1128,18 @@ void StreamOutPrimary::configure() {
 
     LOG(INFO) << __func__ << mLogPrefix << ": stream is configured";
     enableOffloadEffects(true);
+    const auto endTime = std::chrono::steady_clock::now();
+    using FloatMillis = std::chrono::duration<float, std::milli>;
+    const float palStreamOpenTimeTaken =
+            std::chrono::duration_cast<FloatMillis>(palOpenApiEndTime - palOpenApiStartTime)
+                    .count();
+    const float palStreamStartTimeTaken =
+            std::chrono::duration_cast<FloatMillis>(palStartApiEndTime - palStartApiStartTime)
+                    .count();
+    const float timeTaken = std::chrono::duration_cast<FloatMillis>(endTime - startTime).count();
+    LOG(INFO) << __func__ << mLogPrefix << ": completed in " << timeTaken
+              << " ms [pal_stream_open: " << palStreamOpenTimeTaken
+              << ", ms pal_stream_start: " << palStreamStartTimeTaken << " ms]";
 }
 
 void StreamOutPrimary::enableOffloadEffects(const bool enable) {

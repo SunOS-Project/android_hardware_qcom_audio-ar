@@ -15,8 +15,8 @@
  */
 
 /*
- * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -253,6 +253,7 @@ class StreamWorkerCommonLogic : public ::android::hardware::audio::common::Strea
         : mContext(context),
           mDriver(driver),
           mTransientStateDelayMs(context->getTransientStateDelayMs()) {}
+    pid_t getTid() const;
     std::string init() override;
     void populateReply(::aidl::android::hardware::audio::core::StreamDescriptor::Reply* reply,
                        bool isConnected) const;
@@ -294,6 +295,7 @@ struct StreamWorkerInterface {
     virtual void setIsConnected(bool isConnected) = 0;
     virtual void setClosed() = 0;
     virtual bool start() = 0;
+    virtual pid_t getTid() = 0;
     virtual void stop() = 0;
 };
 
@@ -311,6 +313,7 @@ class StreamWorkerImpl : public StreamWorkerInterface,
     bool start() override {
         return WorkerImpl::start(WorkerImpl::kThreadName, ANDROID_PRIORITY_AUDIO);
     }
+    pid_t getTid() override { return WorkerImpl::getTid(); }
     void stop() override { return WorkerImpl::stop(); }
 };
 
