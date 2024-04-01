@@ -98,6 +98,8 @@ bool hasMMapFlagsEnabled(const ::aidl::android::media::audio::common::AudioIoFla
 
 bool isInputAFEProxyDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
 
+bool isIPDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
+
 bool hasOutputDirectFlag(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
 
 bool hasOutputCompressOffloadFlag(

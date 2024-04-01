@@ -827,6 +827,13 @@ std::vector<VendorParameter> ModulePrimary::onGetWFDParameters(
             parcel.value = "1"; // This "1" indicates WFD client can try AHAL Capture.
             setParameter(parcel, param);
             results.push_back(param);
+        } else if (id == Parameters::kWfdProxyRecordActive) {
+            VendorParameter param;
+            param.id = id;
+            VString parcel;
+            parcel.value = mPlatform.IsProxyRecordActive();
+            setParameter(parcel, param);
+            results.push_back(param);
         } else {
             LOG(ERROR) << __func__ << ": unknown parameter in WFD feature. id:" << id;
         }
@@ -880,6 +887,7 @@ ModulePrimary::GetParameterToFeatureMap ModulePrimary::fillGetParameterToFeature
                                  {Parameters::kVoiceIsCRsSupported, Feature::TELEPHONY},
                                  {Parameters::kA2dpSuspended, Feature::BLUETOOTH},
                                  {Parameters::kCanOpenProxy, Feature::WFD},
+                                 {Parameters::kWfdProxyRecordActive, Feature::WFD},
                                  {Parameters::kFTMParam, Feature::FTM},
                                  {Parameters::kFTMSPKRParam, Feature::FTM},
                                  {Parameters::kFMStatus, Feature::AUDIOEXTENSION}};

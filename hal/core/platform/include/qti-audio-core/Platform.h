@@ -209,6 +209,8 @@ class Platform {
 
     void setWFDProxyChannels(const uint32_t numProxyChannels) noexcept;
     uint32_t getWFDProxyChannels() const noexcept;
+    /* Check if proxy record session is active in  PAL_DEVICE_IN_RECORD_PROXY */
+    std::string IsProxyRecordActive() const noexcept;
 
     void setHapticsVolume(const float hapticsVolume) const noexcept;
     void setHapticsIntensity(const int hapticsIntensity) const noexcept;

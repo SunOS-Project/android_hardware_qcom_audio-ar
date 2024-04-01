@@ -128,6 +128,11 @@ bool isInputAFEProxyDevice(const AudioDevice& device) noexcept {
     return device.type.type == AudioDeviceType::IN_AFE_PROXY;
 }
 
+bool isIPDevice(const AudioDevice& device) noexcept {
+    return  device.type.type == AudioDeviceType::OUT_DEVICE &&
+             device.type.connection == AudioDeviceDescription::CONNECTION_IP_V4;
+}
+
 bool hasOutputDirectFlag(const AudioIoFlags& ioFlags) noexcept {
     if (ioFlags.getTag() == AudioIoFlags::Tag::output) {
         constexpr auto directFlag =
