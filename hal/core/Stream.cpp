@@ -20,12 +20,15 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
+#define ATRACE_TAG (ATRACE_TAG_AUDIO | ATRACE_TAG_HAL)
+
 #define LOG_TAG "AHAL_Stream_QTI"
 #include <Utils.h>
 
 #include <android-base/logging.h>
 #include <android/binder_ibinder_platform.h>
 #include <utils/SystemClock.h>
+#include <utils/Trace.h>
 
 #include <qti-audio-core/Module.h>
 #include <qti-audio-core/ModulePrimary.h>
@@ -315,6 +318,7 @@ StreamInWorkerLogic::Status StreamInWorkerLogic::cycle() {
 }
 
 bool StreamInWorkerLogic::read(size_t clientSize, StreamDescriptor::Reply* reply) {
+    ATRACE_CALL();
     StreamContext::DataMQ* const dataMQ = mContext->getDataMQ();
     const size_t byteCount = std::min({clientSize, dataMQ->availableToWrite(), mDataBufferSize});
     const bool isConnected = mIsConnected;
@@ -584,6 +588,7 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
 }
 
 bool StreamOutWorkerLogic::write(size_t clientSize, StreamDescriptor::Reply* reply) {
+    ATRACE_CALL();
     StreamContext::DataMQ* const dataMQ = mContext->getDataMQ();
     const size_t readByteCount = dataMQ->availableToRead();
     const size_t frameSize = mContext->getFrameSize();
