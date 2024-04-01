@@ -97,17 +97,7 @@ class PcmRecord {
     constexpr static size_t kPlatformDelayMs = 20;
     static size_t getMinFrames(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
-    enum class HdrMode : uint8_t {
-        NONE = 0,
-        ARM,
-        SPF,
-    };
 
-    void configurePalDevices(
-            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
-            std::vector<pal_device>& palDevices);
-    void setHdrOnPalDevice(pal_device* palDeviceIn);
-    HdrMode getHdrMode();
 };
 
 class FastRecord {
@@ -332,6 +322,7 @@ class CompressCapture final {
     pal_stream_handle_t* mCompressHandle{nullptr};
     size_t mNumReadCalls{0};
     pal_snd_enc_t mPalSndEnc{};
+
 };
 
 class PcmOffloadPlayback final {

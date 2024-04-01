@@ -236,6 +236,14 @@ class Platform {
     int getRecommendedLatencyModes(
           std::vector<::aidl::android::media::audio::common::AudioLatencyMode>* _aidl_return);
 
+    void configurePalDevices(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
+            std::vector<pal_device>& palDevices);
+    void setHdrOnPalDevice(pal_device* palDeviceIn);
+    bool isHDRARMenabled();
+    bool isHDRSPFEnabled();
+
+
   private:
     void customizePalDevices(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
