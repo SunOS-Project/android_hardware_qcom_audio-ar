@@ -317,6 +317,10 @@ std::vector<pal_device> Platform::convertToPalDevices(
         }
         i++;
     }
+    if (devices.size() == 2 && isHdmiDevice(devices[0]) && isHdmiDevice(devices[1])) {
+        LOG(INFO) << __func__ << " Send latest DP device in the Pal list " << palDevices[1].id;
+        return {palDevices[1]};
+    }
     return palDevices;
 }
 
