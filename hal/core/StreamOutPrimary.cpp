@@ -15,6 +15,7 @@
 #include <qti-audio-core/ModulePrimary.h>
 #include <qti-audio-core/StreamOutPrimary.h>
 #include <qti-audio/PlatformConverter.h>
+#include <qti-audio-core/Parameters.h>
 
 using aidl::android::hardware::audio::common::AudioOffloadMetadata;
 using aidl::android::hardware::audio::common::getFrameSizeInBytes;
@@ -39,6 +40,7 @@ using ::aidl::android::hardware::audio::core::StreamDescriptor;
 using ::aidl::android::hardware::audio::core::VendorParameter;
 
 using aidl::android::media::audio::common::AudioPortExt;
+using aidl::android::media::audio::common::Int;
 
 // uncomment this to enable logging of very verbose logs like burst commands.
 // #define VERY_VERBOSE_LOGGING 1
@@ -792,7 +794,19 @@ ndk::ScopedAStatus StreamOutPrimary::getVendorParameters(
         auto& compressPlayback = std::get<CompressPlayback>(mExt);
         return compressPlayback.getVendorParameters(in_ids, _aidl_return);
     }
-    return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+
+    if (mTag == Usecase::LOW_LATENCY_PLAYBACK) {
+        for (const auto& id : in_ids) {
+            if (id == Parameters::kSupportsHwSuspend) {
+                std::string value = "1";
+                _aidl_return->push_back(makeVendorParameter(id, value));
+            }
+        }
+    }
+
+    if (in_ids.size() != _aidl_return->size())
+        return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+    return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus StreamOutPrimary::setVendorParameters(
