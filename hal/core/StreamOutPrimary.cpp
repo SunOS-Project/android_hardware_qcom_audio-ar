@@ -131,11 +131,6 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
     auto connectedPalDevices =
             mPlatform.configureAndFetchPalDevices(mMixPortConfig, mTag, mConnectedDevices);
 
-    if (connectedPalDevices.size() != mConnectedDevices.size()) {
-        LOG(ERROR) << __func__ << mLogPrefix << ": pal devices size != aidl devices size";
-        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
-    }
-
    if (int32_t ret = ::pal_stream_set_device(mPalHandle, connectedPalDevices.size(),
                                               connectedPalDevices.data());
         ret) {
