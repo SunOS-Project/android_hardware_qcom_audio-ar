@@ -1,6 +1,8 @@
 LOCAL_PATH := $(call my-dir)
 CURRENT_PATH := $(call my-dir)
+
 include $(CLEAR_VARS)
+
 LOCAL_MODULE            := libaudiocorehal.qti
 LOCAL_VENDOR_MODULE     := true
 LOCAL_MODULE_RELATIVE_PATH := hw
@@ -34,7 +36,6 @@ LOCAL_SRC_FILES := \
     Telephony.cpp \
     StreamInPrimary.cpp \
     StreamOutPrimary.cpp \
-    Utils.cpp \
     HalOffloadEffects.cpp
 
 LOCAL_HEADER_LIBRARIES :=  \
@@ -55,6 +56,7 @@ LOCAL_HEADER_LIBRARIES :=  \
 #    android.hardware.audio.core-V1-ndk
 
 LOCAL_STATIC_LIBRARIES := \
+    libaudiohalutils.qti \
     libaudio_module_config.qti \
     libaudiocore.extension
 
@@ -90,3 +92,4 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CURRENT_PATH)/extensions/Android.mk
 include $(CURRENT_PATH)/platform/Android.mk
+include $(CURRENT_PATH)/utils/Android.mk
