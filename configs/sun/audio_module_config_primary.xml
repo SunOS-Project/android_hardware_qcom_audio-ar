@@ -102,7 +102,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         </mixPort>
         <mixPort name="hifi_input" role="sink" />
         <mixPort name="hotword_input" role="sink" flags="HW_HOTWORD">
-            <profile samplingRates="16000" channelLayouts="LAYOUT_MONO" formatType="PCM" pcmType="INT_16_BIT" />
+            <profile samplingRates="16000" channelLayouts="LAYOUT_MONO LAYOUT_STEREO" formatType="PCM" pcmType="INT_16_BIT" />
         </mixPort>
         <!-- end of sink mixports-->
     </mixPorts>
