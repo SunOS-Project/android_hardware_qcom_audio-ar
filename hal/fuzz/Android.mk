@@ -13,6 +13,7 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/../core/extensions/include \
     $(LOCAL_PATH)/../core/module_config/include \
     $(LOCAL_PATH)/../core/platform/include \
+    $(LOCAL_PATH)/../core/utils/include \
     system/media/audio/include \
     hardware/libhardware/include \
     system/core/libsystem/include
