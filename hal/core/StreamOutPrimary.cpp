@@ -40,7 +40,6 @@ using ::aidl::android::hardware::audio::core::StreamDescriptor;
 using ::aidl::android::hardware::audio::core::VendorParameter;
 
 using aidl::android::media::audio::common::AudioPortExt;
-using aidl::android::media::audio::common::Int;
 
 // uncomment this to enable logging of very verbose logs like burst commands.
 // #define VERY_VERBOSE_LOGGING 1
@@ -102,6 +101,10 @@ bool StreamOutPrimary::isHwVolumeSupported() {
             break;
     }
     return false;
+}
+
+struct BufferConfig StreamOutPrimary::getBufferConfig() {
+    return mPlatform.getBufferConfig(mMixPortConfig, mTag);
 }
 
 StreamOutPrimary::~StreamOutPrimary() {
@@ -175,8 +178,9 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
-    const size_t ringBufSizeInBytes = getPeriodSize();
-    const size_t ringBufCount = getPeriodCount();
+    auto bufConfig = getBufferConfig();
+    const size_t ringBufSizeInBytes = bufConfig.bufferSize;
+    const size_t ringBufCount = bufConfig.bufferCount;
     auto palBufferConfig = mPlatform.getPalBufferConfig(ringBufSizeInBytes, ringBufCount);
     LOG(DEBUG) << __func__ << mLogPrefix << " set pal_stream_set_buffer_size to "
                << std::to_string(ringBufSizeInBytes) << " with count "
@@ -835,61 +839,6 @@ ndk::ScopedAStatus StreamOutPrimary::removeEffect(
 
 // end of StreamCommonInterface Methods
 
-size_t StreamOutPrimary::getPeriodSize() const noexcept {
-    if (mTag == Usecase::PRIMARY_PLAYBACK) {
-        return PrimaryPlayback::kPeriodSize * mFrameSizeBytes;
-    } else if (mTag == Usecase::DEEP_BUFFER_PLAYBACK) {
-        return DeepBufferPlayback::kPeriodSize * mFrameSizeBytes;
-    } else if (mTag == Usecase::LOW_LATENCY_PLAYBACK) {
-        return LowLatencyPlayback::getBufferSize(mMixPortConfig);
-    } else if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        return CompressPlayback::getPeriodBufferSize(mMixPortConfig.format.value());
-    } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
-        return PcmOffloadPlayback::getPeriodSize(mMixPortConfig);
-    } else if (mTag == Usecase::VOIP_PLAYBACK) {
-        return VoipPlayback::getPeriodSize(mMixPortConfig);
-    } else if (mTag == Usecase::SPATIAL_PLAYBACK) {
-        return SpatialPlayback::kPeriodSize * mFrameSizeBytes;
-    } else if (mTag == Usecase::ULL_PLAYBACK) {
-        return UllPlayback::getBufferSize(mMixPortConfig);
-    } else if (mTag == Usecase::MMAP_PLAYBACK) {
-        return MMapPlayback::getPeriodSize(mMixPortConfig.format.value(),
-                                           mMixPortConfig.channelMask.value());
-    } else if (mTag == Usecase::IN_CALL_MUSIC) {
-        return InCallMusic::kPeriodSize;
-    } else if (mTag == Usecase::HAPTICS_PLAYBACK) {
-        return LowLatencyPlayback::kPeriodSize * mFrameSizeBytes;
-    }
-    return 0;
-}
-
-size_t StreamOutPrimary::getPeriodCount() const noexcept {
-    if (mTag == Usecase::PRIMARY_PLAYBACK) {
-        return PrimaryPlayback::kPeriodCount;
-    } else if (mTag == Usecase::DEEP_BUFFER_PLAYBACK) {
-        return DeepBufferPlayback::kPeriodCount;
-    } else if (mTag == Usecase::LOW_LATENCY_PLAYBACK) {
-        return LowLatencyPlayback::kPeriodCount;
-    } else if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        return CompressPlayback::kPeriodCount;
-    } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
-        return PcmOffloadPlayback::kPeriodCount;
-    } else if (mTag == Usecase::VOIP_PLAYBACK) {
-        return VoipPlayback::kPeriodCount;
-    } else if (mTag == Usecase::SPATIAL_PLAYBACK) {
-        return SpatialPlayback::kPeriodCount;
-    } else if (mTag == Usecase::ULL_PLAYBACK) {
-        return UllPlayback::kPeriodCount;
-    } else if (mTag == Usecase::MMAP_PLAYBACK) {
-        return MMapPlayback::kPeriodCount;
-    } else if (mTag == Usecase::IN_CALL_MUSIC) {
-        return InCallMusic::kPeriodCount;
-    } else if (mTag == Usecase::HAPTICS_PLAYBACK) {
-        return HapticsPlayback::kPeriodCount;
-    }
-    return 0;
-}
-
 size_t StreamOutPrimary::getPlatformDelay() const noexcept {
     return 0;
 }
@@ -1048,14 +997,14 @@ void StreamOutPrimary::configure() {
         mAudExt.mKarokeExtension->karaoke_open(palDevices[size - 1].id, palFn,
                                                attr.get()->out_media_config.ch_info);
     }
-    size_t ringBufSizeInBytes = getPeriodSize();
+    auto bufConfig = getBufferConfig();
+    size_t ringBufSizeInBytes = bufConfig.bufferSize;
+    const size_t ringBufCount = bufConfig.bufferCount;
 
     if (mTag == Usecase::HAPTICS_PLAYBACK && mHapticsPalHandle) {
         size_t hapticsFrameSize = getFrameSizeInBytes(mMixPortConfig.format.value(), channelLayout);
         ringBufSizeInBytes = LowLatencyPlayback::kPeriodSize * hapticsFrameSize;
     }
-
-    const size_t ringBufCount = getPeriodCount();
 
     if (auto converter = Platform::requiresBufferReformat(mMixPortConfig);
         converter && !mBufferFormatConverter.has_value()) {
@@ -1078,7 +1027,7 @@ void StreamOutPrimary::configure() {
         return;
     }
     if (mTag == Usecase::HAPTICS_PLAYBACK && mHapticsPalHandle) {
-        const size_t hapticsRingBufCount = getPeriodCount();
+        const size_t hapticsRingBufCount = ringBufCount;
         size_t hapticsFrameSize = getFrameSizeInBytes(mMixPortConfig.format.value(), hapticChannelLayout);
         const size_t hapticsRingBufSizeInBytes = LowLatencyPlayback::kPeriodSize * hapticsFrameSize;
 

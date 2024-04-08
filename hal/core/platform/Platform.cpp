@@ -51,57 +51,58 @@ namespace qti::audio::core {
 
 btsco_lc3_cfg_t Platform::btsco_lc3_cfg = {};
 
-size_t Platform::getFrameCount(
-        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) const {
-    Usecase tag = getUsecaseTag(mixPortConfig);
+size_t Platform::getFrameCount(const AudioPortConfig& mixPortConfig, Usecase const& inTag) {
+    const auto& tag = (inTag == Usecase::INVALID ? getUsecaseTag(mixPortConfig) : inTag);
     size_t numFrames = 0;
-    if (tag == Usecase::DEEP_BUFFER_PLAYBACK) {
-        numFrames = DeepBufferPlayback::kPeriodSize;
-    } else if (tag == Usecase::PCM_OFFLOAD_PLAYBACK) {
-        numFrames = PcmOffloadPlayback::getFrameCount(mixPortConfig);
-    } else if (tag == Usecase::LOW_LATENCY_PLAYBACK) {
-        numFrames = LowLatencyPlayback::getMinFrames(mixPortConfig);
-    } else if (tag == Usecase::PCM_RECORD) {
-        numFrames = PcmRecord::getMinFrames(mixPortConfig);
-    } else if (tag == Usecase::FAST_RECORD) {
-        numFrames = FastRecord::getPeriodSize(mixPortConfig) /
-                    getFrameSizeInBytes(mixPortConfig.format.value(),
-                                        mixPortConfig.channelMask.value());
-    } else if (tag == Usecase::ULTRA_FAST_RECORD) {
-        numFrames = UltraFastRecord::kPeriodSize;
-    } else if (tag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        const size_t numBytes = CompressPlayback::getPeriodBufferSize(mixPortConfig.format.value());
-        constexpr size_t compressFrameSize = 1;
-        numFrames = numBytes / compressFrameSize;
-    } else if (tag == Usecase::COMPRESS_CAPTURE) {
-        numFrames = CompressCapture::getPeriodBufferSize(mixPortConfig.format.value());
-    } else if (tag == Usecase::ULL_PLAYBACK) {
-        numFrames = UllPlayback::getMinFrames(mixPortConfig);
-    } else if (tag == Usecase::MMAP_PLAYBACK) {
-        numFrames = MMapPlayback::kPeriodSize;
-    } else if (tag == Usecase::MMAP_RECORD) {
-        numFrames = MMapRecord::kPeriodSize;
-    } else if (tag == Usecase::VOIP_PLAYBACK) {
-        numFrames = VoipPlayback::getPeriodSize(mixPortConfig);
-    } else if (tag == Usecase::VOIP_RECORD) {
-        numFrames = VoipRecord::getPeriodSize(mixPortConfig);
-    } else if (tag == Usecase::VOICE_CALL_RECORD) {
-        numFrames = VoiceCallRecord::getPeriodSize(mixPortConfig);
-    } else if (tag == Usecase::IN_CALL_MUSIC) {
-        numFrames = InCallMusic::kPeriodSize;
-    } else if (tag == Usecase::SPATIAL_PLAYBACK) {
-        numFrames = SpatialPlayback::kPeriodSize;
-    } else if (tag == Usecase::HOTWORD_RECORD) {
-        numFrames = HotwordRecord::getMinFrames(mixPortConfig);
-    } else if (tag == Usecase::HAPTICS_PLAYBACK) {
-        numFrames = HapticsPlayback::kPeriodSize;
+
+    if (mUsecaseOpMap.find(tag) != mUsecaseOpMap.end()) {
+        numFrames = mUsecaseOpMap[tag].getFrameCount(mixPortConfig);
+    } else {
+        LOG(ERROR) << __func__ << "usecase not found " << getName(tag);
     }
+
     LOG(VERBOSE) << __func__ << " frames: " << numFrames << " for " << getName(tag);
     return numFrames;
 }
 
+struct BufferConfig Platform::getBufferConfig(const AudioPortConfig& mixPortConfig,
+                                              Usecase const& inTag) {
+    const auto& tag = (inTag == Usecase::INVALID ? getUsecaseTag(mixPortConfig) : inTag);
+    struct BufferConfig config;
+    if (mUsecaseOpMap.find(tag) != mUsecaseOpMap.end()) {
+        config = mUsecaseOpMap[tag].getBufferConfig(mixPortConfig);
+    } else {
+        LOG(ERROR) << __func__ << "usecase not found " << getName(tag);
+    }
+
+    return config;
+}
+
+int32_t Platform::getLatencyMs(const AudioPortConfig& mixPortConfig, Usecase const& inTag) {
+    if (mixPortConfig.ext.getTag() != AudioPortExt::Tag::mix) {
+        LOG(ERROR) << __func__
+                   << ": cannot deduce latency for port config which is not a mix port, "
+                   << mixPortConfig.toString();
+        return 0;
+    }
+
+    int32_t latencyMs = 0;
+
+    const auto& tag = (inTag == Usecase::INVALID ? getUsecaseTag(mixPortConfig) : inTag);
+
+    if (mUsecaseOpMap.find(tag) != mUsecaseOpMap.end()) {
+        latencyMs = mUsecaseOpMap[tag].getLatency();
+    } else {
+        LOG(ERROR) << __func__ << "usecase not found " << getName(tag);
+    }
+
+    LOG(VERBOSE) << __func__ << ": latency" << latencyMs << " for " << getName(tag);
+
+    return latencyMs;
+}
+
 size_t Platform::getMinimumStreamSizeFrames(const std::vector<AudioPortConfig*>& sources,
-                                            const std::vector<AudioPortConfig*>& sinks) const {
+                                            const std::vector<AudioPortConfig*>& sinks) {
     if (sources.size() > 1) {
         LOG(WARNING) << __func__ << " unable to decide the minimum stream size for sources "
                                     "more than one; actual size:"
@@ -585,66 +586,6 @@ void Platform::updateUHQA(const bool enable) noexcept {
 
 bool Platform::isUHQAEnabled() const noexcept {
     return mIsUHQAEnabled;
-}
-
-int32_t Platform::getLatencyMs(const AudioPortConfig& mixPortConfig,
-                               Usecase const& inTag) const {
-    if (mixPortConfig.ext.getTag() != AudioPortExt::Tag::mix) {
-        LOG(ERROR) << __func__
-                   << ": cannot deduce latency for port config which is not a mix port, "
-                   << mixPortConfig.toString();
-        return 0;
-    }
-
-    int32_t latencyMs = 0;
-
-    const auto& tag = (inTag == Usecase::INVALID ? getUsecaseTag(mixPortConfig) : inTag);
-
-    // decide the latency based on usecase
-    if (tag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        latencyMs = CompressPlayback::kLatencyMs * 2;
-    } else if (tag == Usecase::LOW_LATENCY_PLAYBACK) {
-        latencyMs = LowLatencyPlayback::kPeriodDurationMs * LowLatencyPlayback::kPeriodCount +
-                    LowLatencyPlayback::kPlatformDelayMs;
-    } else if (tag == Usecase::PCM_OFFLOAD_PLAYBACK) {
-        latencyMs = PcmOffloadPlayback::kPeriodDurationMs * PcmOffloadPlayback::kPeriodCount +
-                    PcmOffloadPlayback::kPlatformDelayMs;
-    } else if (tag == Usecase::DEEP_BUFFER_PLAYBACK) {
-        latencyMs = DeepBufferPlayback::kPeriodDurationMs * DeepBufferPlayback::kPeriodCount +
-                    DeepBufferPlayback::kPlatformDelayMs;
-    } else if (tag == Usecase::VOIP_PLAYBACK) {
-        latencyMs = VoipPlayback::kBufferDurationMs * VoipPlayback::kPeriodCount +
-                    VoipPlayback::kPlatformDelayMs;
-    } else if (tag == Usecase::SPATIAL_PLAYBACK) {
-        latencyMs = SpatialPlayback::kPeriodDurationMs * SpatialPlayback::kPeriodCount +
-                    SpatialPlayback::kPlatformDelayMs;
-    } else if (tag == Usecase::ULL_PLAYBACK) {
-        latencyMs = UllPlayback::kPeriodSize * UllPlayback::kPeriodMultiplier +
-                    UllPlayback::kPlatformDelayMs;
-    } else if (tag == Usecase::MMAP_PLAYBACK) {
-        latencyMs = MMapPlayback::kPeriodSize + MMapPlayback::kPlatformDelayMs;
-    } else if (tag == Usecase::HAPTICS_PLAYBACK) {
-        latencyMs = HapticsPlayback::kPeriodDurationMs * HapticsPlayback::kPeriodCount +
-                    HapticsPlayback::kPlatformDelayMs;
-    } else if (tag == Usecase::PCM_RECORD) {
-        latencyMs = PcmRecord::kCaptureDurationMs * PcmRecord::kPeriodCount +
-                    PcmRecord::kPlatformDelayMs;
-    } else if (tag == Usecase::COMPRESS_CAPTURE) {
-        latencyMs = CompressCapture::kPlatformDelayMs;
-    } else {
-        LOG(ERROR) << __func__ << ": no match for usecase, " << getName(tag);
-    }
-
-    if (latencyMs == 0) {
-        latencyMs = kDefaultLatencyMs;
-        LOG(WARNING) << __func__
-                     << ": none of the usecase matched, configured default latencyMs:" << latencyMs;
-    } else {
-        LOG(VERBOSE) << __func__ << ": nominal latency configured:" << latencyMs
-                  << ", for usecase: " << getName(tag);
-    }
-
-    return latencyMs;
 }
 
 void Platform::setFTMSpeakerProtectionMode(uint32_t const heatUpTime, uint32_t const runTime,
@@ -1385,7 +1326,32 @@ int Platform::palGlobalCallback(uint32_t event_id, uint32_t* event_data, uint64_
     return 0;
 }
 
+void Platform::initUsecaseOpMap() {
+    mUsecaseOpMap[Usecase::PRIMARY_PLAYBACK] = makeUsecaseOps<PrimaryPlayback>();
+    mUsecaseOpMap[Usecase::LOW_LATENCY_PLAYBACK] = makeUsecaseOps<LowLatencyPlayback>();
+    mUsecaseOpMap[Usecase::DEEP_BUFFER_PLAYBACK] = makeUsecaseOps<DeepBufferPlayback>();
+    mUsecaseOpMap[Usecase::ULL_PLAYBACK] = makeUsecaseOps<UllPlayback>();
+    mUsecaseOpMap[Usecase::MMAP_PLAYBACK] = makeUsecaseOps<MMapPlayback>();
+    mUsecaseOpMap[Usecase::COMPRESS_OFFLOAD_PLAYBACK] = makeUsecaseOps<CompressPlayback>();
+    mUsecaseOpMap[Usecase::PCM_OFFLOAD_PLAYBACK] = makeUsecaseOps<PcmOffloadPlayback>();
+    mUsecaseOpMap[Usecase::VOIP_PLAYBACK] = makeUsecaseOps<VoipPlayback>();
+    mUsecaseOpMap[Usecase::HAPTICS_PLAYBACK] = makeUsecaseOps<HapticsPlayback>();
+    mUsecaseOpMap[Usecase::SPATIAL_PLAYBACK] = makeUsecaseOps<SpatialPlayback>();
+    mUsecaseOpMap[Usecase::IN_CALL_MUSIC] = makeUsecaseOps<InCallMusic>();
+
+    // Record usecases
+    mUsecaseOpMap[Usecase::PCM_RECORD] = makeUsecaseOps<PcmRecord>();
+    mUsecaseOpMap[Usecase::FAST_RECORD] = makeUsecaseOps<FastRecord>();
+    mUsecaseOpMap[Usecase::ULTRA_FAST_RECORD] = makeUsecaseOps<UltraFastRecord>();
+    mUsecaseOpMap[Usecase::MMAP_RECORD] = makeUsecaseOps<MMapRecord>();
+    mUsecaseOpMap[Usecase::COMPRESS_CAPTURE] = makeUsecaseOps<CompressCapture>();
+    mUsecaseOpMap[Usecase::VOIP_RECORD] = makeUsecaseOps<VoipRecord>();
+    mUsecaseOpMap[Usecase::VOICE_CALL_RECORD] = makeUsecaseOps<VoiceCallRecord>();
+    mUsecaseOpMap[Usecase::HOTWORD_RECORD] = makeUsecaseOps<HotwordRecord>();
+}
+
 Platform::Platform() {
+    initUsecaseOpMap();
     if (int32_t ret = pal_init(); ret) {
         LOG(ERROR) << __func__ << "pal init failed!!! ret:" << ret;
         return;
