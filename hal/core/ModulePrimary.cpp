@@ -537,6 +537,9 @@ void ModulePrimary::onSetWFDParameters(const std::vector<VendorParameter>& param
         } else if (Parameters::kWfdIPAsProxyDevConnected == p.id) {
             auto isIPAsProxy = getBoolFromString(paramValue);
             mPlatform.setIPAsProxyDeviceConnected(isIPAsProxy);
+        } else if (Parameters::kProxyRecordFMQSize == p.id) {
+            const size_t& proxyRecordFMQSize = static_cast<int32_t>(getInt64FromString(paramValue));
+            mPlatform.setProxyRecordFMQSize(proxyRecordFMQSize);
         }
     }
     return;
@@ -633,6 +636,7 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
                                  {Parameters::kTriggerSpeakerCall, Feature::FTM},
                                  {Parameters::kWfdChannelMap, Feature::WFD},
                                  {Parameters::kWfdIPAsProxyDevConnected, Feature::WFD},
+                                 {Parameters::kProxyRecordFMQSize, Feature::WFD},
                                  {Parameters::kHapticsVolume, Feature::HAPTICS},
                                  {Parameters::kHapticsIntensity, Feature::HAPTICS}};
     return map;

@@ -815,6 +815,28 @@ size_t FastRecord::getFrameCount(const AudioPortConfig& mixPortConfig) {
 
 // [UltraFastRecord Start]
 size_t UltraFastRecord::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    /**
+     * Some clients which directly uses AHAL service for Fast Record like
+     * proxy capture
+     **/
+    auto& platform = Platform::getInstance();
+    if (const auto& propFrameSize = platform.getProxyRecordFMQSize(); propFrameSize > 0) {
+        LOG(VERBOSE) << __func__ << ": client applied FMQSize in Frames:" << propFrameSize;
+        return propFrameSize;
+    }
+
+    if (!hasInputRawFlag(mixPortConfig.flags.value())) {
+        /**
+         * Most likey this is for WFD Usecase,
+         * they demand PCM frames of 1024 in every read
+         * TODO, move this requirement to FastRecord
+         **/
+        constexpr size_t kWFDPCMFramesPerRead = 1024;
+        LOG(VERBOSE) << __func__ << ": expecting for WFD proxy record:";
+        return kWFDPCMFramesPerRead;
+    }
+
+    // return default period size for ULL
     return kPeriodSize;
 }
 

@@ -561,6 +561,14 @@ void Platform::setWFDProxyChannels(const uint32_t numProxyChannels) noexcept {
     }
 }
 
+void Platform::setProxyRecordFMQSize(const size_t& FMQSize) noexcept {
+    mProxyRecordFMQSize = FMQSize;
+}
+
+size_t Platform::getProxyRecordFMQSize() const noexcept {
+    return mProxyRecordFMQSize;
+}
+
 uint32_t Platform::getWFDProxyChannels() const noexcept {
     return mWFDProxyChannels;
 }
