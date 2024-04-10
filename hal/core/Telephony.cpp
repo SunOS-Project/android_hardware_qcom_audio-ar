@@ -48,11 +48,6 @@ const AudioDevice Telephony::kDefaultCRSRxDevice =
         AudioDevice{.type.type = AudioDeviceType::OUT_SPEAKER};
 
 Telephony::Telephony() {
-    for (int i = 0; i < MAX_VOICE_SESSIONS; i++) {
-        mVoiceSession.session[i].mCallState = CallState::INVALID;
-        mVoiceSession.session[i].mCallType = {""};
-        mVoiceSession.session[i].mIsCrsCall = false;
-    }
     mVoiceSession.session[VSID1_VOICE_SESSION].mVSID = VSID::VSID_1;
     mVoiceSession.session[VSID2_VOICE_SESSION].mVSID = VSID::VSID_2;
     mTelecomConfig.voiceVolume = Float{TelecomConfig::VOICE_VOLUME_MAX};
@@ -118,8 +113,10 @@ ndk::ScopedAStatus Telephony::setTelecomConfig(const TelecomConfig& in_config,
     std::scoped_lock lock{mLock};
 
     if (in_config.voiceVolume.has_value() &&
-        (in_config.voiceVolume.value().value < TelecomConfig::VOICE_VOLUME_MIN ||
-         in_config.voiceVolume.value().value > TelecomConfig::VOICE_VOLUME_MAX)) {
+        (in_config.voiceVolume.value().value <
+                 static_cast<float>(TelecomConfig::VOICE_VOLUME_MIN) ||
+         in_config.voiceVolume.value().value >
+                 static_cast<float>(TelecomConfig::VOICE_VOLUME_MAX))) {
         LOG(ERROR) << __func__
                    << ": voice volume value is invalid: " << in_config.voiceVolume.value().value;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
