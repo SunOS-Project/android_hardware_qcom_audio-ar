@@ -487,6 +487,7 @@ void ModulePrimary::onSetTelephonyParameters(const std::vector<VendorParameter>&
             isSetUpdate = true;
         } else if (Parameters::kVoiceCRSCall == p.id) {
             setUpdates.mIsCrsCall = paramValue == "true" ? true : false;
+            isSetUpdate = true;
         } else if (Parameters::kVoiceCRSVolume == p.id) {
             mTelephony->setCRSVolumeFromIndex(getInt64FromString(paramValue));
         } else if (Parameters::kVolumeBoost == p.id) {
