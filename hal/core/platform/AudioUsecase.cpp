@@ -227,9 +227,10 @@ size_t UllPlayback::getMinFrames(const AudioPortConfig& mixPortConfig) {
 }
 
 size_t UllPlayback::getBufferSize(const AudioPortConfig& mixPortConfig) {
+    auto minFrames = getMinFrames(mixPortConfig);
     auto frameSizeInBytes =
             getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
-    return UllPlayback::kPeriodSize * frameSizeInBytes;
+    return minFrames * frameSizeInBytes;
 }
 
 // static
