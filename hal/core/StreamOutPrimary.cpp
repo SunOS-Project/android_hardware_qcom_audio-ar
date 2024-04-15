@@ -64,9 +64,10 @@ StreamOutPrimary::StreamOutPrimary(StreamContext&& context, const SourceMetadata
     } else if (mTag == Usecase::DEEP_BUFFER_PLAYBACK) {
         mExt.emplace<DeepBufferPlayback>();
     } else if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        mExt.emplace<CompressPlayback>(offloadInfo.value(), getContext().getAsyncCallback());
+        mExt.emplace<CompressPlayback>(offloadInfo.value(), getContext().getAsyncCallback(),
+                                       mMixPortConfig);
     } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
-        mExt.emplace<PcmOffloadPlayback>();
+        mExt.emplace<PcmOffloadPlayback>(mMixPortConfig);
     } else if (mTag == Usecase::VOIP_PLAYBACK) {
         mExt.emplace<VoipPlayback>();
     } else if (mTag == Usecase::SPATIAL_PLAYBACK) {
@@ -259,13 +260,26 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
         LOG(VERBOSE) << __func__ << mLogPrefix << " unsupported operation!!, Hence ignored";
         return ::android::OK;
     }
+
+    // to be precise or accurate w.r.t to frames consumed
+    // before flush operation, we would fetch latest frames
+    // and cache it.
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        std::get<CompressPlayback>(mExt).getPositionInFrames(mPalHandle);
+    } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
+        std::get<PcmOffloadPlayback>(mExt).getPositionInFrames(mPalHandle);
+    }
+
     if (int32_t ret = ::pal_stream_flush(mPalHandle); ret) {
         LOG(ERROR) << __func__ << mLogPrefix << " failed to flush the stream, ret:" << ret;
         return ret;
     }
 
+    // after flush operation
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        std::get<CompressPlayback>(mExt).reconfigureOnFlush();
+        std::get<CompressPlayback>(mExt).onFlush();
+    } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
+        std::get<PcmOffloadPlayback>(mExt).onFlush();
     }
 
     LOG(DEBUG) << __func__ << mLogPrefix;
@@ -465,37 +479,19 @@ void StreamOutPrimary::resume() {
     return (ret < 0 ? ret :  (frameSize*frameCount));
 }
 
-void StreamOutPrimary::updateCachedFrames(size_t cachedFrames) {
-    mCachedFrames = cachedFrames;
-}
-
-::android::status_t StreamOutPrimary::refinePosition(
-        ::aidl::android::hardware::audio::core::StreamDescriptor::Reply* reply) {
-    if (!mPalHandle) {
-        return ::android::OK;
-    }
+::android::status_t StreamOutPrimary::refinePosition(StreamDescriptor::Reply* reply) {
 
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        mPlatform.getPositionInFrames(mPalHandle, mMixPortConfig.sampleRate.value().value,
-                                            &(reply->observable.frames));
+        reply->observable.frames = std::get<CompressPlayback>(mExt).getPositionInFrames(mPalHandle);
     } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
-        if (mPlatform.isSoundCardUp()) {
-            mPlatform.getPositionInFrames(mPalHandle, mMixPortConfig.sampleRate.value().value,
-                                                &(reply->observable.frames));
-        } else {
-            reply->observable.frames += mCachedFrames;
-            updateCachedFrames(reply->observable.frames);
-        }
+        reply->observable.frames =
+                std::get<PcmOffloadPlayback>(mExt).getPositionInFrames(mPalHandle);
     } else if (mTag == Usecase::MMAP_PLAYBACK) {
         if (int32_t ret = std::get<MMapPlayback>(mExt).getMMapPosition(&(reply->hardware.frames),
                                                                        &(reply->hardware.timeNs));
             ret) {
             return ::android::BAD_VALUE;
         }
-#ifdef VERY_VERBOSE_LOGGING
-        LOG(VERBOSE) << __func__ << mLogPrefix << " frames " << reply->hardware.frames << " timeNs "
-                     << reply->hardware.timeNs;
-#endif
     }
 
     // if the stream is connected to any bluetooth device, consider bluetooth encoder latency
@@ -507,9 +503,6 @@ void StreamOutPrimary::updateCachedFrames(size_t cachedFrames) {
         if (reply->observable.frames >= btExtraFrames) {
             reply->observable.frames -= btExtraFrames;
         }
-#ifdef VERY_VERBOSE_LOGGING
-        LOG(VERBOSE) << __func__ << mLogPrefix << ": bluetooth latencyMs:" << latencyMs;
-#endif
     }
 
     return ::android::OK;

@@ -95,7 +95,6 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     void configure();
     void resume();
     size_t getPlatformDelay() const noexcept;
-    void updateCachedFrames(size_t cachedFrames);
     ::android::status_t onWriteError(const size_t sleepFrameCount);
 
     // This API calls startEffect/stopEffect only on offload/pcm offload outputs.
@@ -104,7 +103,6 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     const Usecase mTag;
     const std::string mTagName;
     const size_t mFrameSizeBytes;
-    size_t mCachedFrames = 0;
     bool mIsPaused{false};
     std::vector<float> mVolumes{};
     bool mHwVolumeSupported = false;

@@ -289,7 +289,8 @@ class CompressPlayback : public UsecaseConfig<CompressPlayback, false /*IsPcm*/>
 
     explicit CompressPlayback(
             const ::aidl::android::media::audio::common::AudioOffloadInfo& offloadInfo,
-            std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> asyncCallback);
+            std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> asyncCallback,
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
     /* To reconfigure the codec, gapless info */
     void setAndConfigureCodecInfo(pal_stream_handle_t* handle);
     void configureGapless(pal_stream_handle_t* handle);
@@ -312,6 +313,8 @@ class CompressPlayback : public UsecaseConfig<CompressPlayback, false /*IsPcm*/>
             const ::aidl::android::hardware::audio::common::AudioOffloadMetadata& offloadMetaData);
     void updateSourceMetadata(
             const ::aidl::android::hardware::audio::common::SourceMetadata& sourceMetaData);
+    int64_t getPositionInFrames(pal_stream_handle_t* palHandle);
+    void onFlush();
 
   protected:
     void configureDefault();
@@ -336,10 +339,16 @@ class CompressPlayback : public UsecaseConfig<CompressPlayback, false /*IsPcm*/>
     int32_t mBitWidth;
     std::atomic<bool> mIsDrainReady{false};
     std::atomic<bool> mIsTransferReady{false};
+    int64_t mTotalDSPFrames{0};
+    int64_t mPrevFrames{0};
+    const ::aidl::android::media::audio::common::AudioPortConfig& mMixPortConfig;
 };
 
 class PcmOffloadPlayback : public UsecaseConfig<PcmOffloadPlayback> {
   public:
+    explicit PcmOffloadPlayback(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig)
+        : mMixPortConfig(mixPortConfig) {}
     constexpr static size_t kPeriodDurationMs = 80;
     constexpr static size_t kPeriodCount = 2;
     constexpr static size_t kPlatformDelayMs = 30;
@@ -351,8 +360,13 @@ class PcmOffloadPlayback : public UsecaseConfig<PcmOffloadPlayback> {
 
     static int32_t getLatency() { return kPeriodDurationMs * kPeriodCount + kPlatformDelayMs; }
 
+    int64_t getPositionInFrames(pal_stream_handle_t* palHandle);
+    void onFlush();
+
   private:
-    int64_t mCachePresentationPosition;
+    int64_t mTotalDSPFrames{0};
+    int64_t mPrevFrames{0};
+    const ::aidl::android::media::audio::common::AudioPortConfig& mMixPortConfig;
 };
 
 class VoipPlayback : public UsecaseConfig<VoipPlayback> {

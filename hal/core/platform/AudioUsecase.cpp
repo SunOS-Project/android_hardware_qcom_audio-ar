@@ -12,6 +12,7 @@
 #include <qti-audio-core/AudioUsecase.h>
 #include <qti-audio-core/Platform.h>
 #include <qti-audio-core/PlatformUtils.h>
+#include <qti-audio-core/Utils.h>
 
 using ::aidl::android::media::audio::common::AudioIoFlags;
 using ::aidl::android::media::audio::common::AudioInputFlags;
@@ -289,6 +290,7 @@ int32_t MMapPlayback::getMMapPosition(int64_t* frames, int64_t* timeNs) {
     }
     *timeNs = pal_mmap_pos.time_nanoseconds;
     *frames = pal_mmap_pos.position_frames;
+    LOG(VERBOSE) << __func__ << ": frames:" << *frames << ", timeNs:" << *timeNs;
     return 0;
 }
 
@@ -314,8 +316,9 @@ size_t CompressPlayback::getFrameCount(const AudioPortConfig& mixPortConfig) {
 
 CompressPlayback::CompressPlayback(
         const ::aidl::android::media::audio::common::AudioOffloadInfo& offloadInfo,
-        std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> asyncCallback)
-    : mOffloadInfo(offloadInfo), mAsyncCallback(asyncCallback) {
+        std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> asyncCallback,
+        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig)
+    : mOffloadInfo(offloadInfo), mAsyncCallback(asyncCallback), mMixPortConfig(mixPortConfig) {
     configureDefault();
 }
 
@@ -669,6 +672,34 @@ bool CompressPlayback::configureCodecInfo() const {
     return true;
 }
 
+int64_t CompressPlayback::getPositionInFrames(pal_stream_handle_t* palHandle) {
+    if (palHandle == nullptr) {
+        return mTotalDSPFrames + mPrevFrames;
+    }
+
+    pal_session_time tstamp;
+    if (int32_t ret = ::pal_get_timestamp(palHandle, &tstamp); ret) {
+        LOG(ERROR) << __func__ << " pal_get_timestamp failure, returning previous" << ret;
+        return mTotalDSPFrames + mPrevFrames;
+    }
+
+    uint64_t sessionTimeUs =
+            ((static_cast<decltype(sessionTimeUs)>(tstamp.session_time.value_msw)) << 32 |
+             tstamp.session_time.value_lsw);
+    const auto& sampleRate = getSampleRate(mMixPortConfig).value();
+    // sessionTimeUs to frames
+    mPrevFrames = static_cast<int64_t>((sessionTimeUs / 1000) * (sampleRate / 1000));
+    LOG(VERBOSE) << __func__ << " dsp frames consumed: (" << mTotalDSPFrames << "+" << mPrevFrames
+                 << ") = " << mTotalDSPFrames + mPrevFrames;
+    return mTotalDSPFrames + mPrevFrames;
+}
+
+void CompressPlayback::onFlush() {
+    // on flush SPR module is reset to 0. Hence, we cache the DSP frames
+    mTotalDSPFrames = mTotalDSPFrames + mPrevFrames;
+    mPrevFrames = 0;
+}
+
 // [CompressPlayback End]
 
 // [PcmOffloadPlayback Start]
@@ -697,6 +728,34 @@ size_t PcmOffloadPlayback::getFrameCount(
     }
 
     return periodSize / frameSize;
+}
+
+int64_t PcmOffloadPlayback::getPositionInFrames(pal_stream_handle_t* palHandle) {
+    if (palHandle == nullptr) {
+        return mTotalDSPFrames + mPrevFrames;
+    }
+
+    pal_session_time tstamp;
+    if (int32_t ret = ::pal_get_timestamp(palHandle, &tstamp); ret) {
+        LOG(ERROR) << __func__ << " pal_get_timestamp failure, returning previous" << ret;
+        return mTotalDSPFrames + mPrevFrames;
+    }
+
+    uint64_t sessionTimeUs =
+            ((static_cast<decltype(sessionTimeUs)>(tstamp.session_time.value_msw)) << 32 |
+             tstamp.session_time.value_lsw);
+    const auto& sampleRate = getSampleRate(mMixPortConfig).value();
+    // sessionTimeUs to frames
+    mPrevFrames = static_cast<int64_t>((sessionTimeUs / 1000) * (sampleRate / 1000));
+    LOG(VERBOSE) << __func__ << " dsp frames consumed: (" << mTotalDSPFrames << "+" << mPrevFrames
+                 << ") = " << mTotalDSPFrames + mPrevFrames;
+    return mTotalDSPFrames + mPrevFrames;
+}
+
+void PcmOffloadPlayback::onFlush() {
+    // on flush SPR module is reset to 0. Hence, we cache the DSP frames
+    mTotalDSPFrames = mTotalDSPFrames + mPrevFrames;
+    mPrevFrames = 0;
 }
 
 // [PcmOffloadPlayback End]
@@ -801,6 +860,7 @@ int32_t MMapRecord::getMMapPosition(int64_t* frames, int64_t* timeNs) {
     }
     *timeNs = pal_mmap_pos.time_nanoseconds;
     *frames = pal_mmap_pos.position_frames;
+    LOG(VERBOSE) << __func__ << ": frames:" << *frames << ", timeNs:" << *timeNs;
     return 0;
 }
 // [MMapRecord End]
