@@ -12,6 +12,8 @@
 #include <aidl/android/media/audio/common/AudioPlaybackRate.h>
 #include <aidl/android/media/audio/common/AudioPort.h>
 #include <aidl/android/media/audio/common/AudioPortConfig.h>
+#include <aidl/android/media/audio/common/MicrophoneDynamicInfo.h>
+#include <aidl/android/media/audio/common/MicrophoneInfo.h>
 #include <extensions/AudioExtension.h>
 #include <qti-audio-core/AudioUsecase.h>
 #include <system/audio.h>
@@ -85,6 +87,13 @@ class Platform {
     int32_t getLatencyMs(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
             Usecase const& inTag = Usecase::INVALID);
+
+    std::vector<::aidl::android::media::audio::common::MicrophoneInfo> getMicrophoneInfo() {
+        return mMicrophoneInfo;
+    }
+    std::vector<::aidl::android::media::audio::common::MicrophoneDynamicInfo>
+            getMicrophoneDynamicInfo(
+                    const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices);
 
     bool setParameter(const std::string& key, const std::string& value);
     bool setBluetoothParameters(const char* kvpairs);
@@ -324,5 +333,10 @@ class Platform {
     std::string mFacing{""};
 
     std::unordered_map<Usecase, UsecaseOps> mUsecaseOpMap;
+    std::vector<::aidl::android::media::audio::common::MicrophoneInfo> mMicrophoneInfo;
+    using PalDevToMicDynamicInfoMap = std::unordered_map<
+            pal_device_id_t,
+            std::vector<::aidl::android::media::audio::common::MicrophoneDynamicInfo>>;
+    PalDevToMicDynamicInfoMap mMicrophoneDynamicInfoMap;
 };
 } // namespace qti::audio::core

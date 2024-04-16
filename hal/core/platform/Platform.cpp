@@ -12,6 +12,7 @@
 #include <cutils/str_parms.h>
 #include <hardware/audio.h>
 #include <qti-audio-core/AudioUsecase.h>
+#include <qti-audio-core/MicrophoneInfoParser.h>
 #include <qti-audio-core/Platform.h>
 #include <qti-audio-core/PlatformUtils.h>
 #include <qti-audio/PlatformConverter.h>
@@ -46,6 +47,8 @@ using ::aidl::android::hardware::audio::common::getChannelCount;
 using ::aidl::android::hardware::audio::common::getFrameSizeInBytes;
 using ::aidl::android::hardware::audio::common::isBitPositionFlagSet;
 using ::aidl::android::hardware::audio::core::IModule;
+using aidl::android::media::audio::common::MicrophoneDynamicInfo;
+using aidl::android::media::audio::common::MicrophoneInfo;
 
 namespace qti::audio::core {
 
@@ -1350,22 +1353,39 @@ void Platform::initUsecaseOpMap() {
     mUsecaseOpMap[Usecase::HOTWORD_RECORD] = makeUsecaseOps<HotwordRecord>();
 }
 
+std::vector<MicrophoneDynamicInfo> Platform::getMicrophoneDynamicInfo(
+        const std::vector<AudioDevice>& devices) {
+    auto palDevices = convertToPalDevices(devices);
+    std::vector<MicrophoneDynamicInfo> result;
+    for (const auto& palDevice : palDevices) {
+        auto id = palDevice.id;
+        if (mMicrophoneDynamicInfoMap.count(id) != 0) {
+            auto dynamicInfo = mMicrophoneDynamicInfoMap[id];
+            result.insert(result.end(), dynamicInfo.begin(), dynamicInfo.end());
+        }
+    }
+    return result;
+}
+
 Platform::Platform() {
     initUsecaseOpMap();
     if (int32_t ret = pal_init(); ret) {
-        LOG(ERROR) << __func__ << "pal init failed!!! ret:" << ret;
+        LOG(ERROR) << __func__ << "pal_init failed, ret:" << ret;
         return;
     }
-    LOG(VERBOSE) << __func__ << " pal init successful";
+    LOG(VERBOSE) << __func__ << " pal_init successful";
     if (int32_t ret =
                 pal_register_global_callback(&palGlobalCallback, reinterpret_cast<uint64_t>(this));
         ret) {
-        LOG(ERROR) << __func__ << "pal register global callback failed!!! ret:" << ret;
+        LOG(ERROR) << __func__ << "pal register global callback failed, ret:" << ret;
         return;
     }
     mSndCardStatus = CARD_STATUS_ONLINE;
     LOG(VERBOSE) << __func__ << " pal register global callback successful";
     mOffloadSpeedSupported = property_get_bool("vendor.audio.offload.playspeed", true);
+    MicrophoneInfoParser micInfoParser;
+    mMicrophoneInfo = micInfoParser.getMicrophoneInfo();
+    mMicrophoneDynamicInfoMap = micInfoParser.getMicrophoneDynamicInfoMap();
 }
 
 // static

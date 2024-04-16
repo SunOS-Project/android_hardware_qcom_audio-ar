@@ -137,6 +137,12 @@ ModulePrimary::ModulePrimary() : Module(Type::DEFAULT) {
     mOffloadSpeedSupported = mPlatform.platformSupportsOffloadSpeed();
 }
 
+ndk::ScopedAStatus ModulePrimary::getMicrophones(std::vector<MicrophoneInfo>* _aidl_return) {
+    *_aidl_return = mPlatform.getMicrophoneInfo();
+    LOG(VERBOSE) << __func__ << ": returning " << ::android::internal::ToString(*_aidl_return);
+    return ndk::ScopedAStatus::ok();
+}
+
 ndk::ScopedAStatus ModulePrimary::getMicMute(bool* _aidl_return) {
     if (!mTelephony) {
         LOG(ERROR) << __func__ << ": Telephony not created ";

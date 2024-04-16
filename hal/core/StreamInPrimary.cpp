@@ -91,6 +91,13 @@ StreamInPrimary::~StreamInPrimary() {
     LOG(DEBUG) << __func__ << mLogPrefix;
 }
 
+ndk::ScopedAStatus StreamInPrimary::getActiveMicrophones(
+        std::vector<MicrophoneDynamicInfo>* _aidl_return) {
+    *_aidl_return = mPlatform.getMicrophoneDynamicInfo(mConnectedDevices);
+    LOG(VERBOSE) << __func__ << mLogPrefix << " " << ::android::internal::ToString(*_aidl_return);
+    return ndk::ScopedAStatus::ok();
+}
+
 // start of methods called from IModule
 ndk::ScopedAStatus StreamInPrimary::setConnectedDevices(
         const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices) {

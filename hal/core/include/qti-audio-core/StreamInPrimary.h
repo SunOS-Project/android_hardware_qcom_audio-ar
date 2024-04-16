@@ -55,6 +55,10 @@ class StreamInPrimary : public StreamIn, public StreamCommonImpl {
 
     ndk::ScopedAStatus updateMetadataCommon(const Metadata& metadata) override;
 
+    ndk::ScopedAStatus getActiveMicrophones(
+            std::vector<::aidl::android::media::audio::common::MicrophoneDynamicInfo>* _aidl_return)
+            override;
+
     // Methods called IModule
     ndk::ScopedAStatus setConnectedDevices(
             const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices)
