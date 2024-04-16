@@ -99,7 +99,7 @@ class ModulePrimary final : public Module {
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
             const ::aidl::android::hardware::audio::core::AudioPatch& newPatch) override;
-    void onExternalDeviceConnectionChanged(
+    int onExternalDeviceConnectionChanged(
             const ::aidl::android::media::audio::common::AudioPort& audioPort,
             bool connected) override;
     int32_t getNominalLatencyMs(

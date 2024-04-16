@@ -584,7 +584,10 @@ ndk::ScopedAStatus Module::connectExternalDevice(const AudioPort& in_templateIdA
 
     RETURN_STATUS_IF_ERROR(populateConnectedDevicePort(&connectedPort, templateId));
     if (!mDebug.simulateDeviceConnections) {
-        onExternalDeviceConnectionChanged(connectedPort, true /*connected*/);
+        if (auto ret = onExternalDeviceConnectionChanged(connectedPort, true /*connected*/); ret) {
+            return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+        }
+
         const auto& dynamicProfiles = getDynamicProfiles(in_templateIdAndAdditionalData);
         if (dynamicProfiles.size() != 0) {
             connectedPort.profiles = dynamicProfiles;
@@ -701,7 +704,10 @@ ndk::ScopedAStatus Module::disconnectExternalDevice(int32_t in_portId) {
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
     // upon this point let platform know about disconnection.
-    onExternalDeviceConnectionChanged(*portIt, false /*connected*/);
+    if (int ret = onExternalDeviceConnectionChanged(*portIt, false /*connected*/); ret) {
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+    }
+
     LOG(DEBUG) << __func__ << ": removed device port " << portIt->toString();
     ports.erase(portIt);
 
@@ -1625,11 +1631,11 @@ ndk::ScopedAStatus Module::checkAudioPatchEndpointsMatch(
     return ndk::ScopedAStatus::ok();
 }
 
-void Module::onExternalDeviceConnectionChanged(
+int Module::onExternalDeviceConnectionChanged(
         const ::aidl::android::media::audio::common::AudioPort& audioPort, bool connected) {
     LOG(INFO) << __func__ << " no-op implementation" << (connected ? " connect" : "disconnect")
               << " for " << audioPort.toString();
-    return;
+    return 0;
 }
 
 ndk::ScopedAStatus Module::onMasterMuteChanged(bool mute __unused) {

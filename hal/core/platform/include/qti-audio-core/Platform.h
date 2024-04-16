@@ -175,7 +175,7 @@ class Platform {
                                                             const size_t bufferCount) const;
     std::vector<::aidl::android::media::audio::common::AudioProfile> getDynamicProfiles(
             const ::aidl::android::media::audio::common::AudioPort& dynamicDeviceAudioPort) const;
-    bool handleDeviceConnectionChange(
+    int handleDeviceConnectionChange(
             const ::aidl::android::media::audio::common::AudioPort& deviceAudioPort,
             const bool isConnect) const;
     uint32_t getBluetoothLatencyMs(

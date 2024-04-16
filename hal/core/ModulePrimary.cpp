@@ -316,27 +316,28 @@ void ModulePrimary::setAudioPatchTelephony(const std::vector<AudioPortConfig*>& 
     LOG(DEBUG) << __func__ << ": device patch : " << patchDetails << patch.toString();
 }
 
-void ModulePrimary::onExternalDeviceConnectionChanged(
+int ModulePrimary::onExternalDeviceConnectionChanged(
         const ::aidl::android::media::audio::common::AudioPort& audioPort, bool connected) {
-
     if (mDebug.simulateDeviceConnections) {
         LOG(DEBUG) << __func__ << ": connection is in simulation mode";
-        return;
+        return 0;
     }
 
-    if (!mPlatform.handleDeviceConnectionChange(audioPort, connected)) {
+    if (int ret = mPlatform.handleDeviceConnectionChange(audioPort, connected); ret) {
         LOG(WARNING) << __func__ << " failed to handle device connection change:"
                      << (connected ? " connect" : "disconnect") << " for " << audioPort.toString();
+        return ret;
     }
 
     if (!mTelephony) {
         LOG(ERROR) << __func__ << ": Telephony not created ";
-        return;
+        return 0;
     }
 
     if (connected) {
         mTelephony->updateDevicesFromPrimaryPlayback();
     }
+    return 0;
 }
 
 int32_t ModulePrimary::getNominalLatencyMs(const AudioPortConfig& mixPortConfig) {

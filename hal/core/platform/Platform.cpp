@@ -486,21 +486,21 @@ std::optional<struct HdmiParameters> Platform::getHdmiParameters(
     return hdmiParam;
 }
 
-bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
+int Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
                                             const bool isConnect) const {
     const auto& devicePortExt = deviceAudioPort.ext.get<AudioPortExt::Tag::device>();
 
     auto& audioDeviceDesc = devicePortExt.device.type;
     const auto palDeviceId = PlatformConverter::getPalDeviceId(audioDeviceDesc);
     if (palDeviceId == PAL_DEVICE_OUT_MIN) {
-        return false;
+        return -EINVAL;
     }
 
     void* v = nullptr;
     const auto deviceConnection = std::make_unique<pal_param_device_connection_t>();
     if (!deviceConnection) {
         LOG(ERROR) << __func__ << ": allocation failed ";
-        return false;
+        return -EINVAL;
     }
 
     deviceConnection->connection_state = isConnect;
@@ -511,12 +511,13 @@ bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
         if (addressTag != AudioDeviceAddress::Tag::alsa) {
             LOG(ERROR) << __func__ << ": no alsa address provided for the AudioPort"
                        << deviceAudioPort.toString();
-            return false;
+            return -EINVAL;
         }
         const auto& deviceAddressAlsa =
                 devicePortExt.device.address.get<AudioDeviceAddress::Tag::alsa>();
-        if (!isValidAlsaAddr(deviceAddressAlsa))
-            return false;
+        if (!isValidAlsaAddr(deviceAddressAlsa)) {
+            return -EINVAL;
+        }
         const auto cardId = deviceAddressAlsa[0];
         const auto deviceId = deviceAddressAlsa[1];
         deviceConnection->device_config.usb_addr.card_id = cardId;
@@ -528,7 +529,7 @@ bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
             deviceConnection->device_config.dp_config.stream = result->stream;
             deviceConnection->id = result->deviceId;
         } else {
-            return false;
+            return -EINVAL;
         }
     }
 
@@ -536,13 +537,14 @@ bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
     if (int32_t ret = ::pal_set_param(PAL_PARAM_ID_DEVICE_CONNECTION, v,
                                       sizeof(pal_param_device_connection_t));
         ret != 0) {
-        LOG(ERROR) << __func__ << ": pal set param failed for PAL_PARAM_ID_DEVICE_CONNECTION";
-        return false;
+        LOG(ERROR) << __func__ << ": pal_set_param failed for PAL_PARAM_ID_DEVICE_CONNECTION for "
+                   << audioDeviceDesc.toString();
+        return ret;
     }
     LOG(INFO) << __func__ << devicePortExt.device.toString()
               << (isConnect ? ": connected" : "disconnected");
 
-    return true;
+    return 0;
 }
 
 void Platform::setWFDProxyChannels(const uint32_t numProxyChannels) noexcept {

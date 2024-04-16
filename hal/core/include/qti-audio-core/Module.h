@@ -222,7 +222,7 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
     virtual ndk::ScopedAStatus checkAudioPatchEndpointsMatch(
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks);
-    virtual void onExternalDeviceConnectionChanged(
+    virtual int onExternalDeviceConnectionChanged(
             const ::aidl::android::media::audio::common::AudioPort& audioPort, bool connected);
     virtual ndk::ScopedAStatus onMasterMuteChanged(bool mute);
     virtual ndk::ScopedAStatus onMasterVolumeChanged(float volume);
