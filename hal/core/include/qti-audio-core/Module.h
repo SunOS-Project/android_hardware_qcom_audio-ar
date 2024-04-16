@@ -227,6 +227,9 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
     virtual ndk::ScopedAStatus onMasterMuteChanged(bool mute);
     virtual ndk::ScopedAStatus onMasterVolumeChanged(float volume);
     virtual std::unique_ptr<ModuleConfig> initializeConfig();
+    /* fetch the nominal latency for the given mix port config */
+    virtual int32_t getNominalLatencyMs(
+            const ::aidl::android::media::audio::common::AudioPortConfig&);
     // #################### end of virtual APIs to be implemented by children ####################
 
     // Utility and helper functions accessible to subclasses.

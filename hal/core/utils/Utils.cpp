@@ -128,6 +128,11 @@ bool isInputAFEProxyDevice(const AudioDevice& device) noexcept {
     return device.type.type == AudioDeviceType::IN_AFE_PROXY;
 }
 
+bool isIPDevice(const AudioDevice& device) noexcept {
+    return  device.type.type == AudioDeviceType::OUT_DEVICE &&
+             device.type.connection == AudioDeviceDescription::CONNECTION_IP_V4;
+}
+
 bool hasOutputDirectFlag(const AudioIoFlags& ioFlags) noexcept {
     if (ioFlags.getTag() == AudioIoFlags::Tag::output) {
         constexpr auto directFlag =
@@ -158,6 +163,14 @@ std::optional<AudioSource> getAudioSource(const AudioPortConfig& mixPortconfig) 
     }
     return mixPortconfig.ext.get<AudioPortExt::Tag::mix>()
             .usecase.get<AudioPortMixExtUseCase::Tag::source>();
+}
+
+std::optional<int32_t> getSampleRate(const AudioPortConfig& portConfig) noexcept {
+    if (portConfig.sampleRate) {
+        return portConfig.sampleRate.value().value;
+    }
+    LOG(ERROR) << __func__ << ": no sample rate in port config " << portConfig.toString();
+    return std::nullopt;
 }
 
 std::vector<int32_t> getActiveInputMixPortConfigIds(

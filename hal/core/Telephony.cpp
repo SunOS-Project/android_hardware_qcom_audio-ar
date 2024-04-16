@@ -473,18 +473,12 @@ void Telephony::configureDeviceMute() {
 
 void Telephony::setCRSVolumeFromIndex(const int index) {
     std::scoped_lock lock{mLock};
-    if (index > 0 && index < 4)
-        mCRSVolume = 0.2;
-    else if (index == 4)
-        mCRSVolume = 0.3;
-    else if (index == 5)
+    if (index <= MAX_CRS_VOL_INDEX && index >= MIN_CRS_VOL_INDEX)
+        mCRSVolume = index / 10.0;
+    else {
         mCRSVolume = 0.4;
-    else if (index == 6)
-        mCRSVolume = 0.5;
-    else if (index >= 7)
-        mCRSVolume = 0.6;
-    else
-        mCRSVolume = 0.0;
+        LOG(INFO) << __func__ << ": use defalut CRS volume: " << mCRSVolume;
+    }
     updateVoiceVolume();
 }
 

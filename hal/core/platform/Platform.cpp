@@ -60,7 +60,7 @@ size_t Platform::getFrameCount(
     } else if (tag == Usecase::PCM_OFFLOAD_PLAYBACK) {
         numFrames = PcmOffloadPlayback::getFrameCount(mixPortConfig);
     } else if (tag == Usecase::LOW_LATENCY_PLAYBACK) {
-        numFrames = LowLatencyPlayback::kPeriodSize;
+        numFrames = LowLatencyPlayback::getMinFrames(mixPortConfig);
     } else if (tag == Usecase::PCM_RECORD) {
         numFrames = PcmRecord::getMinFrames(mixPortConfig);
     } else if (tag == Usecase::FAST_RECORD) {
@@ -76,7 +76,7 @@ size_t Platform::getFrameCount(
     } else if (tag == Usecase::COMPRESS_CAPTURE) {
         numFrames = CompressCapture::getPeriodBufferSize(mixPortConfig.format.value());
     } else if (tag == Usecase::ULL_PLAYBACK) {
-        numFrames = UllPlayback::kPeriodSize;
+        numFrames = UllPlayback::getMinFrames(mixPortConfig);
     } else if (tag == Usecase::MMAP_PLAYBACK) {
         numFrames = MMapPlayback::kPeriodSize;
     } else if (tag == Usecase::MMAP_RECORD) {
@@ -304,6 +304,8 @@ std::vector<pal_device> Platform::convertToPalDevices(
                 return {};
             }
             const auto& deviceAddressAlsa = deviceAddress.get<AudioDeviceAddress::Tag::alsa>();
+            if (!isValidAlsaAddr(deviceAddressAlsa))
+                return {};
             palDevices[i].address.card_id = deviceAddressAlsa[0];
             palDevices[i].address.device_num = deviceAddressAlsa[1];
         } else if (isHdmiDevice(device)) {
@@ -314,6 +316,10 @@ std::vector<pal_device> Platform::convertToPalDevices(
             }
         }
         i++;
+    }
+    if (devices.size() == 2 && isHdmiDevice(devices[0]) && isHdmiDevice(devices[1])) {
+        LOG(INFO) << __func__ << " Send latest DP device in the Pal list " << palDevices[1].id;
+        return {palDevices[1]};
     }
     return palDevices;
 }
@@ -384,6 +390,8 @@ std::vector<::aidl::android::media::audio::common::AudioProfile> Platform::getUs
     }
     const auto& deviceAddressAlsa =
             devicePortExt.device.address.get<AudioDeviceAddress::Tag::alsa>();
+    if (!isValidAlsaAddr(deviceAddressAlsa))
+        return {};
     const auto cardId = deviceAddressAlsa[0];
     const auto deviceId = deviceAddressAlsa[1];
 
@@ -503,6 +511,8 @@ bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
         }
         const auto& deviceAddressAlsa =
                 devicePortExt.device.address.get<AudioDeviceAddress::Tag::alsa>();
+        if (!isValidAlsaAddr(deviceAddressAlsa))
+            return false;
         const auto cardId = deviceAddressAlsa[0];
         const auto deviceId = deviceAddressAlsa[1];
         deviceConnection->device_config.usb_addr.card_id = cardId;
@@ -547,6 +557,20 @@ uint32_t Platform::getWFDProxyChannels() const noexcept {
     return mWFDProxyChannels;
 }
 
+std::string Platform::IsProxyRecordActive()  const noexcept{
+    int ret = 0;
+    size_t size = 0;
+    char proxy_record_state[6] = "false";
+    ret = pal_get_param(PAL_PARAM_ID_PROXY_RECORD_SESSION, (void **)&proxy_record_state, &size,
+                            nullptr);
+    if (!ret && size > 0) {
+        LOG(INFO) << __func__ << " proxyRecordActive = " << proxy_record_state;
+    } else {
+        LOG(ERROR) << __func__ << " : PAL_PARAM_ID_PROXY_RECORD_SESSION failed: " << ret;
+    }
+    return std::string(proxy_record_state);
+}
+
 void Platform::updateUHQA(const bool enable) noexcept {
     mIsUHQAEnabled = enable;
     pal_param_uhqa_t paramUHQAFlags{.uhqa_state = mIsUHQAEnabled};
@@ -561,6 +585,66 @@ void Platform::updateUHQA(const bool enable) noexcept {
 
 bool Platform::isUHQAEnabled() const noexcept {
     return mIsUHQAEnabled;
+}
+
+int32_t Platform::getLatencyMs(const AudioPortConfig& mixPortConfig,
+                               Usecase const& inTag) const {
+    if (mixPortConfig.ext.getTag() != AudioPortExt::Tag::mix) {
+        LOG(ERROR) << __func__
+                   << ": cannot deduce latency for port config which is not a mix port, "
+                   << mixPortConfig.toString();
+        return 0;
+    }
+
+    int32_t latencyMs = 0;
+
+    const auto& tag = (inTag == Usecase::INVALID ? getUsecaseTag(mixPortConfig) : inTag);
+
+    // decide the latency based on usecase
+    if (tag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        latencyMs = CompressPlayback::kLatencyMs * 2;
+    } else if (tag == Usecase::LOW_LATENCY_PLAYBACK) {
+        latencyMs = LowLatencyPlayback::kPeriodDurationMs * LowLatencyPlayback::kPeriodCount +
+                    LowLatencyPlayback::kPlatformDelayMs;
+    } else if (tag == Usecase::PCM_OFFLOAD_PLAYBACK) {
+        latencyMs = PcmOffloadPlayback::kPeriodDurationMs * PcmOffloadPlayback::kPeriodCount +
+                    PcmOffloadPlayback::kPlatformDelayMs;
+    } else if (tag == Usecase::DEEP_BUFFER_PLAYBACK) {
+        latencyMs = DeepBufferPlayback::kPeriodDurationMs * DeepBufferPlayback::kPeriodCount +
+                    DeepBufferPlayback::kPlatformDelayMs;
+    } else if (tag == Usecase::VOIP_PLAYBACK) {
+        latencyMs = VoipPlayback::kBufferDurationMs * VoipPlayback::kPeriodCount +
+                    VoipPlayback::kPlatformDelayMs;
+    } else if (tag == Usecase::SPATIAL_PLAYBACK) {
+        latencyMs = SpatialPlayback::kPeriodDurationMs * SpatialPlayback::kPeriodCount +
+                    SpatialPlayback::kPlatformDelayMs;
+    } else if (tag == Usecase::ULL_PLAYBACK) {
+        latencyMs = UllPlayback::kPeriodSize * UllPlayback::kPeriodMultiplier +
+                    UllPlayback::kPlatformDelayMs;
+    } else if (tag == Usecase::MMAP_PLAYBACK) {
+        latencyMs = MMapPlayback::kPeriodSize + MMapPlayback::kPlatformDelayMs;
+    } else if (tag == Usecase::HAPTICS_PLAYBACK) {
+        latencyMs = HapticsPlayback::kPeriodDurationMs * HapticsPlayback::kPeriodCount +
+                    HapticsPlayback::kPlatformDelayMs;
+    } else if (tag == Usecase::PCM_RECORD) {
+        latencyMs = PcmRecord::kCaptureDurationMs * PcmRecord::kPeriodCount +
+                    PcmRecord::kPlatformDelayMs;
+    } else if (tag == Usecase::COMPRESS_CAPTURE) {
+        latencyMs = CompressCapture::kPlatformDelayMs;
+    } else {
+        LOG(ERROR) << __func__ << ": no match for usecase, " << getName(tag);
+    }
+
+    if (latencyMs == 0) {
+        latencyMs = kDefaultLatencyMs;
+        LOG(WARNING) << __func__
+                     << ": none of the usecase matched, configured default latencyMs:" << latencyMs;
+    } else {
+        LOG(VERBOSE) << __func__ << ": nominal latency configured:" << latencyMs
+                  << ", for usecase: " << getName(tag);
+    }
+
+    return latencyMs;
 }
 
 void Platform::setFTMSpeakerProtectionMode(uint32_t const heatUpTime, uint32_t const runTime,
@@ -1045,6 +1129,15 @@ bool Platform::isSoundCardDown() const noexcept {
     return false;
 }
 
+bool Platform::isValidAlsaAddr(const std::vector<int>& alsaAddress) const noexcept {
+    if (alsaAddress.size() != 2 || alsaAddress[0] < 0 || alsaAddress[1] < 0) {
+        LOG(ERROR) << __func__
+                   << ": malformed alsa address: "
+                   << ::android::internal::ToString(alsaAddress);
+        return false;
+    }
+    return true;
+}
 uint32_t Platform::getBluetoothLatencyMs(const std::vector<AudioDevice>& bluetoothDevices) {
     pal_param_bta2dp_t btConfig{};
     for (const auto& device : bluetoothDevices) {
@@ -1140,6 +1233,79 @@ int Platform::getRecommendedLatencyModes(
      }
 
      return ret;
+}
+
+bool Platform::isHDRARMenabled() {
+    const auto& platform = Platform::getInstance();
+    const std::string kHdrArmProperty{"vendor.audio.hdr.record.enable"};
+    const bool isArmEnabled = ::android::base::GetBoolProperty(kHdrArmProperty, false);
+    const bool isHdrSetOnPlatform = platform.isHDREnabled();
+    if (isArmEnabled && isHdrSetOnPlatform) {
+        return true;
+    }
+    return false;
+
+}
+bool Platform::isHDRSPFEnabled() {
+    const std::string kHdrSpfProperty{"vendor.audio.hdr.spf.record.enable"};
+    const bool isSPFEnabled = ::android::base::GetBoolProperty(kHdrSpfProperty, false);
+    if (isSPFEnabled) {
+        return true;
+    }
+    return false;
+}
+
+void Platform::setHdrOnPalDevice(pal_device* palDeviceIn) {
+    const auto& platform = Platform::getInstance();
+    const bool isOrientationLandscape = platform.getOrientation() == "landscape";
+    const bool isInverted = platform.isInverted();
+
+    LOG(ERROR) << __func__ << " platform.getOrientation():" << std::string(platform.getOrientation());
+
+
+    if (isOrientationLandscape && !isInverted) {
+        setPalDeviceCustomKey(*palDeviceIn, "unprocessed-hdr-mic-landscape");
+    } else if (!isOrientationLandscape && !isInverted) {
+        setPalDeviceCustomKey(*palDeviceIn, "unprocessed-hdr-mic-portrait");
+    } else if (isOrientationLandscape && isInverted) {
+        setPalDeviceCustomKey(*palDeviceIn, "unprocessed-hdr-mic-inverted-landscape");
+    } else if (!isOrientationLandscape && isInverted) {
+        setPalDeviceCustomKey(*palDeviceIn, "unprocessed-hdr-mic-inverted-portrait");
+    }
+    LOG(DEBUG) << __func__
+               << " setting custom config:" << std::string(palDeviceIn->custom_config.custom_key);
+
+}
+
+void Platform::configurePalDevices(
+        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
+        std::vector<pal_device>& palDevices) {
+    const auto& mixUsecase =
+            mixPortConfig.ext.get<::aidl::android::media::audio::common::AudioPortExt::Tag::mix>()
+                    .usecase;
+    if (mixUsecase.getTag() !=
+        ::aidl::android::media::audio::common::AudioPortMixExtUseCase::Tag::source) {
+        LOG(ERROR) << __func__ << " expected mix usecase as source instead found, "
+                   << mixUsecase.toString();
+        return;
+    }
+    const auto& sampleRate = mixPortConfig.sampleRate.value().value;
+    const auto& channelLayout = mixPortConfig.channelMask.value();
+    const ::aidl::android::media::audio::common::AudioSource& audioSourceType = mixUsecase.get<
+            ::aidl::android::media::audio::common::AudioPortMixExtUseCase::Tag::source>();
+    const bool isSourceUnprocessed =
+            audioSourceType == ::aidl::android::media::audio::common::AudioSource::UNPROCESSED;
+    const bool isSourceCamCorder =
+            audioSourceType == ::aidl::android::media::audio::common::AudioSource::CAMCORDER;
+    const bool isMic = audioSourceType == ::aidl::android::media::audio::common::AudioSource::MIC;
+    const bool isHdrArmEnable = isHDRARMenabled();
+    const bool isHdrSpfEnable = isHDRSPFEnabled();
+    if ((isSourceUnprocessed && sampleRate == 48000 && getChannelCount(channelLayout) == 4 &&
+         isHdrArmEnable) ||
+        (isHdrArmEnable) || (isHdrSpfEnable && (isSourceCamCorder || isMic))) {
+        std::for_each(palDevices.begin(), palDevices.end(),
+                      [&](auto& palDevice) { this->setHdrOnPalDevice(&palDevice); });
+    }
 }
 
 int Platform::setLatencyMode(uint32_t mode) {

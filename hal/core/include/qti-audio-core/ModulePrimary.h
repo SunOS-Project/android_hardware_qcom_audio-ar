@@ -99,6 +99,8 @@ class ModulePrimary final : public Module {
     void onExternalDeviceConnectionChanged(
             const ::aidl::android::media::audio::common::AudioPort& audioPort,
             bool connected) override;
+    int32_t getNominalLatencyMs(
+            const ::aidl::android::media::audio::common::AudioPortConfig&) override;
     // #################### end of overriding APIs from Module ####################
 
     // start of Module Parameters

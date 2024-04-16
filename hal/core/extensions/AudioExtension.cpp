@@ -1,6 +1,5 @@
 /*
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -338,7 +337,12 @@ FmExtension::FmExtension() : AudioExtensionBase(kFmLibrary) {
         if (!fm_set_params || !fm_running_status) {
             LOG(ERROR) << "error " << dlerror();
             dlclose(mHandle);
+            fm_set_params = NULL;
+            fm_running_status = NULL;
         }
+    } else {
+        fm_set_params = NULL;
+        fm_running_status = NULL;
     }
 }
 

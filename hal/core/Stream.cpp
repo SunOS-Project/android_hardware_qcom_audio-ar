@@ -20,36 +20,43 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
+#define ATRACE_TAG (ATRACE_TAG_AUDIO | ATRACE_TAG_HAL)
+
 #define LOG_TAG "AHAL_Stream_QTI"
 #include <Utils.h>
 
 #include <android-base/logging.h>
 #include <android/binder_ibinder_platform.h>
-#include <utils/SystemClock.h>
-
+#include <pthread.h>
 #include <qti-audio-core/Module.h>
 #include <qti-audio-core/ModulePrimary.h>
 #include <qti-audio-core/Stream.h>
+#include <utils/SystemClock.h>
+#include <utils/Trace.h>
 
 // uncomment this to enable logging of very verbose logs like burst commands.
 // #define VERY_VERBOSE_LOGGING 1
 using aidl::android::hardware::audio::common::AudioOffloadMetadata;
 using aidl::android::hardware::audio::common::getChannelCount;
 using aidl::android::hardware::audio::common::getFrameSizeInBytes;
+using aidl::android::hardware::audio::common::isBitPositionFlagSet;
 using aidl::android::hardware::audio::common::SinkMetadata;
 using aidl::android::hardware::audio::common::SourceMetadata;
 using aidl::android::media::audio::common::AudioDevice;
 using aidl::android::media::audio::common::AudioDualMonoMode;
+using aidl::android::media::audio::common::AudioInputFlags;
+using aidl::android::media::audio::common::AudioIoFlags;
 using aidl::android::media::audio::common::AudioLatencyMode;
 using aidl::android::media::audio::common::AudioOffloadInfo;
+using aidl::android::media::audio::common::AudioOutputFlags;
 using aidl::android::media::audio::common::AudioPlaybackRate;
 using aidl::android::media::audio::common::MicrophoneDynamicInfo;
 using aidl::android::media::audio::common::MicrophoneInfo;
 
 using ::aidl::android::hardware::audio::common::getChannelCount;
 using ::aidl::android::hardware::audio::common::getFrameSizeInBytes;
-using ::aidl::android::hardware::audio::core::IStreamCommon;
 using ::aidl::android::hardware::audio::core::IStreamCallback;
+using ::aidl::android::hardware::audio::core::IStreamCommon;
 using ::aidl::android::hardware::audio::core::StreamDescriptor;
 using ::aidl::android::hardware::audio::core::VendorParameter;
 
@@ -106,6 +113,14 @@ void StreamContext::reset() {
     mDataMQ.reset();
 }
 
+pid_t StreamWorkerCommonLogic::getTid() const {
+#if defined(__ANDROID__)
+    return pthread_gettid_np(pthread_self());
+#else
+    return 0;
+#endif
+}
+
 std::string StreamWorkerCommonLogic::init() {
     if (mContext->getCommandMQ() == nullptr) return "Command MQ is null";
     if (mContext->getReplyMQ() == nullptr) return "Reply MQ is null";
@@ -130,6 +145,7 @@ std::string StreamWorkerCommonLogic::init() {
 void StreamWorkerCommonLogic::populateReply(StreamDescriptor::Reply* reply,
                                             bool isConnected) const {
     reply->status = STATUS_OK;
+    reply->latencyMs = mContext->getNominalLatencyMs();
     if (isConnected) {
         reply->observable.frames = mContext->getFrameCount();
         reply->observable.timeNs = ::android::elapsedRealtimeNano();
@@ -314,6 +330,7 @@ StreamInWorkerLogic::Status StreamInWorkerLogic::cycle() {
 }
 
 bool StreamInWorkerLogic::read(size_t clientSize, StreamDescriptor::Reply* reply) {
+    ATRACE_CALL();
     StreamContext::DataMQ* const dataMQ = mContext->getDataMQ();
     const size_t byteCount = std::min({clientSize, dataMQ->availableToWrite(), mDataBufferSize});
     const bool isConnected = mIsConnected;
@@ -402,8 +419,6 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
 
     StreamDescriptor::Reply reply{};
     reply.status = STATUS_BAD_VALUE;
-    // DEBUG, provide a default latency for any command
-    reply.latencyMs = 10;
     using Tag = StreamDescriptor::Command::Tag;
     switch (command.getTag()) {
         case Tag::halReservedExit:
@@ -585,6 +600,7 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
 }
 
 bool StreamOutWorkerLogic::write(size_t clientSize, StreamDescriptor::Reply* reply) {
+    ATRACE_CALL();
     StreamContext::DataMQ* const dataMQ = mContext->getDataMQ();
     const size_t readByteCount = dataMQ->availableToRead();
     const size_t frameSize = mContext->getFrameSize();
@@ -620,8 +636,16 @@ bool StreamOutWorkerLogic::write(size_t clientSize, StreamDescriptor::Reply* rep
         }
         const size_t actualByteCount = actualFrameCount * frameSize;
         // Frames are consumed and counted regardless of the connection status.
-        reply->fmqByteCount += actualByteCount;
-        mContext->advanceFrameCount(actualFrameCount);
+        if (actualByteCount > std::numeric_limits<std::int32_t>::max() - reply->fmqByteCount) {
+            reply->fmqByteCount = std::numeric_limits<std::int32_t>::max();
+        } else {
+            reply->fmqByteCount += actualByteCount;
+        }
+        if (actualByteCount > LONG_MAX - mContext->getFrameCount()) {
+            mContext->advanceFrameCount(LONG_MAX - mContext->getFrameCount());
+        } else {
+            mContext->advanceFrameCount(actualFrameCount);
+        }
         populateReply(reply, isConnected);
     } else {
         LOG(WARNING) << __func__ << ": reading of " << readByteCount
@@ -645,8 +669,31 @@ StreamCommonImpl::~StreamCommonImpl() {
 ndk::ScopedAStatus StreamCommonImpl::initInstance(
         const std::shared_ptr<StreamCommonInterface>& delegate) {
     mCommon = ndk::SharedRefBase::make<StreamCommonDelegator>(delegate);
-    return mWorker->start() ? ndk::ScopedAStatus::ok()
-                            : ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+    if (!mWorker->start()) {
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+    }
+    if (auto flags = getContext().getFlags();
+        (flags.getTag() == AudioIoFlags::Tag::input &&
+         isBitPositionFlagSet(flags.template get<AudioIoFlags::Tag::input>(),
+                              AudioInputFlags::FAST)) ||
+        (flags.getTag() == AudioIoFlags::Tag::output &&
+         isBitPositionFlagSet(flags.template get<AudioIoFlags::Tag::output>(),
+                              AudioOutputFlags::FAST))) {
+        // FAST workers should be run with a SCHED_FIFO scheduler, however the host process
+        // might be lacking the capability to request it, thus a failure to set is not an error.
+        pid_t workerTid = mWorker->getTid();
+        if (workerTid > 0) {
+            struct sched_param param;
+            param.sched_priority = 3; // Must match SchedulingPolicyService.PRIORITY_MAX (Java).
+            LOG(DEBUG) << __func__ << ": increase scheduling for tid : " << workerTid;
+            if (sched_setscheduler(workerTid, SCHED_FIFO | SCHED_RESET_ON_FORK, &param) != 0) {
+                LOG(WARNING) << __func__ << ": failed to set FIFO scheduler for a fast thread";
+            }
+        } else {
+            LOG(WARNING) << __func__ << ": invalid worker tid: " << workerTid;
+        }
+    }
+    return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus StreamCommonImpl::getStreamCommonCommon(

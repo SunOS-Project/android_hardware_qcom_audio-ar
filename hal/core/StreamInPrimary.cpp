@@ -99,8 +99,8 @@ ndk::ScopedAStatus StreamInPrimary::setConnectedDevices(
     mConnectedDevices = devices;
     auto connectedPalDevices =
             mPlatform.configureAndFetchPalDevices(mMixPortConfig, mTag, mConnectedDevices);
-    if (mTag == Usecase::PCM_RECORD) {
-        std::get<PcmRecord>(mExt).configurePalDevices(mMixPortConfig, connectedPalDevices);
+    if (mTag == Usecase::PCM_RECORD || mTag == Usecase::COMPRESS_CAPTURE) {
+        mPlatform.configurePalDevices(mMixPortConfig, connectedPalDevices);
     } else if (mTag == Usecase::ULTRA_FAST_RECORD) {
         auto countProxyDevices = std::count_if(mConnectedDevices.cbegin(), mConnectedDevices.cend(),
                                                isInputAFEProxyDevice);
@@ -601,6 +601,7 @@ size_t StreamInPrimary::getPlatformDelay() const noexcept {
 }
 
 void StreamInPrimary::configure() {
+    const auto startTime = std::chrono::steady_clock::now();
     auto attr = mPlatform.getPalStreamAttributes(mMixPortConfig, true);
     if (!attr) {
         LOG(ERROR) << __func__ << mLogPrefix << " no pal attributes";
@@ -653,13 +654,15 @@ void StreamInPrimary::configure() {
         return;
     }
 
-    if (mTag == Usecase::PCM_RECORD) {
-        std::get<PcmRecord>(mExt).configurePalDevices(mMixPortConfig, palDevices);
+    if (mTag == Usecase::PCM_RECORD || mTag == Usecase::COMPRESS_CAPTURE) {
+        LOG(DEBUG) << __func__ << mLogPrefix << " PalDevices is config";
+        mPlatform.configurePalDevices(mMixPortConfig, palDevices);
     }
 
     uint64_t cookie = reinterpret_cast<uint64_t>(this);
     pal_stream_callback palFn = nullptr;
 
+    const auto palOpenApiStartTime = std::chrono::steady_clock::now();
     if (int32_t ret = ::pal_stream_open(attr.get(), palDevices.size(), palDevices.data(), 0,
                                         nullptr, palFn, cookie, &(mPalHandle));
         ret) {
@@ -667,6 +670,7 @@ void StreamInPrimary::configure() {
         mPalHandle = nullptr;
         return;
     }
+    const auto palOpenApiEndTime = std::chrono::steady_clock::now();
 
     const size_t ringBufSizeInBytes = getPeriodSize();
     const size_t ringBufCount = getPeriodCount();
@@ -692,6 +696,7 @@ void StreamInPrimary::configure() {
         }
     }
 
+    const auto palStartApiStartTime = std::chrono::steady_clock::now();
     if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
         LOG(ERROR) << __func__ << mLogPrefix << " pal_stream_start failed!! ret:" << ret;
         ::pal_stream_close(mPalHandle);
@@ -699,10 +704,25 @@ void StreamInPrimary::configure() {
         return;
     }
 
+    const auto palStartApiEndTime = std::chrono::steady_clock::now();
+
     if (!mEffectsApplied)
         applyEffects();
 
     LOG(DEBUG) << __func__ << mLogPrefix << " : stream is configured";
+
+    const auto endTime = std::chrono::steady_clock::now();
+    using FloatMillis = std::chrono::duration<float, std::milli>;
+    const float palStreamOpenTimeTaken =
+            std::chrono::duration_cast<FloatMillis>(palOpenApiEndTime - palOpenApiStartTime)
+                    .count();
+    const float palStreamStartTimeTaken =
+            std::chrono::duration_cast<FloatMillis>(palStartApiEndTime - palStartApiStartTime)
+                    .count();
+    const float timeTaken = std::chrono::duration_cast<FloatMillis>(endTime - startTime).count();
+    LOG(INFO) << __func__ << mLogPrefix << ": completed in " << timeTaken
+              << " ms [pal_stream_open: " << palStreamOpenTimeTaken
+              << ", ms pal_stream_start: " << palStreamStartTimeTaken << " ms]";
 }
 
 void StreamInPrimary::applyEffects() {

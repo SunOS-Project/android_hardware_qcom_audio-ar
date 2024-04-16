@@ -163,6 +163,13 @@ DevicePairs getDevicePairs() {
                                         AudioDeviceDescription::CONNECTION_VIRTUAL),
              PAL_DEVICE_OUT_PROXY},
 
+            {makeAudioDeviceDescription(AudioDeviceType::IN_DEVICE,
+                                        AudioDeviceDescription::CONNECTION_IP_V4),
+             PAL_DEVICE_IN_RECORD_PROXY},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_DEVICE,
+                                        AudioDeviceDescription::CONNECTION_IP_V4),
+             PAL_DEVICE_OUT_RECORD_PROXY},
+
             {makeAudioDeviceDescription(AudioDeviceType::OUT_DEVICE,
                                         AudioDeviceDescription::CONNECTION_USB),
              PAL_DEVICE_OUT_USB_DEVICE},

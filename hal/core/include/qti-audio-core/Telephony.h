@@ -75,6 +75,8 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     static constexpr int32_t VSID1_VOICE_SESSION = 0;
     static constexpr int32_t VSID2_VOICE_SESSION = 1;
     static constexpr int32_t MAX_VOICE_SESSIONS = 2;
+    static constexpr int32_t MIN_CRS_VOL_INDEX = 0;
+    static constexpr int32_t MAX_CRS_VOL_INDEX = 7;
     struct SetUpdateSession {
         SetUpdates session[MAX_VOICE_SESSIONS];
     };

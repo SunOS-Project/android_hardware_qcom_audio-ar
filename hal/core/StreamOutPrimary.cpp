@@ -15,6 +15,7 @@
 #include <qti-audio-core/ModulePrimary.h>
 #include <qti-audio-core/StreamOutPrimary.h>
 #include <qti-audio/PlatformConverter.h>
+#include <qti-audio-core/Parameters.h>
 
 using aidl::android::hardware::audio::common::AudioOffloadMetadata;
 using aidl::android::hardware::audio::common::getFrameSizeInBytes;
@@ -39,6 +40,7 @@ using ::aidl::android::hardware::audio::core::StreamDescriptor;
 using ::aidl::android::hardware::audio::core::VendorParameter;
 
 using aidl::android::media::audio::common::AudioPortExt;
+using aidl::android::media::audio::common::Int;
 
 // uncomment this to enable logging of very verbose logs like burst commands.
 // #define VERY_VERBOSE_LOGGING 1
@@ -128,11 +130,6 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
 
     auto connectedPalDevices =
             mPlatform.configureAndFetchPalDevices(mMixPortConfig, mTag, mConnectedDevices);
-
-    if (connectedPalDevices.size() != mConnectedDevices.size()) {
-        LOG(ERROR) << __func__ << mLogPrefix << ": pal devices size != aidl devices size";
-        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
-    }
 
    if (int32_t ret = ::pal_stream_set_device(mPalHandle, connectedPalDevices.size(),
                                               connectedPalDevices.data());
@@ -333,6 +330,9 @@ void StreamOutPrimary::resume() {
     // hardware is expected to up on start
     // but we are doing on first write
     LOG(VERBOSE) << __func__ << mLogPrefix;
+    if (mPalHandle && mIsPaused) {
+        resume();
+    }
     return ::android::OK;
 }
 
@@ -370,9 +370,6 @@ void StreamOutPrimary::resume() {
     if (bytesWritten < 0) {
         LOG(ERROR) << __func__ << mLogPrefix << " write failed, ret: " << bytesWritten;
         *actualFrameCount = frameCount;
-        if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-            *actualFrameCount = static_cast<size_t>(bytesWritten / mFrameSizeBytes);
-        }
         return onWriteError(frameCount);
     }
 
@@ -464,15 +461,27 @@ void StreamOutPrimary::resume() {
     return (ret < 0 ? ret :  (frameSize*frameCount));
 }
 
+void StreamOutPrimary::updateCachedFrames(size_t cachedFrames) {
+    mCachedFrames = cachedFrames;
+}
+
 ::android::status_t StreamOutPrimary::refinePosition(
         ::aidl::android::hardware::audio::core::StreamDescriptor::Reply* reply) {
     if (!mPalHandle) {
         return ::android::OK;
     }
 
-    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK || mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         mPlatform.getPositionInFrames(mPalHandle, mMixPortConfig.sampleRate.value().value,
                                             &(reply->observable.frames));
+    } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
+        if (mPlatform.isSoundCardUp()) {
+            mPlatform.getPositionInFrames(mPalHandle, mMixPortConfig.sampleRate.value().value,
+                                                &(reply->observable.frames));
+        } else {
+            reply->observable.frames += mCachedFrames;
+            updateCachedFrames(reply->observable.frames);
+        }
     } else if (mTag == Usecase::MMAP_PLAYBACK) {
         if (int32_t ret = std::get<MMapPlayback>(mExt).getMMapPosition(&(reply->hardware.frames),
                                                                        &(reply->hardware.timeNs));
@@ -780,7 +789,19 @@ ndk::ScopedAStatus StreamOutPrimary::getVendorParameters(
         auto& compressPlayback = std::get<CompressPlayback>(mExt);
         return compressPlayback.getVendorParameters(in_ids, _aidl_return);
     }
-    return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+
+    if (mTag == Usecase::LOW_LATENCY_PLAYBACK) {
+        for (const auto& id : in_ids) {
+            if (id == Parameters::kSupportsHwSuspend) {
+                std::string value = "1";
+                _aidl_return->push_back(makeVendorParameter(id, value));
+            }
+        }
+    }
+
+    if (in_ids.size() != _aidl_return->size())
+        return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+    return ndk::ScopedAStatus::ok();
 }
 
 ndk::ScopedAStatus StreamOutPrimary::setVendorParameters(
@@ -820,7 +841,7 @@ size_t StreamOutPrimary::getPeriodSize() const noexcept {
     } else if (mTag == Usecase::DEEP_BUFFER_PLAYBACK) {
         return DeepBufferPlayback::kPeriodSize * mFrameSizeBytes;
     } else if (mTag == Usecase::LOW_LATENCY_PLAYBACK) {
-        return LowLatencyPlayback::kPeriodSize * mFrameSizeBytes;
+        return LowLatencyPlayback::getBufferSize(mMixPortConfig);
     } else if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         return CompressPlayback::getPeriodBufferSize(mMixPortConfig.format.value());
     } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
@@ -830,8 +851,7 @@ size_t StreamOutPrimary::getPeriodSize() const noexcept {
     } else if (mTag == Usecase::SPATIAL_PLAYBACK) {
         return SpatialPlayback::kPeriodSize * mFrameSizeBytes;
     } else if (mTag == Usecase::ULL_PLAYBACK) {
-        return UllPlayback::getPeriodSize(mMixPortConfig.format.value(),
-                                          mMixPortConfig.channelMask.value());
+        return UllPlayback::getBufferSize(mMixPortConfig);
     } else if (mTag == Usecase::MMAP_PLAYBACK) {
         return MMapPlayback::getPeriodSize(mMixPortConfig.format.value(),
                                            mMixPortConfig.channelMask.value());
@@ -891,7 +911,7 @@ size_t StreamOutPrimary::getPlatformDelay() const noexcept {
 }
 
 void StreamOutPrimary::configure() {
-
+    const auto startTime = std::chrono::steady_clock::now();
     std::unique_ptr<pal_channel_info> palNonHapticChannelInfo;
     std::unique_ptr<pal_channel_info> palHapticChannelInfo;
     AudioChannelLayout channelLayout;
@@ -908,6 +928,13 @@ void StreamOutPrimary::configure() {
         attr->type = PAL_STREAM_DEEP_BUFFER;
     } else if (mTag == Usecase::LOW_LATENCY_PLAYBACK) {
         attr->type = PAL_STREAM_LOW_LATENCY;
+
+        auto countProxyDevices = std::count_if(mConnectedDevices.cbegin(), mConnectedDevices.cend(),
+                                                isIPDevice);
+        if (countProxyDevices > 0) {
+            attr->type = PAL_STREAM_PROXY;
+            LOG(INFO) << __func__ << mLogPrefix << ": proxy playback on IPV4";
+        }
     } else if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         attr->type = PAL_STREAM_COMPRESSED;
     } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
@@ -966,6 +993,7 @@ void StreamOutPrimary::configure() {
         attr->flags = static_cast<pal_stream_flags_t>(PAL_STREAM_FLAG_MMAP);
     }
 
+    const auto palOpenApiStartTime = std::chrono::steady_clock::now();
     if (int32_t ret = ::pal_stream_open(attr.get(), palDevices.size(), palDevices.data(), 0,
                                         nullptr, palFn, cookie, &(this->mPalHandle));
         ret) {
@@ -1012,6 +1040,9 @@ void StreamOutPrimary::configure() {
                 << ret;
             }
     }
+
+    const auto palOpenApiEndTime = std::chrono::steady_clock::now();
+
     if (karaoke) {
         int size = palDevices.size();
         mAudExt.mKarokeExtension->karaoke_open(palDevices[size - 1].id, palFn,
@@ -1067,6 +1098,7 @@ void StreamOutPrimary::configure() {
         std::get<CompressPlayback>(mExt).setAndConfigureCodecInfo(mPalHandle);
     }
 
+    const auto palStartApiStartTime = std::chrono::steady_clock::now();
     if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
         LOG(ERROR) << __func__ << mLogPrefix << " pal_stream_start failed, ret:" << ret;
         ::pal_stream_close(mPalHandle);
@@ -1083,6 +1115,7 @@ void StreamOutPrimary::configure() {
         }
     }
 
+    const auto palStartApiEndTime = std::chrono::steady_clock::now();
 
     if (karaoke) mAudExt.mKarokeExtension->karaoke_start();
 
@@ -1104,6 +1137,18 @@ void StreamOutPrimary::configure() {
 
     LOG(INFO) << __func__ << mLogPrefix << ": stream is configured";
     enableOffloadEffects(true);
+    const auto endTime = std::chrono::steady_clock::now();
+    using FloatMillis = std::chrono::duration<float, std::milli>;
+    const float palStreamOpenTimeTaken =
+            std::chrono::duration_cast<FloatMillis>(palOpenApiEndTime - palOpenApiStartTime)
+                    .count();
+    const float palStreamStartTimeTaken =
+            std::chrono::duration_cast<FloatMillis>(palStartApiEndTime - palStartApiStartTime)
+                    .count();
+    const float timeTaken = std::chrono::duration_cast<FloatMillis>(endTime - startTime).count();
+    LOG(INFO) << __func__ << mLogPrefix << ": completed in " << timeTaken
+              << " ms [pal_stream_open: " << palStreamOpenTimeTaken
+              << ", ms pal_stream_start: " << palStreamStartTimeTaken << " ms]";
 }
 
 void StreamOutPrimary::enableOffloadEffects(const bool enable) {

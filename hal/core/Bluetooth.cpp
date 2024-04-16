@@ -15,8 +15,8 @@
  */
 
 /*
- * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -55,6 +55,9 @@ ndk::ScopedAStatus Bluetooth::setScoConfig(const ScoConfig& in_config, ScoConfig
     }
     if (in_config.mode != ScoConfig::Mode::UNSPECIFIED) {
         mScoConfig.mode = in_config.mode;
+        if (mScoConfig.mode == ScoConfig::Mode::SCO) {
+            mPlatform.setBluetoothParameters("bt_wbs=off");
+        }
         if (mScoConfig.mode == ScoConfig::Mode::SCO_WB) {
             mPlatform.setBluetoothParameters("bt_wbs=on");
         } else if (mScoConfig.mode == ScoConfig::Mode::SCO_SWB) {
@@ -134,6 +137,8 @@ ndk::ScopedAStatus BluetoothLe::isEnabled(bool* _aidl_return) {
 
 ndk::ScopedAStatus BluetoothLe::setEnabled(bool in_enabled) {
     mEnabled = in_enabled;
+    mEnabled == true ? mPlatform.setBluetoothParameters("LeAudioSuspended=false")
+                     : mPlatform.setBluetoothParameters("LeAudioSuspended=true");
     LOG(DEBUG) << __func__ << ": " << mEnabled;
     return ndk::ScopedAStatus::ok();
 }

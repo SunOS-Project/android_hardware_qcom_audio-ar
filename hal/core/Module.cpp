@@ -150,6 +150,12 @@ void Module::cleanUpPatch(int32_t patchId) {
     erase_all_values(mPatches, std::set<int32_t>{patchId});
 }
 
+int32_t Module::getNominalLatencyMs(const AudioPortConfig& mixPortConfig) {
+    // Arbitrary value. Implementations must override this method to provide their actual latency.
+    static constexpr int32_t kLatencyMs = 5;
+    return kLatencyMs;
+}
+
 ndk::ScopedAStatus Module::createStreamContext(
         int32_t in_portConfigId, int64_t in_bufferSizeFrames,
         std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> asyncCallback,
@@ -187,13 +193,14 @@ ndk::ScopedAStatus Module::createStreamContext(
     StreamContext::DebugParameters params{mDebug.streamTransientStateDelayMs,
                                           mVendorDebug.forceTransientBurst,
                                           mVendorDebug.forceSynchronousDrain};
+    const int32_t& nominalLatency = getNominalLatencyMs(*portConfigIt);
     StreamContext temp(
             std::make_unique<StreamContext::CommandMQ>(1, true /*configureEventFlagWord*/),
             std::make_unique<StreamContext::ReplyMQ>(1, true /*configureEventFlagWord*/),
             portConfigIt->format.value(), portConfigIt->channelMask.value(),
             portConfigIt->sampleRate.value().value,
             std::make_unique<StreamContext::DataMQ>(frameSize * in_bufferSizeFrames), asyncCallback,
-            outEventCallback, *portConfigIt, params);
+            outEventCallback, *portConfigIt, params, nominalLatency);
     if (temp.isValid()) {
         *out_context = std::move(temp);
     } else {
@@ -970,7 +977,9 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
         //if its there, then update to new patch and remove it from list
         for (auto & element : patches)
         {
-             if (isMixPortConfig(*(sources.at(0)))) {
+             if (isMixPortConfig(*(sources.at(0))) ||
+                (isDevicePortConfig(*(sources.at(0))) &&
+                 isTelephonyRXDevice(sources.at(0)->ext.get<AudioPortExt::Tag::device>().device))) {
                  if (element.sourcePortConfigIds == in_requested.sourcePortConfigIds) {
                      LOG(ERROR) << __func__ << " found same mixport config in patch id: " << element.id;
                      existing = findById<AudioPatch>(patches, element.id);
@@ -1023,6 +1032,10 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
         onNewPatchCreation(sources, sinks, *_aidl_return);
         patches.push_back(*_aidl_return);
     } else {
+        if (in_requested.id == 0 ) {
+           _aidl_return->id = existing->id;
+           LOG(DEBUG) << __func__ << "patch id 0 updated to existing patch id " << existing->id;
+        }
         // this suggests to update the existing patch.
         oldPatch = *existing;
         // update the existing patch to requested patch in module config.

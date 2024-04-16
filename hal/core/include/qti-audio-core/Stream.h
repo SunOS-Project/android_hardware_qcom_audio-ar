@@ -15,8 +15,8 @@
  */
 
 /*
- * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -98,7 +98,7 @@ class StreamContext {
             std::shared_ptr<::aidl::android::hardware::audio::core::IStreamOutEventCallback>
                     outEventCallback,
             ::aidl::android::media::audio::common::AudioPortConfig mixPortConfig,
-            DebugParameters debugParameters)
+            DebugParameters debugParameters, const int nominalLatency)
         : mCommandMQ(std::move(commandMQ)),
           mInternalCommandCookie(std::rand()),
           mReplyMQ(std::move(replyMQ)),
@@ -109,6 +109,7 @@ class StreamContext {
           mAsyncCallback(asyncCallback),
           mOutEventCallback(outEventCallback),
           mMixPortConfig(mixPortConfig),
+          mNominalLatency(nominalLatency),
           mDebugParameters(debugParameters) {}
     StreamContext(StreamContext&& other)
         : mCommandMQ(std::move(other.mCommandMQ)),
@@ -122,7 +123,8 @@ class StreamContext {
           mOutEventCallback(std::move(other.mOutEventCallback)),
           mMixPortConfig(std::move(other.mMixPortConfig)),
           mDebugParameters(std::move(other.mDebugParameters)),
-          mFrameCount(other.mFrameCount) {}
+          mFrameCount(other.mFrameCount),
+          mNominalLatency(other.mNominalLatency) {}
     StreamContext& operator=(StreamContext&& other) {
         mCommandMQ = std::move(other.mCommandMQ);
         mInternalCommandCookie = other.mInternalCommandCookie;
@@ -136,6 +138,7 @@ class StreamContext {
         mMixPortConfig = std::move(other.mMixPortConfig);
         mDebugParameters = std::move(other.mDebugParameters);
         mFrameCount = other.mFrameCount;
+        mNominalLatency =  other.mNominalLatency;
         return *this;
     }
 
@@ -182,6 +185,7 @@ class StreamContext {
     const ::aidl::android::media::audio::common::AudioPortConfig& getMixPortConfig() const {
         return mMixPortConfig;
     }
+    int32_t getNominalLatencyMs() const { return mNominalLatency; }
 
   private:
     std::unique_ptr<CommandMQ> mCommandMQ;
@@ -198,6 +202,7 @@ class StreamContext {
             mOutEventCallback; // Only used by output streams
     DebugParameters mDebugParameters;
     long mFrameCount = 0;
+    int32_t mNominalLatency = 0;
 };
 
 // This interface provides operations of the stream which are executed on the worker thread.
@@ -248,6 +253,7 @@ class StreamWorkerCommonLogic : public ::android::hardware::audio::common::Strea
         : mContext(context),
           mDriver(driver),
           mTransientStateDelayMs(context->getTransientStateDelayMs()) {}
+    pid_t getTid() const;
     std::string init() override;
     void populateReply(::aidl::android::hardware::audio::core::StreamDescriptor::Reply* reply,
                        bool isConnected) const;
@@ -289,6 +295,7 @@ struct StreamWorkerInterface {
     virtual void setIsConnected(bool isConnected) = 0;
     virtual void setClosed() = 0;
     virtual bool start() = 0;
+    virtual pid_t getTid() = 0;
     virtual void stop() = 0;
 };
 
@@ -306,6 +313,7 @@ class StreamWorkerImpl : public StreamWorkerInterface,
     bool start() override {
         return WorkerImpl::start(WorkerImpl::kThreadName, ANDROID_PRIORITY_AUDIO);
     }
+    pid_t getTid() override { return WorkerImpl::getTid(); }
     void stop() override { return WorkerImpl::stop(); }
 };
 
