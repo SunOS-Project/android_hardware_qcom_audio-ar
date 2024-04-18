@@ -906,6 +906,13 @@ size_t CompressCapture::getLatencyMs() {
     constexpr size_t kMilliSeconds = 1000;
     return mPCMSamplesPerFrame * kMilliSeconds / mSampleRate;
 }
+void CompressCapture::advanceReadCount() {
+    mNumReadCalls++;
+}
+
+int64_t CompressCapture::getPositionInFrames() {
+    return (mNumReadCalls * mPCMSamplesPerFrame);
+}
 
 bool CompressCapture::configureCodecInfo(){
     /* check for global cut-off frequency*/

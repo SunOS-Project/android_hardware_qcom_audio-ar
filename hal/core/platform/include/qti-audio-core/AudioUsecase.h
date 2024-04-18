@@ -565,7 +565,10 @@ class CompressCapture : public UsecaseConfig<CompressCapture, false /*IsPcm*/> {
 
     uint32_t getAACMaxBufferSize();
     void setAACDSPBitRate();
+    void advanceReadCount();
+    int64_t getPositionInFrames();
 
+    private:
     const ::aidl::android::media::audio::common::AudioFormatDescription& mCompressFormat;
     const ::aidl::android::media::audio::common::AudioChannelLayout& mChannelLayout;
     int32_t mSampleRate{};
