@@ -78,6 +78,8 @@ bool isInputMixPortConfig(const ::aidl::android::media::audio::common::AudioPort
 
 bool isDevicePortConfig(const ::aidl::android::media::audio::common::AudioPortConfig&) noexcept;
 
+bool isOutputAudioDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
+
 bool isTelephonyRXDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
 
 bool isTelephonyTXDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;

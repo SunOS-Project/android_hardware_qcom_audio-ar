@@ -233,15 +233,6 @@ class Platform {
     PlaybackRateStatus setPlaybackRate(
             pal_stream_handle_t* handle, const Usecase& tag,
             const ::aidl::android::media::audio::common::AudioPlaybackRate& playbackRate);
-    std::vector<::aidl::android::media::audio::common::AudioDevice> getPrimaryPlaybackDevices()
-            const {
-        return mPrimaryPlaybackDevices;
-    }
-
-    void setPrimaryPlaybackDevices(
-            const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices) {
-        mPrimaryPlaybackDevices = devices;
-    }
 
     void setInCallMusicState(const bool state) noexcept { mInCallMusicEnabled = state; }
     bool getInCallMusicState() noexcept { return mInCallMusicEnabled; }
