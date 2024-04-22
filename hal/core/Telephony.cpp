@@ -299,7 +299,7 @@ AudioDevice Telephony::getMatchingTxDevice(const AudioDevice& rxDevice) {
 void Telephony::reconfigure(const SetUpdates& newUpdates) {
     std::scoped_lock lock{mLock};
     auto palDevices = mPlatform.convertToPalDevices({mRxDevice, mTxDevice});
-    LOG(VERBOSE) << __func__ << " current setUpdates" << mSetUpdates.toString() << " new setUpdates"
+    LOG(DEBUG) << __func__ << " : Enter : current setUpdates" << mSetUpdates.toString() << " new setUpdates"
                  << newUpdates.toString();
     // Todo Implement
     mPlatform.updateCallState((int)mSetUpdates.mCallState);
@@ -363,6 +363,7 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
         *UpdateSession = mSetUpdates;
         return;
     }
+    LOG(DEBUG) << __func__ << ": Exit";
 }
 
 void Telephony::updateVolumeBoost(const bool enable) {
@@ -556,7 +557,7 @@ void Telephony::startCall() {
         mPlatform.setStreamMicMute(mPalHandle, true);
         LOG(DEBUG) << __func__ << ": CRS usecase mute TX";
     }
-    LOG(VERBOSE) << __func__ << ": Exit";
+    LOG(DEBUG) << __func__ << ": Exit : Voice Stream";
 }
 
 void Telephony::startCrsLoopback() {
@@ -601,7 +602,7 @@ void Telephony::stopCall() {
         updateVoiceMetadataForBT(false);
     }
     mPalHandle = nullptr;
-    LOG(VERBOSE) << __func__ << ": EXIT";
+    LOG(DEBUG) << __func__ << ": EXIT";
 }
 
 void Telephony::stopCrsLoopback() {
@@ -627,7 +628,7 @@ void Telephony::updateDevices() {
     int retry_cnt = 20;
     const int retry_period_ms = 100;
     bool is_suspend_setparam = false;
-
+    LOG(DEBUG) << __func__ << ": Enter";
     /*If callstate is active, but no palHandle, that means pal stream open
       failed, so start call again , we might get updated devices now which
       helps in pal stream open successful, so call startCall here*/
@@ -707,7 +708,7 @@ void Telephony::updateDevices() {
             startCrsLoopback();
         }
     }
-    LOG(DEBUG) << __func__ << ": Rx: " << mRxDevice.toString() << " Tx: " << mTxDevice.toString();
+    LOG(DEBUG) << __func__ << ": Exit : Rx: " << mRxDevice.toString() << " Tx: " << mTxDevice.toString();
 }
 
 std::ostream& operator<<(std::ostream& os, const Telephony::CallState& state) {
