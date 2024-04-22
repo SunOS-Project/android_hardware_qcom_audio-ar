@@ -9,7 +9,6 @@
 
 #include <android-base/logging.h>
 #include <audio_utils/clock.h>
-#include <extensions/PerfLock.h>
 #include <hardware/audio.h>
 #include <qti-audio-core/Module.h>
 #include <qti-audio-core/ModulePrimary.h>
@@ -149,7 +148,6 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
 ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* burstSizeFrames,
                                                          int32_t* flags,
                                                          int32_t* bufferSizeFrames) {
-    PerfLock perfLock;
     if (mTag != Usecase::MMAP_PLAYBACK) {
         LOG(ERROR) << __func__ << mLogPrefix << " cannot call on non-MMAP stream types";
         return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
@@ -344,7 +342,6 @@ void StreamOutPrimary::resume() {
                                                size_t* actualFrameCount, int32_t* latencyMs) {
     if (!mPalHandle) {
         // configure on first transfer or after stand by
-        PerfLock perfLock;
         configure();
         if (!mPalHandle) {
             LOG(ERROR) << __func__ << mLogPrefix << ": failed to configure";
