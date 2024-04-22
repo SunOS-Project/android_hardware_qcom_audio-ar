@@ -4,6 +4,7 @@
  */
 
 #pragma once
+#include <PalApi.h>
 #include <aidl/android/hardware/audio/core/IModule.h>
 #include <aidl/android/hardware/audio/core/VendorParameter.h>
 #include <aidl/android/media/audio/common/AudioDevice.h>
@@ -12,10 +13,10 @@
 #include <aidl/android/media/audio/common/AudioPort.h>
 #include <aidl/android/media/audio/common/AudioPortConfig.h>
 #include <extensions/AudioExtension.h>
+#include <qti-audio-core/AudioUsecase.h>
 #include <system/audio.h>
 
-#include <PalApi.h>
-#include <qti-audio-core/AudioUsecase.h>
+#include <unordered_map>
 
 namespace qti::audio::core {
 
@@ -26,6 +27,32 @@ struct HdmiParameters {
 };
 
 enum class PlaybackRateStatus { SUCCESS, UNSUPPORTED, ILLEGAL_ARGUMENT };
+
+using GetLatency = int32_t (*)();
+using GetFrameCount =
+        size_t (*)(const ::aidl::android::media::audio::common::AudioPortConfig& portConfig);
+using GetBufferConfig = struct BufferConfig (*)(
+        const ::aidl::android::media::audio::common::AudioPortConfig& portConfig);
+
+/*
+ * Helper to map getLatency, getFrameCount, getBufferConfig APIs
+ * from platform to audiousecase. While Introducing new usecase
+ * always provide the APIS.
+ */
+struct UsecaseOps {
+    GetLatency getLatency;
+    GetFrameCount getFrameCount;
+    GetBufferConfig getBufferConfig;
+};
+
+template <typename UsecaseClass>
+inline UsecaseOps makeUsecaseOps() {
+    UsecaseOps ops;
+    ops.getLatency = UsecaseClass::getLatency;
+    ops.getFrameCount = UsecaseClass::getFrameCount;
+    ops.getBufferConfig = UsecaseClass::getBufferConfig;
+    return ops;
+}
 
 class Platform {
   private:
@@ -46,6 +73,19 @@ class Platform {
     int mCallState;
     int mCallMode;
     static Platform& getInstance();
+
+    size_t getFrameCount(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
+            Usecase const& inTag = Usecase::INVALID);
+
+    struct BufferConfig getBufferConfig(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
+            Usecase const& inTag = Usecase::INVALID);
+
+    int32_t getLatencyMs(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
+            Usecase const& inTag = Usecase::INVALID);
+
     bool setParameter(const std::string& key, const std::string& value);
     bool setBluetoothParameters(const char* kvpairs);
     bool setVendorParameters(
@@ -66,12 +106,11 @@ class Platform {
     bool isSoundCardUp() const noexcept;
     bool isSoundCardDown() const noexcept;
     bool isValidAlsaAddr(const std::vector<int>& alsaAddress) const noexcept;
-    size_t getFrameCount(
-            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) const;
+
+
     size_t getMinimumStreamSizeFrames(
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
-            const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks)
-            const;
+            const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks);
     std::unique_ptr<pal_stream_attributes> getPalStreamAttributes(
             const ::aidl::android::media::audio::common::AudioPortConfig& portConfig,
             const bool isInput) const;
@@ -170,9 +209,6 @@ class Platform {
 
     void setFacing(std::string const& value) { mFacing = value; }
 
-    int32_t getLatencyMs(
-            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
-            Usecase const& inTag = Usecase::INVALID) const;
 
     /*
     * @brief creates a pal payload for a speed factor and sets to PAL
@@ -244,8 +280,6 @@ class Platform {
     void setHdrOnPalDevice(pal_device* palDeviceIn);
     bool isHDRARMenabled();
     bool isHDRSPFEnabled();
-
-
   private:
     void customizePalDevices(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
@@ -257,6 +291,8 @@ class Platform {
 
     std::optional<struct HdmiParameters> getHdmiParameters(
             const ::aidl::android::media::audio::common::AudioDevice&) const;
+
+    void initUsecaseOpMap();
 
   public:
     constexpr static uint32_t kDefaultOutputSampleRate = 48000;
@@ -287,5 +323,6 @@ class Platform {
     std::string mOrientation{""};
     std::string mFacing{""};
 
+    std::unordered_map<Usecase, UsecaseOps> mUsecaseOpMap;
 };
 } // namespace qti::audio::core

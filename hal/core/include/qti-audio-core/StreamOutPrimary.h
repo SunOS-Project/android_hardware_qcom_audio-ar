@@ -94,8 +94,6 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
      */
     void configure();
     void resume();
-    size_t getPeriodSize() const noexcept;
-    size_t getPeriodCount() const noexcept;
     size_t getPlatformDelay() const noexcept;
     void updateCachedFrames(size_t cachedFrames);
     ::android::status_t onWriteError(const size_t sleepFrameCount);
@@ -143,6 +141,7 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
   private:
     std::string mLogPrefix = "";
     bool isHwVolumeSupported();
+    struct BufferConfig getBufferConfig();
 
     // optional buffer format converter, if stream input and output formats are different
     std::optional<std::unique_ptr<BufferFormatConverter>> mBufferFormatConverter;

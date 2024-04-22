@@ -4,7 +4,7 @@
  */
 #define LOG_TAG "AHAL_Usecase_QTI"
 
-#include <Utils.h>
+
 #include <aidl/qti/audio/core/VString.h>
 #include <android-base/logging.h>
 #include <android-base/properties.h>
@@ -66,6 +66,8 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
                                  1 << flagCastToint(AudioOutputFlags::GAPLESS_OFFLOAD));
     constexpr auto fastRecordFlags =
             static_cast<int32_t>(1 << flagCastToint(AudioInputFlags::FAST));
+    constexpr auto ullRecordFlags = static_cast<int32_t>(
+        1 << flagCastToint(AudioInputFlags::FAST)| 1 << flagCastToint(AudioInputFlags::RAW));
     constexpr auto compressCaptureFlags =
             static_cast<int32_t>(1 << flagCastToint(AudioInputFlags::DIRECT));
     constexpr auto lowLatencyPlaybackFlags =
@@ -130,7 +132,7 @@ Usecase getUsecaseTag(const ::aidl::android::media::audio::common::AudioPortConf
                     tag = Usecase::VOICE_CALL_RECORD;
                 }
             }
-        } else if (inFlags == fastRecordFlags) {
+        } else if (inFlags == fastRecordFlags || inFlags == ullRecordFlags) {
             tag = Usecase::FAST_RECORD;
             if (streamSampleRate == UltraFastRecord::kSampleRate) {
                 tag = Usecase::ULTRA_FAST_RECORD;
@@ -198,12 +200,25 @@ std::string getName(const Usecase tag) {
             return std::to_string(static_cast<uint16_t>(tag));
     }
 }
-// start of pcm record
+
+auto getIntValueFromVString = [](
+        const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& parameters,
+        const std::string& searchKey) -> std::optional<int32_t> {
+    std::optional<::aidl::qti::audio::core::VString> parcel;
+    for (const auto& p : parameters) {
+        if (p.id == searchKey && p.ext.getParcelable(&parcel) == ::android::OK &&
+            parcel.has_value()) {
+            int32_t value = strtol(parcel.value().value.c_str(), nullptr, 10);
+            return value;
+        }
+    }
+    return std::nullopt;
+};
 
 // [LowLatencyPlayback Start]
 std::unordered_set<size_t> LowLatencyPlayback::kSupportedFrameSizes = {160, 192, 240, 320, 480};
 
-size_t LowLatencyPlayback::getMinFrames(const AudioPortConfig& mixPortConfig) {
+size_t LowLatencyPlayback::getFrameCount(const AudioPortConfig& mixPortConfig) {
     const std::string kPeriodSizeProp = "vendor.audio_hal.period_size";
     auto frameSize = ::android::base::GetUintProperty<size_t>(kPeriodSizeProp,
                                                               LowLatencyPlayback::kPeriodSize);
@@ -213,54 +228,90 @@ size_t LowLatencyPlayback::getMinFrames(const AudioPortConfig& mixPortConfig) {
     return LowLatencyPlayback::kPeriodSize;
 }
 
-size_t LowLatencyPlayback::getBufferSize(const AudioPortConfig& mixPortConfig) {
-    auto minFrames = getMinFrames(mixPortConfig);
-    auto frameSizeInBytes =
-            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
-    return minFrames * frameSizeInBytes;
-}
-
 // [LowLatencyPlayback End]
 
-size_t UllPlayback::getMinFrames(const AudioPortConfig& mixPortConfig) {
-    return UllPlayback::kPeriodSize * UllPlayback::kPeriodMultiplier;
+// [Deep Buffer Start]
+
+size_t DeepBufferPlayback::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    return kPeriodSize;
 }
 
-size_t UllPlayback::getBufferSize(const AudioPortConfig& mixPortConfig) {
-    auto minFrames = getMinFrames(mixPortConfig);
-    auto frameSizeInBytes =
-            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
-    return minFrames * frameSizeInBytes;
+// [Deep Buffer End]
+size_t PrimaryPlayback::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    return kPeriodSize;
 }
 
-// static
-size_t PcmRecord::getMinFrames(const AudioPortConfig& mixPortConfig) {
-    size_t minFrames = kCaptureDurationMs * (mixPortConfig.sampleRate.value().value / 1000);
-    minFrames = getNearestMultiple(minFrames,
-                std::lcm(32, getPcmSampleSizeInBytes(mixPortConfig.format.value().pcm)));
-    // Adjusting to minFrames as atleast kFMQMinFrameSize (160).
-    // Todo check the sanity of this requirement in the VTS test.
-    minFrames = std::max(minFrames, kFMQMinFrameSize);
-    return minFrames;
+// [ULLPlayback Start]
+size_t UllPlayback::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    return kPeriodSize * kPeriodMultiplier;
 }
 
-// end of pcm record
+// [ULLPlayback End]
 
-// start of fast record
-
-// static
-size_t FastRecord::getPeriodSize(
-        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
-    size_t frameSize =
-            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
-    size_t size = kPeriodSize * frameSize;
-    size = getNearestMultiple(size, std::lcm(32, frameSize));
-    return size;
+// [MMapPlayback Start]
+size_t MMapPlayback::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    return kPeriodSize;
 }
 
-// end of fast record
+void MMapPlayback::setPalHandle(pal_stream_handle_t* handle) {
+    mPalHandle = handle;
+}
 
-// start of compress playback
+int32_t MMapPlayback::createMMapBuffer(int64_t frameSize, int32_t* fd, int64_t* burstSizeFrames,
+                                       int32_t* flags, int32_t* bufferSizeFrames) {
+    if (!mPalHandle) {
+        LOG(ERROR) << __func__ << ": pal stream handle is null";
+        return -EINVAL;
+    }
+    struct pal_mmap_buffer palMMapBuf;
+    if (int32_t ret = pal_stream_create_mmap_buffer(mPalHandle, frameSize, &palMMapBuf); ret) {
+        LOG(ERROR) << __func__ << ": pal stream create mmap buffer failed "
+                   << "returned " << ret;
+        return ret;
+    }
+    *fd = palMMapBuf.fd;
+    *burstSizeFrames = palMMapBuf.burst_size_frames;
+    *flags = palMMapBuf.flags;
+    *bufferSizeFrames = palMMapBuf.buffer_size_frames;
+    return 0;
+}
+
+int32_t MMapPlayback::getMMapPosition(int64_t* frames, int64_t* timeNs) {
+    if (!mPalHandle) {
+        LOG(ERROR) << __func__ << ": pal stream handle is null";
+        return -EINVAL;
+    }
+    struct pal_mmap_position pal_mmap_pos;
+    if (int32_t ret = pal_stream_get_mmap_position(mPalHandle, &pal_mmap_pos); ret) {
+        LOG(ERROR) << __func__ << ": failed to get mmap positon "
+                   << "returned " << ret;
+        return ret;
+    }
+    *timeNs = pal_mmap_pos.time_nanoseconds;
+    *frames = pal_mmap_pos.position_frames;
+    return 0;
+}
+
+// [MMapPlayback End]
+
+// [CompressPlayback Start]
+size_t CompressPlayback::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    auto format = mixPortConfig.format.value();
+    size_t periodSize = kPeriodSize;
+    if (format.encoding == ::android::MEDIA_MIMETYPE_AUDIO_FLAC) {
+        periodSize = Flac::kPeriodSize;
+    }
+
+    const std::string kCompressPeriodSizeProp{"vendor.audio.offload.buffer.size.kb"};
+    auto propPeriodSize =
+            ::android::base::GetUintProperty<size_t>(kCompressPeriodSizeProp, 0) * 1024;
+
+    if (propPeriodSize > periodSize) {
+        periodSize = propPeriodSize;
+    }
+    return periodSize;
+}
+
 CompressPlayback::CompressPlayback(
         const ::aidl::android::media::audio::common::AudioOffloadInfo& offloadInfo,
         std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> asyncCallback)
@@ -374,20 +425,6 @@ int32_t CompressPlayback::palCallback(pal_stream_handle_t* palHandle, uint32_t e
     }
     return 0;
 }
-
-auto getIntValueFromVString = [](
-        const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& parameters,
-        const std::string& searchKey) -> std::optional<int32_t> {
-    std::optional<::aidl::qti::audio::core::VString> parcel;
-    for (const auto& p : parameters) {
-        if (p.id == searchKey && p.ext.getParcelable(&parcel) == ::android::OK &&
-            parcel.has_value()) {
-            int32_t value = strtol(parcel.value().value.c_str(), nullptr, 10);
-            return value;
-        }
-    }
-    return std::nullopt;
-};
 
 ndk::ScopedAStatus CompressPlayback::setVendorParameters(
         const std::vector<::aidl::android::hardware::audio::core::VendorParameter>& in_parameters,
@@ -632,27 +669,210 @@ bool CompressPlayback::configureCodecInfo() const {
     return true;
 }
 
-// static
-size_t CompressPlayback::getPeriodBufferSize(
-        const ::aidl::android::media::audio::common::AudioFormatDescription& format) {
-    size_t periodSize = CompressPlayback::kPeriodSize;
-    if (format.encoding == ::android::MEDIA_MIMETYPE_AUDIO_FLAC) {
-        periodSize = Flac::kPeriodSize;
+// [CompressPlayback End]
+
+// [PcmOffloadPlayback Start]
+
+size_t PcmOffloadPlayback::getFrameCount(
+        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
+    const auto frameSize =
+            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
+
+    size_t periodSize =
+            (mixPortConfig.sampleRate.value().value * kPeriodDurationMs * frameSize) / 1000;
+
+    if (periodSize < kMinPeriodSize) {
+        periodSize = kMinPeriodSize;
+    } else if (periodSize > kMaxPeriodSize) {
+        periodSize = kMaxPeriodSize;
     }
 
-    const std::string kCompressPeriodSizeProp{"vendor.audio.offload.buffer.size.kb"};
-    auto propPeriodSize =
-            ::android::base::GetUintProperty<size_t>(kCompressPeriodSizeProp, 0) * 1024;
+    periodSize = ALIGN(periodSize, (frameSize * 32));
 
-    if (propPeriodSize > periodSize) {
-        periodSize = propPeriodSize;
+    if (auto res = Platform::requiresBufferReformat(mixPortConfig)) {
+        audio_format_t inFormat = res->first;
+        audio_format_t outFormat = res->second;
+        periodSize =
+                (periodSize * audio_bytes_per_sample(inFormat)) / audio_bytes_per_sample(outFormat);
     }
-    return periodSize;
+
+    return periodSize / frameSize;
 }
 
-// end of compress playback
+// [PcmOffloadPlayback End]
 
-// start of compress capture
+// [SpatialPlayback Start]
+size_t SpatialPlayback::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    return kPeriodSize;
+}
+
+// [SpatialPlayback End]
+
+// [InCallMusic Start]
+size_t InCallMusic::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    return kPeriodSize;
+}
+
+// [InCallMusic End]
+
+// [VoipPlayback Start]
+size_t VoipPlayback::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    return (kPeriodDurationMs * mixPortConfig.sampleRate.value().value) / 1000;
+}
+
+// [VoipPlayback End]
+
+// [HapticPlayback Start]
+size_t HapticsPlayback::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    return kPeriodSize;
+}
+
+// [HapticsPlayback End]
+// [PcmRecord Start]
+size_t PcmRecord::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    size_t frameCount = kCaptureDurationMs * (mixPortConfig.sampleRate.value().value / 1000);
+    frameCount = getNearestMultiple(
+            frameCount, std::lcm(32, getPcmSampleSizeInBytes(mixPortConfig.format.value().pcm)));
+    // Adjusting to frameCount as atleast kFMQMinFrameSize (160).
+    // Todo check the sanity of this requirement in the VTS test.
+    frameCount = std::max(frameCount, kFMQMinFrameSize);
+    return frameCount;
+}
+
+// [PcmRecord End]
+
+// [FastRecord Start]
+size_t FastRecord::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    size_t frameSize =
+            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
+    size_t size = kPeriodSize * frameSize;
+    size = getNearestMultiple(size, std::lcm(32, frameSize));
+    return size / frameSize;
+}
+
+// [FastRecord Start]
+
+// [UltraFastRecord Start]
+size_t UltraFastRecord::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    return kPeriodSize;
+}
+
+// [UltraFastRecord End]
+
+// [MMapRecord Start]
+
+size_t MMapRecord::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    return kPeriodSize;
+}
+
+void MMapRecord::setPalHandle(pal_stream_handle_t* handle) {
+    mPalHandle = handle;
+}
+
+int32_t MMapRecord::createMMapBuffer(int64_t frameSize, int32_t* fd, int64_t* burstSizeFrames,
+                                     int32_t* flags, int32_t* bufferSizeFrames) {
+    if (!mPalHandle) {
+        LOG(ERROR) << __func__ << ": pal stream handle is null";
+        return -EINVAL;
+    }
+    struct pal_mmap_buffer palMMapBuf;
+    if (int32_t ret = pal_stream_create_mmap_buffer(mPalHandle, frameSize, &palMMapBuf); ret) {
+        LOG(ERROR) << __func__ << ": pal stream create mmap buffer failed "
+                   << "returned " << ret;
+        return ret;
+    }
+    *fd = palMMapBuf.fd;
+    *burstSizeFrames = palMMapBuf.burst_size_frames;
+    *flags = palMMapBuf.flags;
+    *bufferSizeFrames = palMMapBuf.buffer_size_frames;
+    return 0;
+}
+
+int32_t MMapRecord::getMMapPosition(int64_t* frames, int64_t* timeNs) {
+    if (!mPalHandle) {
+        LOG(ERROR) << __func__ << ": pal stream handle is null";
+        return -EINVAL;
+    }
+    struct pal_mmap_position pal_mmap_pos;
+    if (int32_t ret = pal_stream_get_mmap_position(mPalHandle, &pal_mmap_pos); ret) {
+        LOG(ERROR) << __func__ << ": failed to get mmap positon "
+                   << "returned " << ret;
+        return ret;
+    }
+    *timeNs = pal_mmap_pos.time_nanoseconds;
+    *frames = pal_mmap_pos.position_frames;
+    return 0;
+}
+// [MMapRecord End]
+
+// [HotwordRecord Start]
+size_t HotwordRecord::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    return PcmRecord::getFrameCount(mixPortConfig);
+}
+
+pal_stream_handle_t* HotwordRecord::getPalHandle(
+        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
+    size_t payloadSize = 0;
+    pal_param_st_capture_info_t stCaptureInfo{0, nullptr};
+
+    auto& ioHandle = mixPortConfig.ext.get<AudioPortExt::Tag::mix>().handle;
+    stCaptureInfo.capture_handle = ioHandle;
+
+    int32_t ret = pal_get_param(PAL_PARAM_ID_ST_CAPTURE_INFO, (void**)&stCaptureInfo, &payloadSize,
+                                nullptr);
+    if (ret) {
+        LOG(ERROR) << __func__ << ": sound trigger handle not found, status " << ret;
+        return nullptr;
+    }
+
+    LOG(DEBUG) << __func__ << ": sound trigger pal handle " << stCaptureInfo.pal_handle
+               << " for IOHandle  " << ioHandle;
+
+    return stCaptureInfo.pal_handle;
+}
+// [HotwordRecord End]
+
+// [VoipRecord Start]
+size_t VoipRecord::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    return (kCaptureDurationMs * mixPortConfig.sampleRate.value().value) / 1000;
+}
+
+// [VoipRecord End]
+
+// [VoiceCallRecord Start]
+size_t VoiceCallRecord::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    return (kCaptureDurationMs * mixPortConfig.sampleRate.value().value) / 1000;
+}
+
+pal_incall_record_direction VoiceCallRecord::getRecordDirection(
+        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
+    auto& source = mixPortConfig.ext.get<AudioPortExt::Tag::mix>()
+                           .usecase.get<AudioPortMixExtUseCase::source>();
+    if (source == AudioSource::VOICE_UPLINK) {
+        return INCALL_RECORD_VOICE_UPLINK;
+    } else if (source == AudioSource::VOICE_DOWNLINK) {
+        return INCALL_RECORD_VOICE_DOWNLINK;
+    } else if (source == AudioSource::VOICE_CALL) {
+        return INCALL_RECORD_VOICE_UPLINK_DOWNLINK;
+    }
+    LOG(ERROR) << __func__ << ": Invalid source for VoiceCallRecord" << static_cast<int>(source);
+    return static_cast<pal_incall_record_direction>(0);
+}
+
+// [VoiceCallRecord End]
+
+// [CompressCapture Start]
+size_t CompressCapture::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    auto format = mixPortConfig.format.value();
+    if (format.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_LC ||
+        format.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_LC ||
+        format.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V1 ||
+        format.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V2) {
+        return Aac::KAacMaxOutputSize;
+    }
+    return 0;
+}
+
 CompressCapture::CompressCapture(
         const ::aidl::android::media::audio::common::AudioFormatDescription& format,
         const int32_t sampleRate,
@@ -833,256 +1053,6 @@ uint32_t CompressCapture::getAACMaxBufferSize() {
             (((((double)mPCMSamplesPerFrame) / mSampleRate) * ((uint32_t)(maxBitRate))) / 8) +
             /* Just in case; not to miss precision */ 1);
 }
-
-// static
-size_t CompressCapture::getPeriodBufferSize(
-        const ::aidl::android::media::audio::common::AudioFormatDescription& format) {
-    if (format.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_LC ||
-        format.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_LC ||
-        format.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V1 ||
-        format.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_HE_V2) {
-        return Aac::KAacMaxOutputSize;
-    }
-    return 0;
-}
-
-// end of compress capture
-
-// start of PcmOffloadPlayback
-
-// static
-size_t PcmOffloadPlayback::getPeriodSize(
-        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
-    const auto frameSize =
-            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
-    size_t periodSize =
-            (mixPortConfig.sampleRate.value().value * kPeriodDurationMs * frameSize) / 1000;
-
-    if (periodSize < kMinPeriodSize) {
-        periodSize = kMinPeriodSize;
-    } else if (periodSize > kMaxPeriodSize) {
-        periodSize = kMaxPeriodSize;
-    }
-
-    periodSize = ALIGN(periodSize, (frameSize * 32));
-
-    if (auto res = Platform::requiresBufferReformat(mixPortConfig)) {
-        audio_format_t inFormat = res->first;
-        audio_format_t outFormat = res->second;
-        periodSize =
-                (periodSize * audio_bytes_per_sample(inFormat)) / audio_bytes_per_sample(outFormat);
-    }
-
-    return periodSize;
-}
-
-size_t PcmOffloadPlayback::getFrameCount(
-        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
-    const auto frameSize =
-            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
-
-    auto periodSize = getPeriodSize(mixPortConfig);
-    return periodSize / frameSize;
-}
-
-// end of PcmOffloadPlayback
-
-// start of VoipPlayback
-
-size_t VoipPlayback::getPeriodSize(
-        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
-    const auto frameSize =
-            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
-    size_t periodSize =
-            (VoipPlayback::kBufferDurationMs * mixPortConfig.sampleRate.value().value * frameSize) /
-            1000;
-    return periodSize;
-}
-
-// end of VoipPlayback
-
-// Start of UllPlayback
-
-size_t UllPlayback::getPeriodSize(
-        const ::aidl::android::media::audio::common::AudioFormatDescription& formatDescription,
-        const ::aidl::android::media::audio::common::AudioChannelLayout& channelLayout) {
-    const auto frameSize = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
-            formatDescription, channelLayout);
-    return kPeriodSize * frameSize;
-}
-
-// End of UllPlayback
-
-// Start of MMapPlayback
-
-void MMapPlayback::setPalHandle(pal_stream_handle_t* handle) {
-    mPalHandle = handle;
-}
-
-int32_t MMapPlayback::createMMapBuffer(int64_t frameSize, int32_t* fd, int64_t* burstSizeFrames,
-                                       int32_t* flags, int32_t* bufferSizeFrames) {
-    if (!mPalHandle) {
-        LOG(ERROR) << __func__ << ": pal stream handle is null";
-        return -EINVAL;
-    }
-    struct pal_mmap_buffer palMMapBuf;
-    if (int32_t ret = pal_stream_create_mmap_buffer(mPalHandle, frameSize, &palMMapBuf); ret) {
-        LOG(ERROR) << __func__ << ": pal stream create mmap buffer failed "
-                   << "returned " << ret;
-        return ret;
-    }
-    *fd = palMMapBuf.fd;
-    *burstSizeFrames = palMMapBuf.burst_size_frames;
-    *flags = palMMapBuf.flags;
-    *bufferSizeFrames = palMMapBuf.buffer_size_frames;
-    return 0;
-}
-
-int32_t MMapPlayback::getMMapPosition(int64_t* frames, int64_t* timeNs) {
-    if (!mPalHandle) {
-        LOG(ERROR) << __func__ << ": pal stream handle is null";
-        return -EINVAL;
-    }
-    struct pal_mmap_position pal_mmap_pos;
-    if (int32_t ret = pal_stream_get_mmap_position(mPalHandle, &pal_mmap_pos); ret) {
-        LOG(ERROR) << __func__ << ": failed to get mmap positon "
-                   << "returned " << ret;
-        return ret;
-    }
-    *timeNs = pal_mmap_pos.time_nanoseconds;
-    *frames = pal_mmap_pos.position_frames;
-    return 0;
-}
-
-size_t MMapPlayback::getPeriodSize(
-        const ::aidl::android::media::audio::common::AudioFormatDescription& formatDescription,
-        const ::aidl::android::media::audio::common::AudioChannelLayout& channelLayout) {
-    const auto frameSize = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
-            formatDescription, channelLayout);
-    return kPeriodSize * frameSize;
-}
-
-// end of MMapPlayback
-
-// start of MMapRecord
-
-void MMapRecord::setPalHandle(pal_stream_handle_t* handle) {
-    mPalHandle = handle;
-}
-
-int32_t MMapRecord::createMMapBuffer(int64_t frameSize, int32_t* fd, int64_t* burstSizeFrames,
-                                     int32_t* flags, int32_t* bufferSizeFrames) {
-    if (!mPalHandle) {
-        LOG(ERROR) << __func__ << ": pal stream handle is null";
-        return -EINVAL;
-    }
-    struct pal_mmap_buffer palMMapBuf;
-    if (int32_t ret = pal_stream_create_mmap_buffer(mPalHandle, frameSize, &palMMapBuf); ret) {
-        LOG(ERROR) << __func__ << ": pal stream create mmap buffer failed "
-                   << "returned " << ret;
-        return ret;
-    }
-    *fd = palMMapBuf.fd;
-    *burstSizeFrames = palMMapBuf.burst_size_frames;
-    *flags = palMMapBuf.flags;
-    *bufferSizeFrames = palMMapBuf.buffer_size_frames;
-    return 0;
-}
-
-int32_t MMapRecord::getMMapPosition(int64_t* frames, int64_t* timeNs) {
-    if (!mPalHandle) {
-        LOG(ERROR) << __func__ << ": pal stream handle is null";
-        return -EINVAL;
-    }
-    struct pal_mmap_position pal_mmap_pos;
-    if (int32_t ret = pal_stream_get_mmap_position(mPalHandle, &pal_mmap_pos); ret) {
-        LOG(ERROR) << __func__ << ": failed to get mmap positon "
-                   << "returned " << ret;
-        return ret;
-    }
-    *timeNs = pal_mmap_pos.time_nanoseconds;
-    *frames = pal_mmap_pos.position_frames;
-    return 0;
-}
-
-size_t MMapRecord::getPeriodSize(
-        const ::aidl::android::media::audio::common::AudioFormatDescription& formatDescription,
-        const ::aidl::android::media::audio::common::AudioChannelLayout& channelLayout) {
-    const auto frameSize = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
-            formatDescription, channelLayout);
-    return kPeriodSize * frameSize;
-}
-
-// end of MMapRecord
-// start of VoipRecord
-
-// static
-size_t VoipRecord::getPeriodSize(
-        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
-    const auto frameSize =
-            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
-    size_t size =
-            (VoipRecord::kCaptureDurationMs * mixPortConfig.sampleRate.value().value * frameSize) /
-            1000;
-    return size;
-}
-
-// end of VoipRecord
-
-// start of VoiceCallRecord
-
-pal_incall_record_direction VoiceCallRecord::getRecordDirection(
-        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
-    auto& source = mixPortConfig.ext.get<AudioPortExt::Tag::mix>()
-                           .usecase.get<AudioPortMixExtUseCase::source>();
-    if (source == AudioSource::VOICE_UPLINK) {
-        return INCALL_RECORD_VOICE_UPLINK;
-    } else if (source == AudioSource::VOICE_DOWNLINK) {
-        return INCALL_RECORD_VOICE_DOWNLINK;
-    } else if (source == AudioSource::VOICE_CALL) {
-        return INCALL_RECORD_VOICE_UPLINK_DOWNLINK;
-    }
-    LOG(ERROR) << __func__ << ": Invalid source for VoiceCallRecord" << static_cast<int>(source);
-    return static_cast<pal_incall_record_direction>(0);
-}
-
-// static
-size_t VoiceCallRecord::getPeriodSize(
-        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) {
-    const auto frameSize =
-            getFrameSizeInBytes(mixPortConfig.format.value(), mixPortConfig.channelMask.value());
-    size_t size = (kCaptureDurationMs * mixPortConfig.sampleRate.value().value * frameSize) / 1000;
-    return size;
-}
-
-// end of VoiceCallRecord
-
-// start of HotwordRecord
-
-pal_stream_handle_t* HotwordRecord::getPalHandle(
-    const ::aidl::android::media::audio::common::AudioPortConfig&
-        mixPortConfig) {
-    size_t payloadSize = 0;
-    pal_param_st_capture_info_t stCaptureInfo{0, nullptr};
-
-    auto& ioHandle = mixPortConfig.ext.get<AudioPortExt::Tag::mix>().handle;
-    stCaptureInfo.capture_handle = ioHandle;
-
-    int32_t ret = pal_get_param(PAL_PARAM_ID_ST_CAPTURE_INFO, (void**)&stCaptureInfo,
-                                &payloadSize, nullptr);
-    if (ret) {
-        LOG(ERROR) << __func__ << ": sound trigger handle not found, status " << ret;
-        return nullptr;
-    }
-
-    LOG(DEBUG) << __func__
-               << ": sound trigger pal handle " << stCaptureInfo.pal_handle
-               << " for IOHandle  " << ioHandle;
-
-    return stCaptureInfo.pal_handle;
-}
-
-// end of HotwordRecord
 
 }  // namespace qti::audio::core
 
