@@ -636,12 +636,13 @@ bool StreamOutWorkerLogic::write(size_t clientSize, StreamDescriptor::Reply* rep
         }
         const size_t actualByteCount = actualFrameCount * frameSize;
         // Frames are consumed and counted regardless of the connection status.
-        if (actualByteCount > std::numeric_limits<std::int32_t>::max() - reply->fmqByteCount) {
+        if (actualByteCount >
+            static_cast<size_t>(std::numeric_limits<std::int32_t>::max() - reply->fmqByteCount)) {
             reply->fmqByteCount = std::numeric_limits<std::int32_t>::max();
         } else {
             reply->fmqByteCount += actualByteCount;
         }
-        if (actualByteCount > LONG_MAX - mContext->getFrameCount()) {
+        if (actualByteCount > static_cast<size_t>(LONG_MAX - mContext->getFrameCount())) {
             mContext->advanceFrameCount(LONG_MAX - mContext->getFrameCount());
         } else {
             mContext->advanceFrameCount(actualFrameCount);

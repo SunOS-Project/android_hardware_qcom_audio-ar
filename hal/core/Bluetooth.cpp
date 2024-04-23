@@ -78,8 +78,9 @@ ndk::ScopedAStatus Bluetooth::setHfpConfig(const HfpConfig& in_config, HfpConfig
         LOG(ERROR) << __func__ << ": invalid sample rate: " << in_config.sampleRate.value().value;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }
-    if (in_config.volume.has_value() && (in_config.volume.value().value < HfpConfig::VOLUME_MIN ||
-                                         in_config.volume.value().value > HfpConfig::VOLUME_MAX)) {
+    if (in_config.volume.has_value() &&
+        (in_config.volume.value().value < static_cast<float>(HfpConfig::VOLUME_MIN) ||
+         in_config.volume.value().value > static_cast<float>(HfpConfig::VOLUME_MAX))) {
         LOG(ERROR) << __func__ << ": invalid volume: " << in_config.volume.value().value;
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
     }

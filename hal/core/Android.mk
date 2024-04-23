@@ -7,13 +7,14 @@ LOCAL_MODULE            := libaudiocorehal.qti
 LOCAL_VENDOR_MODULE     := true
 LOCAL_MODULE_RELATIVE_PATH := hw
 
-LOCAL_C_INCLUDES    :=  $(LOCAL_PATH)/include \
-                        $(TOP)/system/media/audio/include \
-                        $(TOP)/hardware/libhardware/include
+LOCAL_C_INCLUDES    :=  $(LOCAL_PATH)/include
 
-LOCAL_CFLAGS := -DBACKEND_NDK
-
-# LOCAL_CFLAGS += -Wall -Wextra -Werror -Wthread-safety
+LOCAL_CFLAGS := \
+    -DBACKEND_NDK \
+    -Wall \
+    -Wextra \
+    -Werror \
+    -Wthread-safety
 
 LOCAL_VINTF_FRAGMENTS   := \
     ../../configs/common/manifest_non_qmaa.xml
