@@ -337,7 +337,7 @@ void StreamInPrimary::resume() {
 
     if (mTag == Usecase::COMPRESS_CAPTURE) {
         auto& compressCapture = std::get<CompressCapture>(mExt);
-        compressCapture.mNumReadCalls++;
+        compressCapture.advanceReadCount();
         *latencyMs = compressCapture.getLatencyMs();
     } else if (mTag == Usecase::PCM_RECORD || mTag == Usecase::HOTWORD_RECORD) {
         *latencyMs = PcmRecord::kCaptureDurationMs;
@@ -364,33 +364,16 @@ void StreamInPrimary::resume() {
 
 ::android::status_t StreamInPrimary::refinePosition(
         ::aidl::android::hardware::audio::core::StreamDescriptor::Reply* reply) {
-    if (!mPalHandle) {
-        LOG(WARNING) << __func__ << mLogPrefix << " stream is not configured";
-        return ::android::OK;
-    }
     if (mTag == Usecase::COMPRESS_CAPTURE) {
         auto& compressCapture = std::get<CompressCapture>(mExt);
-        reply->observable.frames =
-                compressCapture.mNumReadCalls * compressCapture.mPCMSamplesPerFrame;
+        reply->observable.frames = compressCapture.getPositionInFrames();
     } else if (mTag == Usecase::MMAP_RECORD) {
-        int64_t frames = 0;
-        int64_t timeNs = 0;
-        int32_t ret = 0;
-
-        ret = std::get<MMapRecord>(mExt).getMMapPosition(&frames, &timeNs);
-        if (ret == 0) {
-            reply->hardware.frames = frames;
-            reply->hardware.timeNs = timeNs;
-#ifdef VERY_VERBOSE_LOGGING
-            LOG(VERBOSE) << __func__ << mLogPrefix << ": returning MMAP position: frames "
-                         << reply->hardware.frames << " timeNs " << reply->hardware.timeNs;
-#endif
-        } else {
-            LOG(ERROR) << __func__ << ": getMmapPosition failed, ret= " << ret;
-            return ::android::base::ERROR;
+        if (int32_t ret = std::get<MMapRecord>(mExt).getMMapPosition(&(reply->hardware.frames),
+                                                                     &(reply->hardware.timeNs));
+            ret != 0) {
+            return ::android::BAD_VALUE;
         }
     }
-
     return ::android::OK;
 }
 
