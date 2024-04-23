@@ -178,7 +178,7 @@ DevicePairs getDevicePairs() {
              PAL_DEVICE_IN_USB_HEADSET},
             {makeAudioDeviceDescription(AudioDeviceType::IN_DEVICE,
                                         AudioDeviceDescription::CONNECTION_USB),
-             PAL_DEVICE_IN_USB_DEVICE},
+             PAL_DEVICE_IN_USB_HEADSET},
             {makeAudioDeviceDescription(AudioDeviceType::OUT_HEADSET,
                                         AudioDeviceDescription::CONNECTION_USB),
              PAL_DEVICE_OUT_USB_HEADSET},
