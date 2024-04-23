@@ -173,6 +173,11 @@ ndk::ScopedAStatus Module::createStreamContext(
     }
     auto& configs = getConfig().portConfigs;
     auto portConfigIt = findById<AudioPortConfig>(configs, in_portConfigId);
+    if (portConfigIt->ext.getTag() != AudioPortExt::Tag::mix) {
+        LOG(ERROR) << __func__ << ": could not find out mix port config "
+                   << portConfigIt->toString();
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
     // Since this is a private method, it is assumed that
     // validity of the portConfigId has already been checked.
     const size_t frameSize =
