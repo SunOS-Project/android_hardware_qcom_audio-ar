@@ -297,7 +297,6 @@ class Platform {
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
             const Usecase& tag, std::vector<pal_device>& palDevices) const noexcept;
     void configurePalDevicesForHIFIPCMFilter(std::vector<pal_device>&) const noexcept;
-    bool getBtConfig(pal_param_bta2dp_t* bTConfig);
     std::vector<::aidl::android::media::audio::common::AudioProfile> getUsbProfiles(
             const ::aidl::android::media::audio::common::AudioPort& port) const;
 

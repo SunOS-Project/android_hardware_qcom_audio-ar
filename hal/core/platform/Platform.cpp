@@ -1096,18 +1096,29 @@ bool Platform::isValidAlsaAddr(const std::vector<int>& alsaAddress) const noexce
 }
 uint32_t Platform::getBluetoothLatencyMs(const std::vector<AudioDevice>& bluetoothDevices) {
     pal_param_bta2dp_t btConfig{};
+    pal_param_bta2dp_t *param_bt_a2dp_ptr = &btConfig;
+
     for (const auto& device : bluetoothDevices) {
-        btConfig.dev_id = PlatformConverter::getPalDeviceId(device.type);
+        size_t payloadSize = 0;
+        param_bt_a2dp_ptr->dev_id = PlatformConverter::getPalDeviceId(device.type);
         // first bluetooth device
-        if (btConfig.dev_id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
-            btConfig.dev_id == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
-            btConfig.dev_id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST) {
-            if (getBtConfig(&btConfig)) {
-                return btConfig.latency;
+        if (param_bt_a2dp_ptr->dev_id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
+            param_bt_a2dp_ptr->dev_id == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
+            param_bt_a2dp_ptr->dev_id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST) {
+            if (int32_t ret = ::pal_get_param(PAL_PARAM_ID_BT_A2DP_ENCODER_LATENCY,
+                             reinterpret_cast<void**>(&param_bt_a2dp_ptr), &payloadSize, nullptr);
+                ret) {
+                LOG(ERROR) << __func__ << " failure in PARAM_ID_BT_A2DP_ENCODER_LATENCY: " << ret;
+                continue;
+            }
+            if (payloadSize == 0) {
+                LOG(ERROR) << __func__ << " empty payload size!!!";
+                continue;;
             }
         }
     }
-    return 0;
+    LOG(DEBUG) << __func__ << " bt latency: " << param_bt_a2dp_ptr->latency;
+    return param_bt_a2dp_ptr->latency;
 }
 
 bool Platform::isA2dpSuspended() {
@@ -1292,27 +1303,6 @@ std::optional<std::pair<audio_format_t, audio_format_t>> Platform::requiresBuffe
     }
     return std::nullopt;
 }
-
-// start of private
-bool Platform::getBtConfig(pal_param_bta2dp_t* bTConfig) {
-    if (bTConfig == nullptr) {
-        LOG(ERROR) << __func__ << " invalid bt config";
-        return false;
-    }
-    size_t payloadSize = 0;
-    if (int32_t ret = ::pal_get_param(PAL_PARAM_ID_BT_A2DP_ENCODER_LATENCY,
-                                      reinterpret_cast<void**>(&bTConfig), &payloadSize, nullptr);
-        ret) {
-        LOG(ERROR) << __func__ << " failure in PAL_PARAM_ID_BT_A2DP_ENCODER_LATENCY, ret :" << ret;
-        return false;
-    }
-    if (payloadSize == 0) {
-        LOG(ERROR) << __func__ << " empty payload size!!!";
-        return false;
-    }
-    return true;
-}
-// end of private
 
 std::string Platform::toString() const {
     std::ostringstream os;

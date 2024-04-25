@@ -398,7 +398,11 @@ void StreamOutPrimary::resume() {
 #endif
 
     // Todo findout write latency
-    *latencyMs = Module::kLatencyMs;
+    *latencyMs = mContext.getNominalLatencyMs();
+    if (hasBluetoothDevice(mConnectedDevices)) {
+        const auto& btlatencyMs = mPlatform.getBluetoothLatencyMs(mConnectedDevices);
+        *latencyMs += btlatencyMs;
+    }
     return ::android::OK;
 }
 
@@ -503,6 +507,7 @@ void StreamOutPrimary::resume() {
         if (reply->observable.frames >= btExtraFrames) {
             reply->observable.frames -= btExtraFrames;
         }
+        reply->latencyMs += latencyMs;
     }
 
     return ::android::OK;
