@@ -284,9 +284,13 @@ AudioDevice Telephony::getMatchingTxDevice(const AudioDevice& rxDevice) {
     } else if ((rxDevice.type.type == AudioDeviceType::OUT_DEVICE ||
                 rxDevice.type.type == AudioDeviceType::OUT_HEADSET) &&
                rxDevice.type.connection == AudioDeviceDescription::CONNECTION_USB) {
-        return AudioDevice{.type.type = AudioDeviceType::IN_HEADSET,
-                           .type.connection = AudioDeviceDescription::CONNECTION_USB,
-                           .address = rxDevice.address};
+        if (mPlatform.getUSBCapEnable()) {
+            return AudioDevice{.type.type = AudioDeviceType::IN_HEADSET,
+                               .type.connection = AudioDeviceDescription::CONNECTION_USB,
+                               .address = rxDevice.address};
+        } else {
+            return AudioDevice{.type.type = AudioDeviceType::IN_MICROPHONE};
+        }
     } else {
         LOG(ERROR) << __func__ << ": unable to find matching TX device for " << rxDevice.toString();
     }
