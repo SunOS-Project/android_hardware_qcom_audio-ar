@@ -99,6 +99,7 @@ ndk::ScopedAStatus Telephony::switchAudioMode(AudioMode newAudioMode) {
                 startCrsLoopback();
             }
             mIsCRSStarted = true;
+            mCRSVSID = mSetUpdates.mVSID;
             LOG(DEBUG) << __func__ << " start CRS call";
         }
     }
@@ -302,19 +303,21 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
     mPlatform.updateCallState((int)mSetUpdates.mCallState);
 
     if (newUpdates.mIsCrsCall) {
-         if (!mIsCRSStarted && mAudioMode == AudioMode::RINGTONE) {
+        mSetUpdates.mIsCrsCall = newUpdates.mIsCrsCall;
+        mSetUpdates.mVSID = newUpdates.mVSID;
+        if (!mIsCRSStarted && mAudioMode == AudioMode::RINGTONE) {
              updateCrsDevice();
-             mSetUpdates.mIsCrsCall = newUpdates.mIsCrsCall;
              startCall();
              if (mRxDevice.type.type != AudioDeviceType::OUT_SPEAKER) {
                  startCrsLoopback();
              }
              mIsCRSStarted  = true;
+             mCRSVSID = newUpdates.mVSID;
              LOG(DEBUG) << __func__ << ": start CRS call";
              return;
          }
     } else {
-         if (mIsCRSStarted) {
+         if (mIsCRSStarted && mCRSVSID == newUpdates.mVSID) {
              stopCall();
              if (mRxDevice.type.type != AudioDeviceType::OUT_SPEAKER) {
                  stopCrsLoopback();
@@ -563,13 +566,22 @@ void Telephony::startCrsLoopback() {
     std::vector<::aidl::android::media::audio::common::AudioDevice> RxDevices;
     RxDevices = {kDefaultCRSRxDevice};
 
-    auto palDevices = mPlatform.convertToPalDevices({mRxDevice});
+    auto palDevices = mPlatform.convertToPalDevices({RxDevices});
     palDevices[0].id = PAL_DEVICE_OUT_SPEAKER;
     palDevices[0].config.sample_rate = Platform::kDefaultOutputSampleRate;
     palDevices[0].config.bit_width = Platform::kDefaultPCMBidWidth;
     palDevices[0].config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
 
     attributes->info.voice_call_info.VSID = static_cast<uint32_t>(mSetUpdates.mVSID);
+    if (mSetUpdates.mIsCrsCall) {
+        strlcpy(palDevices[0].custom_config.custom_key, "crsCall",
+                sizeof(palDevices[0].custom_config.custom_key));
+        LOG(VERBOSE) << __func__ << " setting custom key as ", palDevices[0].custom_config.custom_key;
+    } else {
+        strlcpy(palDevices[0].custom_config.custom_key, "",
+                sizeof(palDevices[0].custom_config.custom_key));
+    }
+
     const size_t numDevices = 1;
     if (int32_t ret = ::pal_stream_open(
                 attributes.get(), numDevices, reinterpret_cast<pal_device*>(palDevices.data()), 0,
@@ -592,6 +604,11 @@ void Telephony::stopCall() {
         return;
     }
     auto palDevices = mPlatform.convertToPalDevices({mRxDevice, mTxDevice});
+    if (mSetUpdates.mIsCrsCall) {
+        strlcpy(palDevices[0].custom_config.custom_key, "",
+                sizeof(palDevices[0].custom_config.custom_key));
+        LOG(VERBOSE) << __func__ << "setting custom key as ", palDevices[0].custom_config.custom_key;
+    }
     ::pal_stream_stop(mPalHandle);
     ::pal_stream_close(mPalHandle);
     if ((palDevices[0].id == PAL_DEVICE_OUT_BLUETOOTH_BLE) &&
@@ -606,6 +623,14 @@ void Telephony::stopCrsLoopback() {
     LOG(DEBUG) << __func__ << ": Enter";
     if (mPalCrsHandle == nullptr) {
         return;
+    }
+    std::vector<::aidl::android::media::audio::common::AudioDevice> RxDevices;
+    RxDevices = {kDefaultCRSRxDevice};
+    auto palDevices = mPlatform.convertToPalDevices({RxDevices});
+    if (mSetUpdates.mIsCrsCall) {
+        strlcpy(palDevices[0].custom_config.custom_key, "",
+                sizeof(palDevices[0].custom_config.custom_key));
+        LOG(VERBOSE) << __func__ << "setting custom key as ", palDevices[0].custom_config.custom_key;
     }
     ::pal_stream_stop(mPalCrsHandle);
     ::pal_stream_close(mPalCrsHandle);
