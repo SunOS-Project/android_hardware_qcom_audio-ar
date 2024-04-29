@@ -45,6 +45,13 @@ const static std::string kCanOpenProxy{"can_open_proxy"};
 const static std::string kWfdChannelMap{"wfd_channel_cap"};
 const static std::string kWfdProxyRecordActive{"proxyRecordActive"};
 
+/**
+ * USE_IP_IN_DEVICE_FOR_PROXY_RECORD: Use this parameter to set/unset if ip-v4 in device
+ * in getting used a proxy device. Set it before making the device available and unset
+ * it while making device unavailable.
+ **/
+const static std::string kWfdIPAsProxyDevConnected{"USE_IP_IN_DEVICE_FOR_PROXY_RECORD"};
+
 // Generic
 const static std::string kInCallMusic{"icmd_playback"};
 const static std::string kUHQA{"UHQA"};

@@ -531,6 +531,8 @@ int Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
         } else {
             return -EINVAL;
         }
+    }  else if (isIPInDevice(devicePortExt.device)) {
+           return isIPAsProxyDeviceConnected();
     }
 
     v = deviceConnection.get();
@@ -1041,6 +1043,14 @@ bool Platform::isInputDevice(const AudioDevice& d) const noexcept {
 
 bool Platform::isUsbDevice(const AudioDevice& d) const noexcept {
     if (d.type.connection == AudioDeviceDescription::CONNECTION_USB) {
+        return true;
+    }
+    return false;
+}
+
+bool Platform::isIPInDevice(const AudioDevice& d) const noexcept {
+    if(d.type.type == AudioDeviceType::IN_DEVICE &&
+       d.type.connection == AudioDeviceDescription::CONNECTION_IP_V4) {
         return true;
     }
     return false;

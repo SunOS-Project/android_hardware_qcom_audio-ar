@@ -112,6 +112,7 @@ class Platform {
     bool isOutputDevice(const ::aidl::android::media::audio::common::AudioDevice&) const noexcept;
     bool isBluetoothDevice(const ::aidl::android::media::audio::common::AudioDevice& d) const
             noexcept;
+    bool isIPInDevice(const ::aidl::android::media::audio::common::AudioDevice&) const noexcept;
     bool isSoundCardUp() const noexcept;
     bool isSoundCardDown() const noexcept;
     bool isValidAlsaAddr(const std::vector<int>& alsaAddress) const noexcept;
@@ -256,6 +257,8 @@ class Platform {
     uint32_t getWFDProxyChannels() const noexcept;
     /* Check if proxy record session is active in  PAL_DEVICE_IN_RECORD_PROXY */
     std::string IsProxyRecordActive() const noexcept;
+    bool isIPAsProxyDeviceConnected() const noexcept { return mIsIPAsProxyConnected; };
+    void setIPAsProxyDeviceConnected(bool isIPAsProxy) noexcept { mIsIPAsProxyConnected = isIPAsProxy; };
 
     void setHapticsVolume(const float hapticsVolume) const noexcept;
     void setHapticsIntensity(const int hapticsIntensity) const noexcept;
@@ -318,6 +321,7 @@ class Platform {
     bool mIsScreenTurnedOn{false};
     uint32_t mWFDProxyChannels{0};
     bool mIsUHQAEnabled{false};
+    bool mIsIPAsProxyConnected{false};
     ::aidl::android::hardware::audio::core::IModule::ScreenRotation mCurrentScreenRotation{
             ::aidl::android::hardware::audio::core::IModule::ScreenRotation::DEG_0};
     bool mOffloadSpeedSupported = false;

@@ -534,6 +534,9 @@ void ModulePrimary::onSetWFDParameters(const std::vector<VendorParameter>& param
         if (Parameters::kWfdChannelMap == p.id) {
             auto numProxyChannels = static_cast<uint32_t>(getInt64FromString(paramValue));
             mPlatform.setWFDProxyChannels(numProxyChannels);
+        } else if (Parameters::kWfdIPAsProxyDevConnected == p.id) {
+            auto isIPAsProxy = getBoolFromString(paramValue);
+            mPlatform.setIPAsProxyDeviceConnected(isIPAsProxy);
         }
     }
     return;
@@ -629,6 +632,7 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
                                  {Parameters::kFbspValiValiTime, Feature::FTM},
                                  {Parameters::kTriggerSpeakerCall, Feature::FTM},
                                  {Parameters::kWfdChannelMap, Feature::WFD},
+                                 {Parameters::kWfdIPAsProxyDevConnected, Feature::WFD},
                                  {Parameters::kHapticsVolume, Feature::HAPTICS},
                                  {Parameters::kHapticsIntensity, Feature::HAPTICS}};
     return map;
@@ -842,6 +846,13 @@ std::vector<VendorParameter> ModulePrimary::onGetWFDParameters(
             parcel.value = mPlatform.IsProxyRecordActive();
             setParameter(parcel, param);
             results.push_back(param);
+        } else if (id == Parameters::kWfdIPAsProxyDevConnected) {
+            VendorParameter param;
+            param.id = id;
+            VString parcel;
+            parcel.value = mPlatform.isIPAsProxyDeviceConnected();
+            setParameter(parcel, param);
+            results.push_back(param);
         } else {
             LOG(ERROR) << __func__ << ": unknown parameter in WFD feature. id:" << id;
         }
@@ -896,6 +907,7 @@ ModulePrimary::GetParameterToFeatureMap ModulePrimary::fillGetParameterToFeature
                                  {Parameters::kA2dpSuspended, Feature::BLUETOOTH},
                                  {Parameters::kCanOpenProxy, Feature::WFD},
                                  {Parameters::kWfdProxyRecordActive, Feature::WFD},
+                                 {Parameters::kWfdIPAsProxyDevConnected, Feature::WFD},
                                  {Parameters::kFTMParam, Feature::FTM},
                                  {Parameters::kFTMSPKRParam, Feature::FTM},
                                  {Parameters::kFMStatus, Feature::AUDIOEXTENSION}};
