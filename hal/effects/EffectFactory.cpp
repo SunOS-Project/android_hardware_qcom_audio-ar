@@ -16,7 +16,7 @@
 
 /*
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -131,7 +131,7 @@ ndk::ScopedAStatus Factory::queryProcessing(const std::optional<Processing::Type
 
 ndk::ScopedAStatus Factory::createEffect(const AudioUuid& in_impl_uuid,
                                          std::shared_ptr<IEffect>* _aidl_return) {
-    LOG(DEBUG) << __func__ << ": UUID " << toString(in_impl_uuid);
+    LOG(VERBOSE) << __func__ << ": UUID " << toString(in_impl_uuid);
     std::lock_guard lg(mMutex);
     if (mEffectLibMap.count(in_impl_uuid)) {
         auto& entry = mEffectLibMap[in_impl_uuid];
@@ -151,7 +151,8 @@ ndk::ScopedAStatus Factory::createEffect(const AudioUuid& in_impl_uuid,
         AIBinder_setMinSchedulerPolicy(effectBinder.get(), SCHED_NORMAL, ANDROID_PRIORITY_AUDIO);
         mEffectMap[std::weak_ptr<IEffect>(effectSp)] =
                 std::make_pair(in_impl_uuid, std::move(effectBinder));
-        LOG(DEBUG) << __func__ << ": instance " << effectSp.get() << " created successfully";
+        LOG(DEBUG) << __func__ << ": UUID " << toString(in_impl_uuid) << ": instance "
+                   << effectSp.get() << " created successfully";
         return ndk::ScopedAStatus::ok();
     } else {
         LOG(ERROR) << __func__ << ": library doesn't exist for uuid" << toString(in_impl_uuid);
@@ -218,8 +219,8 @@ bool Factory::openEffectLibrary(const AudioUuid& impl,
         return false;
     }
 
-    LOG(DEBUG) << __func__ << " dlopen lib: " << path.c_str() << " Impl " << toString(impl)
-               << " handle:" << libHandle;
+    LOG(VERBOSE) << __func__ << " dlopen lib: " << path.c_str() << " Impl " << toString(impl)
+                 << " handle:" << libHandle;
     auto interface = new effect_dl_interface_s{nullptr, nullptr, nullptr};
     mEffectLibMap.insert(
             {impl,
@@ -238,9 +239,9 @@ void Factory::createIdentityWithConfig(
         id.type = typeUuid;
         id.uuid = configLib.uuid;
         id.proxy = proxyUuid;
-        LOG(DEBUG) << __func__ << " loading lib " << path->second << ": typeUuid "
-                   << toString(id.type) << " implUuid " << toString(id.uuid) << " proxyUuid "
-                   << (proxyUuid.has_value() ? toString(proxyUuid.value()) : "null");
+        LOG(VERBOSE) << __func__ << " loading lib " << path->second << ": typeUuid "
+                     << toString(id.type) << " implUuid " << toString(id.uuid) << " proxyUuid "
+                     << (proxyUuid.has_value() ? toString(proxyUuid.value()) : "null");
         if (openEffectLibrary(id.uuid, path->second)) {
             mIdentitySet.insert(std::move(id));
         }

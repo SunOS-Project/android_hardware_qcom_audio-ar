@@ -41,7 +41,7 @@ extern "C" binder_exception_t destroyEffect(const std::shared_ptr<IEffect>& inst
                    << " in state: " << toString(state) << ", status: " << status.getDescription();
         return EX_ILLEGAL_STATE;
     }
-    LOG(DEBUG) << __func__ << " instance " << instanceSp.get() << " destroyed";
+    LOG(VERBOSE) << __func__ << " instance " << instanceSp.get() << " destroyed";
     return EX_NONE;
 }
 
@@ -50,7 +50,8 @@ namespace aidl::qti::effects {
 ndk::ScopedAStatus EffectImpl::open(const Parameter::Common& common,
                                     const std::optional<Parameter::Specific>& specific,
                                     OpenEffectReturn* ret) {
-    LOG(DEBUG) << getEffectName() << "  " << __func__;
+    LOG(DEBUG) << getEffectName() << "  " << __func__ << " sessionId " << common.session
+               << " ioHandle " << common.ioHandle;
     // effect only support 32bits float
     RETURN_IF(common.input.base.format.pcm != common.output.base.format.pcm ||
                       common.input.base.format.pcm != PcmType::FLOAT_32_BIT,
@@ -88,7 +89,7 @@ ndk::ScopedAStatus EffectImpl::reopen(OpenEffectReturn* ret) {
     std::lock_guard lg(mImplMutex);
     RETURN_IF(mState == State::INIT, EX_ILLEGAL_STATE, "alreadyClosed");
 
-    LOG(DEBUG) << getEffectName() <<"  " << __func__;
+    LOG(DEBUG) << getEffectName() << "  " << __func__;
     // TODO:  add reopen implementation
     RETURN_IF(!mImplContext, EX_NULL_POINTER, "nullContext");
     mImplContext->dupeFmqWithReopen(ret);
