@@ -25,7 +25,6 @@ class VolumeListener final : public EffectImpl {
     VolumeListener(const AudioUuid& uuid);
     ~VolumeListener() {
         cleanUp();
-        LOG(DEBUG) << __func__;
     }
 
     ndk::ScopedAStatus commandImpl(CommandId command) override;

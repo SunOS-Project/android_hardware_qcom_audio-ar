@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -62,12 +62,12 @@ VolumeListenerContext::VolumeListenerContext(const Parameter::Common& common,
                                              VolumeListenerType type, bool processData)
     : EffectContext(common, processData) {
     mType = type;
-    LOG(INFO) << __func__ << details();
+    LOG(VERBOSE) << __func__ << details();
     mState = VolumeListenerState::INITIALIZED;
 }
 
 VolumeListenerContext::~VolumeListenerContext() {
-    LOG(INFO) << __func__ << details();
+    LOG(VERBOSE) << __func__ << details();
     mState = VolumeListenerState::UNINITIALIZED;
 }
 
@@ -81,7 +81,7 @@ bool VolumeListenerContext::isValidContext() {
 }
 
 RetCode VolumeListenerContext::enable() {
-    LOG(DEBUG) << __func__ << details();
+    LOG(VERBOSE) << __func__ << details();
     if (mState != VolumeListenerState::INITIALIZED) {
         LOG(ERROR) << __func__ << "state not initialized";
         return RetCode::ERROR_EFFECT_LIB_ERROR;
@@ -91,7 +91,7 @@ RetCode VolumeListenerContext::enable() {
 }
 
 RetCode VolumeListenerContext::disable() {
-    LOG(DEBUG) << __func__ << details();
+    LOG(VERBOSE) << __func__ << details();
     if (mState != VolumeListenerState::ACTIVE) {
         LOG(ERROR) << __func__ << "state not active";
         return RetCode::ERROR_EFFECT_LIB_ERROR;
@@ -101,7 +101,7 @@ RetCode VolumeListenerContext::disable() {
 }
 
 void VolumeListenerContext::reset() {
-    LOG(DEBUG) << __func__ << details();
+    LOG(VERBOSE) << __func__ << details();
     disable();
     resetBuffer();
 }
@@ -113,7 +113,7 @@ RetCode VolumeListenerContext::setOutputDevice(
 }
 
 RetCode VolumeListenerContext::setVolumeStereo(const Parameter::VolumeStereo& volumeStereo) {
-    LOG(DEBUG) << __func__ << details() << " " << volumeStereo.toString();
+    LOG(VERBOSE) << __func__ << details() << " " << volumeStereo.toString();
     mVolumeStereo = volumeStereo;
     return RetCode::SUCCESS;
 }
