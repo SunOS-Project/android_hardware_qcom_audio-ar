@@ -146,6 +146,10 @@ endif
 PRODUCT_PROPERTY_OVERRIDES += \
    ro.audio.flinger_standbytime_ms=2000
 
+# timecheck timeout value for audio in ms
+PRODUCT_PROPERTY_OVERRIDES += \
+    vendor.audio_hal.timecheck_timeoutMS=8000
+
 # Low latency audio buffer size in frames
 PRODUCT_PROPERTY_OVERRIDES += \
     vendor.audio_hal.period_size=192
