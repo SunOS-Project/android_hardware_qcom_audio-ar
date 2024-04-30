@@ -792,11 +792,14 @@ ndk::ScopedAStatus StreamOutPrimary::getVendorParameters(
         return compressPlayback.getVendorParameters(in_ids, _aidl_return);
     }
 
-    if (mTag == Usecase::LOW_LATENCY_PLAYBACK) {
-        for (const auto& id : in_ids) {
-            if (id == Parameters::kSupportsHwSuspend) {
-                std::string value = "1";
-                _aidl_return->push_back(makeVendorParameter(id, value));
+    for (const auto& id : in_ids) {
+        if (id == Parameters::kSupportsHwSuspend) {
+            if (mTag == Usecase::LOW_LATENCY_PLAYBACK) {
+                _aidl_return->push_back(makeVendorParameter(id, "1"));
+            }
+        } else if (id == Parameters::kIsDirectPCMTrack) {
+            if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
+                _aidl_return->push_back(makeVendorParameter(id, "true"));
             }
         }
     }
