@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 SPDX-License-Identifier: BSD-3-Clause-Clear
 -->
 <audio_effects_conf version="2.0" xmlns="http://schemas.android.com/audio/audio_effects_conf/v2_0">
@@ -11,13 +11,11 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <library name="downmix" path="libdownmixaidl.so"/>
         <library name="loudness_enhancer" path="libloudnessenhanceraidl.so"/>
         <library name="dynamics_processing" path="libdynamicsprocessingaidl.so"/>
-        <library name="proxy" path="libeffectproxy.so"/>
         <library name="visualizer_sw" path="libvisualizeraidl.so"/>
         <library name="visualizer_hw" path="libqcomvisualizer.so"/>
         <library name="offload_bundle" path="libqcompostprocbundle.so"/>
         <library name="audio_pre_processing" path="libqcomvoiceprocessing.so"/>
         <library name="volume_listener" path="libvolumelistener.so"/>
-        <library name="audiosphere" path="libasphere.so"/>
         <library name="quasar" path="libquasar.so"/>
     </libraries>
 
@@ -67,7 +65,6 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <effect name="alarm_helper" library="volume_listener" uuid="09f303e2-0590-11e5-8fdb-0025b32654a0"/>
         <effect name="voice_helper" library="volume_listener" uuid="0ace5c08-0590-11e5-ae9e-0025b32654a0"/>
         <effect name="notification_helper" library="volume_listener" uuid="0b776dde-0590-11e5-81ba-0025b32654a0"/>
-        <effect name="audiosphere" library="audiosphere" uuid="184e62ab-2d19-4364-9d1b-c0a40733866c"/>
         <effect name="quasar" library="quasar" uuid="71d0e2ee-e44d-483d-a809-09e75ee55ecd"/>
     </effects>
 
