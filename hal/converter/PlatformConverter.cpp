@@ -297,63 +297,56 @@ const static AidlToPalAudioFormatMap kAidlToPalAudioFormatMap =
 // static
 std::unique_ptr<pal_channel_info> PlatformConverter::getPalChannelInfoForChannelCount(
         int count) noexcept {
-    auto ch_info = std::make_unique<pal_channel_info>();
+    auto channelInfo = std::make_unique<pal_channel_info>();
+    channelInfo->channels = count;
     if (count == 1) {
-        ch_info->channels = 1;
-        ch_info->ch_map[0] = PAL_CHMAP_CHANNEL_FL;
+        channelInfo->ch_map[0] = PAL_CHMAP_CHANNEL_FL;
     } else if (count == 2) {
-        ch_info->channels = 2;
-        ch_info->ch_map[0] = PAL_CHMAP_CHANNEL_FL;
-        ch_info->ch_map[1] = PAL_CHMAP_CHANNEL_FR;
+        channelInfo->ch_map[0] = PAL_CHMAP_CHANNEL_FL;
+        channelInfo->ch_map[1] = PAL_CHMAP_CHANNEL_FR;
     } else if (count == 3) {
-        ch_info->channels = 3;
-        ch_info->ch_map[0] = PAL_CHMAP_CHANNEL_FL;
-        ch_info->ch_map[1] = PAL_CHMAP_CHANNEL_FR;
-        ch_info->ch_map[2] = PAL_CHMAP_CHANNEL_C;
+        channelInfo->ch_map[0] = PAL_CHMAP_CHANNEL_FL;
+        channelInfo->ch_map[1] = PAL_CHMAP_CHANNEL_FR;
+        channelInfo->ch_map[2] = PAL_CHMAP_CHANNEL_C;
     } else if (count == 4) {
-        ch_info->channels = 4;
-        ch_info->ch_map[0] = PAL_CHMAP_CHANNEL_FL;
-        ch_info->ch_map[1] = PAL_CHMAP_CHANNEL_FR;
-        ch_info->ch_map[2] = PAL_CHMAP_CHANNEL_C;
-        ch_info->ch_map[3] = PAL_CHMAP_CHANNEL_LFE;
+        channelInfo->ch_map[0] = PAL_CHMAP_CHANNEL_FL;
+        channelInfo->ch_map[1] = PAL_CHMAP_CHANNEL_FR;
+        channelInfo->ch_map[2] = PAL_CHMAP_CHANNEL_C;
+        channelInfo->ch_map[3] = PAL_CHMAP_CHANNEL_LFE;
     } else if (count == 5) {
-        ch_info->channels = 5;
-        ch_info->ch_map[0] = PAL_CHMAP_CHANNEL_FL;
-        ch_info->ch_map[1] = PAL_CHMAP_CHANNEL_FR;
-        ch_info->ch_map[2] = PAL_CHMAP_CHANNEL_C;
-        ch_info->ch_map[3] = PAL_CHMAP_CHANNEL_LFE;
-        ch_info->ch_map[4] = PAL_CHMAP_CHANNEL_RC;
+        channelInfo->ch_map[0] = PAL_CHMAP_CHANNEL_FL;
+        channelInfo->ch_map[1] = PAL_CHMAP_CHANNEL_FR;
+        channelInfo->ch_map[2] = PAL_CHMAP_CHANNEL_C;
+        channelInfo->ch_map[3] = PAL_CHMAP_CHANNEL_LFE;
+        channelInfo->ch_map[4] = PAL_CHMAP_CHANNEL_RC;
     } else if (count == 6) {
-        ch_info->channels = 6;
-        ch_info->ch_map[0] = PAL_CHMAP_CHANNEL_FL;
-        ch_info->ch_map[1] = PAL_CHMAP_CHANNEL_FR;
-        ch_info->ch_map[2] = PAL_CHMAP_CHANNEL_C;
-        ch_info->ch_map[3] = PAL_CHMAP_CHANNEL_LFE;
-        ch_info->ch_map[4] = PAL_CHMAP_CHANNEL_LB;
-        ch_info->ch_map[5] = PAL_CHMAP_CHANNEL_RB;
+        channelInfo->ch_map[0] = PAL_CHMAP_CHANNEL_FL;
+        channelInfo->ch_map[1] = PAL_CHMAP_CHANNEL_FR;
+        channelInfo->ch_map[2] = PAL_CHMAP_CHANNEL_C;
+        channelInfo->ch_map[3] = PAL_CHMAP_CHANNEL_LFE;
+        channelInfo->ch_map[4] = PAL_CHMAP_CHANNEL_LB;
+        channelInfo->ch_map[5] = PAL_CHMAP_CHANNEL_RB;
     } else if (count == 7) {
-        ch_info->channels = 7;
-        ch_info->ch_map[0] = PAL_CHMAP_CHANNEL_FL;
-        ch_info->ch_map[1] = PAL_CHMAP_CHANNEL_FR;
-        ch_info->ch_map[2] = PAL_CHMAP_CHANNEL_C;
-        ch_info->ch_map[3] = PAL_CHMAP_CHANNEL_LFE;
-        ch_info->ch_map[4] = PAL_CHMAP_CHANNEL_LB;
-        ch_info->ch_map[5] = PAL_CHMAP_CHANNEL_RB;
-        ch_info->ch_map[6] = PAL_CHMAP_CHANNEL_LS;
+        channelInfo->ch_map[0] = PAL_CHMAP_CHANNEL_FL;
+        channelInfo->ch_map[1] = PAL_CHMAP_CHANNEL_FR;
+        channelInfo->ch_map[2] = PAL_CHMAP_CHANNEL_C;
+        channelInfo->ch_map[3] = PAL_CHMAP_CHANNEL_LFE;
+        channelInfo->ch_map[4] = PAL_CHMAP_CHANNEL_LB;
+        channelInfo->ch_map[5] = PAL_CHMAP_CHANNEL_RB;
+        channelInfo->ch_map[6] = PAL_CHMAP_CHANNEL_LS;
     } else if (count == 8) {
-        ch_info->channels = 8;
-        ch_info->ch_map[0] = PAL_CHMAP_CHANNEL_FL;
-        ch_info->ch_map[1] = PAL_CHMAP_CHANNEL_FR;
-        ch_info->ch_map[2] = PAL_CHMAP_CHANNEL_C;
-        ch_info->ch_map[3] = PAL_CHMAP_CHANNEL_LFE;
-        ch_info->ch_map[4] = PAL_CHMAP_CHANNEL_LB;
-        ch_info->ch_map[5] = PAL_CHMAP_CHANNEL_RB;
-        ch_info->ch_map[6] = PAL_CHMAP_CHANNEL_LS;
-        ch_info->ch_map[7] = PAL_CHMAP_CHANNEL_RS;
+        channelInfo->ch_map[0] = PAL_CHMAP_CHANNEL_FL;
+        channelInfo->ch_map[1] = PAL_CHMAP_CHANNEL_FR;
+        channelInfo->ch_map[2] = PAL_CHMAP_CHANNEL_C;
+        channelInfo->ch_map[3] = PAL_CHMAP_CHANNEL_LFE;
+        channelInfo->ch_map[4] = PAL_CHMAP_CHANNEL_LB;
+        channelInfo->ch_map[5] = PAL_CHMAP_CHANNEL_RB;
+        channelInfo->ch_map[6] = PAL_CHMAP_CHANNEL_LS;
+        channelInfo->ch_map[7] = PAL_CHMAP_CHANNEL_RS;
     } else {
-        ch_info->channels = count;
+        LOG(ERROR) << __func__ << "channel map not found for channels" << count;
     }
-    return std::move(ch_info);
+    return std::move(channelInfo);
 }
 
 // static
