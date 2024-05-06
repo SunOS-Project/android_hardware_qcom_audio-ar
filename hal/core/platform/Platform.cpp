@@ -662,6 +662,11 @@ void Platform::updateScreenRotation(const IModule::ScreenRotation in_rotation) n
             ret) {
             LOG(ERROR) << ": PAL_PARAM_ID_DEVICE_ROTATION failed";
         }
+        LOG(INFO) << ": updated screen rotation from "
+                  << ::aidl::android::hardware::audio::core::toString(mCurrentScreenRotation)
+                  << " to "
+                  << ::aidl::android::hardware::audio::core::toString(
+                             in_rotation); // validation log
     };
 
     if (in_rotation == IModule::ScreenRotation::DEG_270 &&
