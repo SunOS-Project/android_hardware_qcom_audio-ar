@@ -254,6 +254,8 @@ class Platform {
     bool isA2dpSuspended();
 
     void setWFDProxyChannels(const uint32_t numProxyChannels) noexcept;
+    void setProxyRecordFMQSize(const size_t& FMQSize) noexcept;
+    size_t getProxyRecordFMQSize() const noexcept;
     uint32_t getWFDProxyChannels() const noexcept;
     /* Check if proxy record session is active in  PAL_DEVICE_IN_RECORD_PROXY */
     std::string IsProxyRecordActive() const noexcept;
@@ -341,5 +343,7 @@ class Platform {
             pal_device_id_t,
             std::vector<::aidl::android::media::audio::common::MicrophoneDynamicInfo>>;
     PalDevToMicDynamicInfoMap mMicrophoneDynamicInfoMap;
+    // proxy related info
+    size_t mProxyRecordFMQSize{0};
 };
 } // namespace qti::audio::core

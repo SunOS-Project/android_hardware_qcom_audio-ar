@@ -51,6 +51,29 @@ const static std::string kWfdProxyRecordActive{"proxyRecordActive"};
  * it while making device unavailable.
  **/
 const static std::string kWfdIPAsProxyDevConnected{"USE_IP_IN_DEVICE_FOR_PROXY_RECORD"};
+/**
+ * clients have need to hardcode
+ * frame count requirement per read.
+ * Ideally, client should be able read
+ * as AHAL provided. Still, AHAL supports
+ * this way to set module vendor parameter
+ * to request a custom FMQ size from client
+ * FMQ size.
+ * example:
+ * As the session starts, client sets
+ * proxy_record_fmq_size = 480
+
+ * As session ends, client unsets
+ * proxy_record_fmq_size = 0
+
+ * After the session of proxy record finishes,
+ * client is resposible to unset the module
+ * vendor parameter.
+
+ * For upcoming requirements, this way is
+ * depreciated.
+ **/
+const static std::string kProxyRecordFMQSize{"proxy_record_fmq_size"};
 
 // Generic
 const static std::string kInCallMusic{"icmd_playback"};

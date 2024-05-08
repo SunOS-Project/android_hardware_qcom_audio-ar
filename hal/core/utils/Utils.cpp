@@ -142,6 +142,24 @@ bool hasOutputDirectFlag(const AudioIoFlags& ioFlags) noexcept {
     return false;
 }
 
+bool hasInputRawFlag(const AudioIoFlags& ioFlags) noexcept {
+    if (ioFlags.getTag() == AudioIoFlags::Tag::input) {
+        constexpr auto rawFlag =
+                static_cast<int32_t>(1 << static_cast<int32_t>(AudioInputFlags::RAW));
+        return ((rawFlag & ioFlags.get<AudioIoFlags::Tag::input>()) != 0);
+    }
+    return false;
+}
+
+bool hasOutputRawFlag(const AudioIoFlags& ioFlags) noexcept {
+    if (ioFlags.getTag() == AudioIoFlags::Tag::output) {
+        constexpr auto rawFlag =
+                static_cast<int32_t>(1 << static_cast<int32_t>(AudioOutputFlags::RAW));
+        return ((rawFlag & ioFlags.get<AudioIoFlags::Tag::output>()) != 0);
+    }
+    return false;
+}
+
 bool hasOutputCompressOffloadFlag(const AudioIoFlags& ioFlags) noexcept {
     if (ioFlags.getTag() == AudioIoFlags::Tag::output) {
         constexpr auto compressOffloadFlag =
