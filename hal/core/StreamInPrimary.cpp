@@ -107,6 +107,10 @@ ndk::ScopedAStatus StreamInPrimary::setConnectedDevices(
             mPlatform.configureAndFetchPalDevices(mMixPortConfig, mTag, mConnectedDevices);
     if (mTag == Usecase::PCM_RECORD || mTag == Usecase::COMPRESS_CAPTURE) {
         mPlatform.configurePalDevices(mMixPortConfig, connectedPalDevices);
+        if (mPlatform.getTranslationRecordState()) {
+            mPlatform.configurePalDevicesCustomKey(connectedPalDevices, "translate_record");
+            LOG(INFO) << __func__ << "setting custom key as translate_record";
+        }
     } else if (mTag == Usecase::ULTRA_FAST_RECORD) {
         auto countProxyDevices = std::count_if(mConnectedDevices.cbegin(), mConnectedDevices.cend(),
                                                isInputAFEProxyDevice);
@@ -557,11 +561,14 @@ size_t StreamInPrimary::getPlatformDelay() const noexcept {
 void StreamInPrimary::configure() {
     const auto startTime = std::chrono::steady_clock::now();
     auto attr = mPlatform.getPalStreamAttributes(mMixPortConfig, true);
+    LOG(INFO) << __func__ << " : configure : Enter";
+    auto palDevices = mPlatform.configureAndFetchPalDevices(mMixPortConfig, mTag, mConnectedDevices);
     if (!attr) {
         LOG(ERROR) << __func__ << mLogPrefix << " no pal attributes";
         return;
     }
     if (mTag == Usecase::PCM_RECORD) {
+        LOG(DEBUG) << __func__ << " : PCM_RECORD usecase";
         attr->type = PAL_STREAM_DEEP_BUFFER;
         const auto& source = getAudioSource(mMixPortConfig);
         if (source) {
@@ -572,6 +579,10 @@ void StreamInPrimary::configure() {
                 attr->type = PAL_STREAM_RAW;
                 LOG(INFO) << __func__ << mLogPrefix << ": unprocessed capture";
             }
+        }
+        if (mPlatform.getTranslationRecordState()) {
+            mPlatform.configurePalDevicesCustomKey(palDevices, "translate_record");
+            LOG(INFO) << __func__ << ": setting custom key as translate_record";
         }
     } else if (mTag == Usecase::COMPRESS_CAPTURE) {
         attr->type = PAL_STREAM_COMPRESSED;
@@ -601,8 +612,6 @@ void StreamInPrimary::configure() {
 
     LOG(VERBOSE) << __func__ << mLogPrefix << " assigned pal stream type:" << attr->type;
 
-    auto palDevices =
-            mPlatform.configureAndFetchPalDevices(mMixPortConfig, mTag, mConnectedDevices);
     if (!palDevices.size()) {
         LOG(ERROR) << __func__ << mLogPrefix << " no connected devices on stream!!";
         return;

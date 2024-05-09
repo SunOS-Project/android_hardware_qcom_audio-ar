@@ -81,6 +81,13 @@ const static std::string kUHQA{"UHQA"};
 const static std::string kOffloadPlaySpeedSupported{"offloadVariableRateSupported"};
 const static std::string kSupportsHwSuspend{"supports_hw_suspend"};
 const static std::string kIsDirectPCMTrack{"is_direct_pcm_track"};
+const static std::string kTranslateRecord{"translate_record"};
+/**
+ * translate_record : AUDIO_FLUENCE_FFECNS PCM_RECORD
+ * Use this parameter to for the Voice Translation usecase.
+ * Set param support for APK to select FFECNS record and populate
+ * custom key for FFECNS record based on the setparam.
+ **/
 
 // FTM
 const static std::string kFbspCfgWaitTime{"fbsp_cfg_wait_time"};
