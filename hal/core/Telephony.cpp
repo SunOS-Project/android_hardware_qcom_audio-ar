@@ -278,7 +278,8 @@ AudioDevice Telephony::getMatchingTxDevice(const AudioDevice& rxDevice) {
                rxDevice.type.connection == AudioDeviceDescription::CONNECTION_BT_SCO) {
         return AudioDevice{.type.type = AudioDeviceType::IN_HEADSET,
                            .type.connection = AudioDeviceDescription::CONNECTION_BT_SCO};
-    } else if (rxDevice.type.type == AudioDeviceType::OUT_HEADSET &&
+    } else if ((rxDevice.type.type == AudioDeviceType::OUT_HEADSET ||
+                rxDevice.type.type == AudioDeviceType::OUT_BROADCAST) &&
                rxDevice.type.connection == AudioDeviceDescription::CONNECTION_BT_LE) {
         return AudioDevice{.type.type = AudioDeviceType::IN_HEADSET,
                            .type.connection = AudioDeviceDescription::CONNECTION_BT_LE};
