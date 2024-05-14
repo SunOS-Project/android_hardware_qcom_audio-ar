@@ -294,8 +294,6 @@ class CompressPlayback : public UsecaseConfig<CompressPlayback, false /*IsPcm*/>
     /* To reconfigure the codec, gapless info */
     void setAndConfigureCodecInfo(pal_stream_handle_t* handle);
     void configureGapless(pal_stream_handle_t* handle);
-    void reconfigureOnFlush() const;
-    void reconfigureOnPartialDrain() const;
     // if fetched, when status is set, it resets the status
     bool fetchDrainReady();
     void setDrainReady();
