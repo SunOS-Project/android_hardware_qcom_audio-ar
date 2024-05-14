@@ -148,7 +148,7 @@ void StreamWorkerCommonLogic::populateReply(StreamDescriptor::Reply* reply,
     reply->latencyMs = mContext->getNominalLatencyMs();
     if (isConnected) {
         reply->observable.frames = mContext->getFrameCount();
-        reply->observable.timeNs = ::android::uptimeNanos();
+        reply->observable.timeNs = ::android::elapsedRealtimeNano();
         if (auto status = mDriver->refinePosition(reply); status == ::android::OK) {
             return;
         }
