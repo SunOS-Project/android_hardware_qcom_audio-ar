@@ -605,6 +605,12 @@ void Telephony::startCall() {
         strlcpy(palDevices[0].custom_config.custom_key, "",
                 sizeof(palDevices[0].custom_config.custom_key));
     }
+    //set custom key for hac mode
+    if (mTelecomConfig.isHacEnabled && palDevices[0].id == PAL_DEVICE_OUT_HANDSET) {
+        strlcpy(palDevices[0].custom_config.custom_key, "HAC",
+                sizeof(palDevices[0].custom_config.custom_key));
+        LOG(VERBOSE) << __func__ << "setting custom key as ", palDevices[0].custom_config.custom_key;
+    }
     if (int32_t ret = ::pal_stream_open(
                 attributes.get(), numDevices, reinterpret_cast<pal_device*>(palDevices.data()), 0,
                 nullptr, nullptr, reinterpret_cast<uint64_t>(this), &mPalHandle);
@@ -791,6 +797,13 @@ void Telephony::updateDevices() {
     }
 
     if (mPalHandle == nullptr) return;
+
+     //set custom key for hac mode
+    if (mTelecomConfig.isHacEnabled && palDevices[0].id == PAL_DEVICE_OUT_HANDSET) {
+        strlcpy(palDevices[0].custom_config.custom_key, "HAC",
+                sizeof(palDevices[0].custom_config.custom_key));
+        LOG(VERBOSE) << __func__ << "setting custom key as ", palDevices[0].custom_config.custom_key;
+    }
 
     if (int32_t ret = ::pal_stream_set_device(mPalHandle, 2,
                                               reinterpret_cast<pal_device*>(palDevices.data()));
