@@ -431,6 +431,11 @@ void ModulePrimary::onSetGenericParameters(const std::vector<VendorParameter>& p
         } else if (Parameters::kUHQA == param.id) {
             const bool enable = paramValue == "on" ? true : false;
             mPlatform.updateUHQA(enable);
+        } else if (Parameters::kTranslateRecord == param.id) {
+            // Add Translate_Record param check and update using the Set Function
+            const auto isOn = getBoolFromString(paramValue);
+            mPlatform.setTranslationRecordState(isOn);
+            LOG(INFO) << __func__ << ": PCM Record FFECNS for Translation:" << isOn;
         }
     }
 }
@@ -628,6 +633,7 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
                                  {Parameters::kVoiceDeviceMute, Feature::TELEPHONY},
                                  {Parameters::kVoiceDirection, Feature::TELEPHONY},
                                  {Parameters::kInCallMusic, Feature::GENERIC},
+                                 {Parameters::kTranslateRecord, Feature::GENERIC},
                                  {Parameters::kUHQA, Feature::GENERIC},
                                  {Parameters::kFbspCfgWaitTime, Feature::FTM},
                                  {Parameters::kFbspFTMWaitTime, Feature::FTM},

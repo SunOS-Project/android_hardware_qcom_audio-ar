@@ -246,6 +246,10 @@ class Platform {
     void setInCallMusicState(const bool state) noexcept { mInCallMusicEnabled = state; }
     bool getInCallMusicState() noexcept { return mInCallMusicEnabled; }
 
+    // Set and Get Value Functions for Translate Record.
+    void setTranslationRecordState(const bool state) noexcept { mIsTranslationRecordEnabled = state; }
+    bool getTranslationRecordState() noexcept { return mIsTranslationRecordEnabled; }
+
     void updateCallState(int callState) { mCallState = callState; }
     void updateCallMode(int callMode) { mCallMode = callMode; }
 
@@ -319,6 +323,7 @@ class Platform {
     std::map<std::string, std::string> mParameters;
     card_status_t mSndCardStatus{CARD_STATUS_OFFLINE};
     bool mInCallMusicEnabled{false};
+    bool mIsTranslationRecordEnabled{false};
     bool mIsScreenTurnedOn{false};
     uint32_t mWFDProxyChannels{0};
     bool mIsUHQAEnabled{false};
