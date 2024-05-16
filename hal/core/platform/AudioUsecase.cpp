@@ -1039,9 +1039,9 @@ ndk::ScopedAStatus CompressCapture::getVendorParameters(
     for (const auto& id : in_ids) {
         if (id == Aac::kDSPAacBitRate) {
             result.emplace_back(
-                    constructVendorParameter(id, std::to_string(mPalSndEnc.aac_enc.aac_bit_rate)));
+                    makeVendorParameter(id, std::to_string(mPalSndEnc.aac_enc.aac_bit_rate)));
         } else if (id == Aac::kDSPAacGlobalCutoffFrequency) {
-            result.emplace_back(constructVendorParameter(
+            result.emplace_back(makeVendorParameter(
                     id, std::to_string(mPalSndEnc.aac_enc.global_cutoff_freq)));
         }
     }

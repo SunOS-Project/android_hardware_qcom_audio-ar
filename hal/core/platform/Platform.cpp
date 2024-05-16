@@ -1121,7 +1121,7 @@ uint32_t Platform::getBluetoothLatencyMs(const std::vector<AudioDevice>& bluetoo
             }
             if (payloadSize == 0) {
                 LOG(ERROR) << __func__ << " empty payload size!!!";
-                continue;;
+                continue;
             }
         }
     }
