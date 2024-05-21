@@ -57,6 +57,9 @@ class ModulePrimary final : public Module {
             override;
     ndk::ScopedAStatus getMicMute(bool* _aidl_return) override;
     ndk::ScopedAStatus setMicMute(bool in_mute) override;
+    ndk::ScopedAStatus getMicrophones(
+            std::vector<::aidl::android::media::audio::common::MicrophoneInfo>* _aidl_return)
+            override;
     ndk::ScopedAStatus updateScreenState(bool in_isTurnedOn) override;
     ndk::ScopedAStatus updateScreenRotation(
             ::aidl::android::hardware::audio::core::IModule::ScreenRotation in_rotation) override;
@@ -96,7 +99,7 @@ class ModulePrimary final : public Module {
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
             const ::aidl::android::hardware::audio::core::AudioPatch& newPatch) override;
-    void onExternalDeviceConnectionChanged(
+    int onExternalDeviceConnectionChanged(
             const ::aidl::android::media::audio::common::AudioPort& audioPort,
             bool connected) override;
     int32_t getNominalLatencyMs(

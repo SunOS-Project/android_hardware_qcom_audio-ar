@@ -38,7 +38,29 @@ MM_AUDIO += libqcomvoiceprocessing
 #KERNEL_TESTS
 #KERNEL_TESTS := mm-audio-native-test
 
+# Add VTS modules for userdebug and eng builds
+#AUDIO_TESTS
+ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
+AUDIO_TESTS += VtsHalAudioCoreTargetTest
+AUDIO_TESTS += VtsHalAudioEffectFactoryTargetTest
+AUDIO_TESTS += VtsHalAudioEffectTargetTest
+AUDIO_TESTS += VtsHalDownmixTargetTest
+AUDIO_TESTS += VtsHalEnvironmentalReverbTargetTest
+AUDIO_TESTS += VtsHalEqualizerTargetTest
+AUDIO_TESTS += VtsHalHapticGeneratorTargetTest
+AUDIO_TESTS += VtsHalLoudnessEnhancerTargetTest
+AUDIO_TESTS += VtsHalPresetReverbTargetTest
+AUDIO_TESTS += VtsHalVirtualizerTargetTest
+AUDIO_TESTS += VtsHalVisualizerTargetTest
+AUDIO_TESTS += VtsHalVolumeTargetTest
+AUDIO_TESTS += VtsHalAECTargetTest
+AUDIO_TESTS += VtsHalAGC1TargetTest
+AUDIO_TESTS += VtsHalAGC2TargetTest
+AUDIO_TESTS += VtsHalNSTargetTest
+endif
+
 AUDIO_GENERIC_MODULES += $(MM_AUDIO)
+AUDIO_GENERIC_MODULES += $(AUDIO_TESTS)
 #AUDIO_GENERIC_MODULES += $(KERNEL_TESTS)
 
 endif

@@ -40,7 +40,6 @@ using ::aidl::android::hardware::audio::core::StreamDescriptor;
 using ::aidl::android::hardware::audio::core::VendorParameter;
 
 using aidl::android::media::audio::common::AudioPortExt;
-using aidl::android::media::audio::common::Int;
 
 // uncomment this to enable logging of very verbose logs like burst commands.
 // #define VERY_VERBOSE_LOGGING 1
@@ -65,9 +64,10 @@ StreamOutPrimary::StreamOutPrimary(StreamContext&& context, const SourceMetadata
     } else if (mTag == Usecase::DEEP_BUFFER_PLAYBACK) {
         mExt.emplace<DeepBufferPlayback>();
     } else if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        mExt.emplace<CompressPlayback>(offloadInfo.value(), getContext().getAsyncCallback());
+        mExt.emplace<CompressPlayback>(offloadInfo.value(), getContext().getAsyncCallback(),
+                                       mMixPortConfig);
     } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
-        mExt.emplace<PcmOffloadPlayback>();
+        mExt.emplace<PcmOffloadPlayback>(mMixPortConfig);
     } else if (mTag == Usecase::VOIP_PLAYBACK) {
         mExt.emplace<VoipPlayback>();
     } else if (mTag == Usecase::SPATIAL_PLAYBACK) {
@@ -102,6 +102,10 @@ bool StreamOutPrimary::isHwVolumeSupported() {
             break;
     }
     return false;
+}
+
+struct BufferConfig StreamOutPrimary::getBufferConfig() {
+    return mPlatform.getBufferConfig(mMixPortConfig, mTag);
 }
 
 StreamOutPrimary::~StreamOutPrimary() {
@@ -175,8 +179,9 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
-    const size_t ringBufSizeInBytes = getPeriodSize();
-    const size_t ringBufCount = getPeriodCount();
+    auto bufConfig = getBufferConfig();
+    const size_t ringBufSizeInBytes = bufConfig.bufferSize;
+    const size_t ringBufCount = bufConfig.bufferCount;
     auto palBufferConfig = mPlatform.getPalBufferConfig(ringBufSizeInBytes, ringBufCount);
     LOG(DEBUG) << __func__ << mLogPrefix << " set pal_stream_set_buffer_size to "
                << std::to_string(ringBufSizeInBytes) << " with count "
@@ -255,13 +260,26 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
         LOG(VERBOSE) << __func__ << mLogPrefix << " unsupported operation!!, Hence ignored";
         return ::android::OK;
     }
+
+    // to be precise or accurate w.r.t to frames consumed
+    // before flush operation, we would fetch latest frames
+    // and cache it.
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        std::get<CompressPlayback>(mExt).getPositionInFrames(mPalHandle);
+    } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
+        std::get<PcmOffloadPlayback>(mExt).getPositionInFrames(mPalHandle);
+    }
+
     if (int32_t ret = ::pal_stream_flush(mPalHandle); ret) {
         LOG(ERROR) << __func__ << mLogPrefix << " failed to flush the stream, ret:" << ret;
         return ret;
     }
 
+    // after flush operation
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        std::get<CompressPlayback>(mExt).reconfigureOnFlush();
+        std::get<CompressPlayback>(mExt).onFlush();
+    } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
+        std::get<PcmOffloadPlayback>(mExt).onFlush();
     }
 
     LOG(DEBUG) << __func__ << mLogPrefix;
@@ -380,7 +398,11 @@ void StreamOutPrimary::resume() {
 #endif
 
     // Todo findout write latency
-    *latencyMs = Module::kLatencyMs;
+    *latencyMs = mContext.getNominalLatencyMs();
+    if (hasBluetoothDevice(mConnectedDevices)) {
+        const auto& btlatencyMs = mPlatform.getBluetoothLatencyMs(mConnectedDevices);
+        *latencyMs += btlatencyMs;
+    }
     return ::android::OK;
 }
 
@@ -461,37 +483,19 @@ void StreamOutPrimary::resume() {
     return (ret < 0 ? ret :  (frameSize*frameCount));
 }
 
-void StreamOutPrimary::updateCachedFrames(size_t cachedFrames) {
-    mCachedFrames = cachedFrames;
-}
-
-::android::status_t StreamOutPrimary::refinePosition(
-        ::aidl::android::hardware::audio::core::StreamDescriptor::Reply* reply) {
-    if (!mPalHandle) {
-        return ::android::OK;
-    }
+::android::status_t StreamOutPrimary::refinePosition(StreamDescriptor::Reply* reply) {
 
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        mPlatform.getPositionInFrames(mPalHandle, mMixPortConfig.sampleRate.value().value,
-                                            &(reply->observable.frames));
+        reply->observable.frames = std::get<CompressPlayback>(mExt).getPositionInFrames(mPalHandle);
     } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
-        if (mPlatform.isSoundCardUp()) {
-            mPlatform.getPositionInFrames(mPalHandle, mMixPortConfig.sampleRate.value().value,
-                                                &(reply->observable.frames));
-        } else {
-            reply->observable.frames += mCachedFrames;
-            updateCachedFrames(reply->observable.frames);
-        }
+        reply->observable.frames =
+                std::get<PcmOffloadPlayback>(mExt).getPositionInFrames(mPalHandle);
     } else if (mTag == Usecase::MMAP_PLAYBACK) {
         if (int32_t ret = std::get<MMapPlayback>(mExt).getMMapPosition(&(reply->hardware.frames),
                                                                        &(reply->hardware.timeNs));
             ret) {
             return ::android::BAD_VALUE;
         }
-#ifdef VERY_VERBOSE_LOGGING
-        LOG(VERBOSE) << __func__ << mLogPrefix << " frames " << reply->hardware.frames << " timeNs "
-                     << reply->hardware.timeNs;
-#endif
     }
 
     // if the stream is connected to any bluetooth device, consider bluetooth encoder latency
@@ -503,9 +507,7 @@ void StreamOutPrimary::updateCachedFrames(size_t cachedFrames) {
         if (reply->observable.frames >= btExtraFrames) {
             reply->observable.frames -= btExtraFrames;
         }
-#ifdef VERY_VERBOSE_LOGGING
-        LOG(VERBOSE) << __func__ << mLogPrefix << ": bluetooth latencyMs:" << latencyMs;
-#endif
+        reply->latencyMs += latencyMs;
     }
 
     return ::android::OK;
@@ -790,11 +792,14 @@ ndk::ScopedAStatus StreamOutPrimary::getVendorParameters(
         return compressPlayback.getVendorParameters(in_ids, _aidl_return);
     }
 
-    if (mTag == Usecase::LOW_LATENCY_PLAYBACK) {
-        for (const auto& id : in_ids) {
-            if (id == Parameters::kSupportsHwSuspend) {
-                std::string value = "1";
-                _aidl_return->push_back(makeVendorParameter(id, value));
+    for (const auto& id : in_ids) {
+        if (id == Parameters::kSupportsHwSuspend) {
+            if (mTag == Usecase::LOW_LATENCY_PLAYBACK) {
+                _aidl_return->push_back(makeVendorParameter(id, "1"));
+            }
+        } else if (id == Parameters::kIsDirectPCMTrack) {
+            if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
+                _aidl_return->push_back(makeVendorParameter(id, "true"));
             }
         }
     }
@@ -834,61 +839,6 @@ ndk::ScopedAStatus StreamOutPrimary::removeEffect(
 }
 
 // end of StreamCommonInterface Methods
-
-size_t StreamOutPrimary::getPeriodSize() const noexcept {
-    if (mTag == Usecase::PRIMARY_PLAYBACK) {
-        return PrimaryPlayback::kPeriodSize * mFrameSizeBytes;
-    } else if (mTag == Usecase::DEEP_BUFFER_PLAYBACK) {
-        return DeepBufferPlayback::kPeriodSize * mFrameSizeBytes;
-    } else if (mTag == Usecase::LOW_LATENCY_PLAYBACK) {
-        return LowLatencyPlayback::getBufferSize(mMixPortConfig);
-    } else if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        return CompressPlayback::getPeriodBufferSize(mMixPortConfig.format.value());
-    } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
-        return PcmOffloadPlayback::getPeriodSize(mMixPortConfig);
-    } else if (mTag == Usecase::VOIP_PLAYBACK) {
-        return VoipPlayback::getPeriodSize(mMixPortConfig);
-    } else if (mTag == Usecase::SPATIAL_PLAYBACK) {
-        return SpatialPlayback::kPeriodSize * mFrameSizeBytes;
-    } else if (mTag == Usecase::ULL_PLAYBACK) {
-        return UllPlayback::getBufferSize(mMixPortConfig);
-    } else if (mTag == Usecase::MMAP_PLAYBACK) {
-        return MMapPlayback::getPeriodSize(mMixPortConfig.format.value(),
-                                           mMixPortConfig.channelMask.value());
-    } else if (mTag == Usecase::IN_CALL_MUSIC) {
-        return InCallMusic::kPeriodSize;
-    } else if (mTag == Usecase::HAPTICS_PLAYBACK) {
-        return LowLatencyPlayback::kPeriodSize * mFrameSizeBytes;
-    }
-    return 0;
-}
-
-size_t StreamOutPrimary::getPeriodCount() const noexcept {
-    if (mTag == Usecase::PRIMARY_PLAYBACK) {
-        return PrimaryPlayback::kPeriodCount;
-    } else if (mTag == Usecase::DEEP_BUFFER_PLAYBACK) {
-        return DeepBufferPlayback::kPeriodCount;
-    } else if (mTag == Usecase::LOW_LATENCY_PLAYBACK) {
-        return LowLatencyPlayback::kPeriodCount;
-    } else if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        return CompressPlayback::kPeriodCount;
-    } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
-        return PcmOffloadPlayback::kPeriodCount;
-    } else if (mTag == Usecase::VOIP_PLAYBACK) {
-        return VoipPlayback::kPeriodCount;
-    } else if (mTag == Usecase::SPATIAL_PLAYBACK) {
-        return SpatialPlayback::kPeriodCount;
-    } else if (mTag == Usecase::ULL_PLAYBACK) {
-        return UllPlayback::kPeriodCount;
-    } else if (mTag == Usecase::MMAP_PLAYBACK) {
-        return MMapPlayback::kPeriodCount;
-    } else if (mTag == Usecase::IN_CALL_MUSIC) {
-        return InCallMusic::kPeriodCount;
-    } else if (mTag == Usecase::HAPTICS_PLAYBACK) {
-        return HapticsPlayback::kPeriodCount;
-    }
-    return 0;
-}
 
 size_t StreamOutPrimary::getPlatformDelay() const noexcept {
     return 0;
@@ -1048,14 +998,14 @@ void StreamOutPrimary::configure() {
         mAudExt.mKarokeExtension->karaoke_open(palDevices[size - 1].id, palFn,
                                                attr.get()->out_media_config.ch_info);
     }
-    size_t ringBufSizeInBytes = getPeriodSize();
+    auto bufConfig = getBufferConfig();
+    size_t ringBufSizeInBytes = bufConfig.bufferSize;
+    const size_t ringBufCount = bufConfig.bufferCount;
 
     if (mTag == Usecase::HAPTICS_PLAYBACK && mHapticsPalHandle) {
         size_t hapticsFrameSize = getFrameSizeInBytes(mMixPortConfig.format.value(), channelLayout);
         ringBufSizeInBytes = LowLatencyPlayback::kPeriodSize * hapticsFrameSize;
     }
-
-    const size_t ringBufCount = getPeriodCount();
 
     if (auto converter = Platform::requiresBufferReformat(mMixPortConfig);
         converter && !mBufferFormatConverter.has_value()) {
@@ -1078,7 +1028,7 @@ void StreamOutPrimary::configure() {
         return;
     }
     if (mTag == Usecase::HAPTICS_PLAYBACK && mHapticsPalHandle) {
-        const size_t hapticsRingBufCount = getPeriodCount();
+        const size_t hapticsRingBufCount = ringBufCount;
         size_t hapticsFrameSize = getFrameSizeInBytes(mMixPortConfig.format.value(), hapticChannelLayout);
         const size_t hapticsRingBufSizeInBytes = LowLatencyPlayback::kPeriodSize * hapticsFrameSize;
 

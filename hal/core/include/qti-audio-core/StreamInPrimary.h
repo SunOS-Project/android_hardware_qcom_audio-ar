@@ -55,6 +55,10 @@ class StreamInPrimary : public StreamIn, public StreamCommonImpl {
 
     ndk::ScopedAStatus updateMetadataCommon(const Metadata& metadata) override;
 
+    ndk::ScopedAStatus getActiveMicrophones(
+            std::vector<::aidl::android::media::audio::common::MicrophoneDynamicInfo>* _aidl_return)
+            override;
+
     // Methods called IModule
     ndk::ScopedAStatus setConnectedDevices(
             const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices)
@@ -73,8 +77,6 @@ class StreamInPrimary : public StreamIn, public StreamCommonImpl {
      */
     void configure();
     void resume();
-    size_t getPeriodSize() const noexcept;
-    size_t getPeriodCount() const noexcept;
     size_t getPlatformDelay() const noexcept;
 
     const Usecase mTag;
@@ -93,6 +95,7 @@ class StreamInPrimary : public StreamIn, public StreamCommonImpl {
 
   private:
     ::android::status_t onReadError(const size_t sleepFrameCount);
+    struct BufferConfig getBufferConfig();
     void applyEffects();
 
     bool mAECEnabled = false;

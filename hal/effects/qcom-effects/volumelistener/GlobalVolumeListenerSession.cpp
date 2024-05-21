@@ -62,7 +62,7 @@ void GlobalConfigs::printVolumeTable() {
 }
 
 GlobalVolumeListenerSession::GlobalVolumeListenerSession() {
-    LOG(DEBUG) << __func__ << "Global Session created";
+    LOG(VERBOSE) << __func__ << "Global Session created";
     mTotalVolumeSteps = mConfig.getVolumeCalSteps();
     mGainTable = mConfig.getGainTable();
 }
@@ -70,7 +70,7 @@ GlobalVolumeListenerSession::GlobalVolumeListenerSession() {
 std::shared_ptr<VolumeListenerContext> GlobalVolumeListenerSession::createSession(
         const VolumeListenerType &type, const Parameter::Common &common, bool processData) {
     int sessionId = common.session;
-    LOG(DEBUG) << __func__ << type << " with sessionId " << sessionId;
+    LOG(VERBOSE) << __func__ << type << " with sessionId " << sessionId;
     std::lock_guard lg(mSessionMutex);
 
     auto context = std::make_shared<VolumeListenerContext>(common, type, processData);
@@ -81,7 +81,7 @@ std::shared_ptr<VolumeListenerContext> GlobalVolumeListenerSession::createSessio
 }
 
 void GlobalVolumeListenerSession::releaseSession(int sessionId) {
-    LOG(DEBUG) << __func__ << "Enter: sessionId " << sessionId << "total sessions "
+    LOG(VERBOSE) << __func__ << "Enter: sessionId " << sessionId << "total sessions "
                << mSessionsMap.size();
     std::lock_guard lg(mSessionMutex);
 
@@ -156,8 +156,9 @@ void GlobalVolumeListenerSession::checkAndSetGainDepCal_l() {
         newVolume = fmin(sqrt(sumEnergy), 1.0);
     }
 
-    LOG(DEBUG) << __func__ << " use volume " << ::android::internal::ToString(newVolume);
     uint32_t gain = (uint32_t)(round(newVolume * (1 << LIN_VOLUME_QFACTOR_28)));
+    LOG(DEBUG) << __func__ << " use volume " << ::android::internal::ToString(newVolume) << " gain "
+               << gain;
     sendLinearGain(gain);
     applyUpdatedCalibration(newVolume);
 }
@@ -214,7 +215,7 @@ float GlobalVolumeListenerSession::getSumEnergy_l() {
                          << sumEnergy;
         }
     }
-    LOG(DEBUG) << __func__ << " size " << mSessionsMap.size() << " sum energy " << sumEnergy;
+    LOG(VERBOSE) << __func__ << " size " << mSessionsMap.size() << " sum energy " << sumEnergy;
     return sumEnergy;
 }
 
@@ -222,7 +223,7 @@ bool GlobalVolumeListenerSession::sendGainDepCalibration(int level) {
     int32_t ret = 0;
     pal_param_gain_lvl_cal_t gainLevelCal;
     gainLevelCal.level = level;
-    LOG(DEBUG) << __func__ << " level " << level;
+    LOG(VERBOSE) << __func__ << " level " << level;
     ret = pal_set_param(PAL_PARAM_ID_GAIN_LVL_CAL, (void *)&gainLevelCal,
                         sizeof(pal_param_gain_lvl_cal_t));
     if (ret != 0) {
@@ -236,7 +237,7 @@ bool GlobalVolumeListenerSession::sendLinearGain(int32_t gain) {
     int32_t ret = 0;
     pal_param_mspp_linear_gain_t linearGain;
     linearGain.gain = gain;
-    LOG(DEBUG) << __func__ << " gain " << gain;
+    LOG(VERBOSE) << __func__ << " gain " << gain;
     ret = pal_set_param(PAL_PARAM_ID_MSPP_LINEAR_GAIN, (void *)&linearGain,
                         sizeof(pal_param_mspp_linear_gain_t));
     if (ret != 0) {

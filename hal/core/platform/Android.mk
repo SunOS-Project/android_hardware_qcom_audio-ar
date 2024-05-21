@@ -19,6 +19,8 @@ LOCAL_SRC_FILES := \
     AudioUsecase.cpp \
     PlatformUtils.cpp
 
+LOCAL_WHOLE_STATIC_LIBRARIES := libaudio_microphoneinfo_parser
+
 LOCAL_STATIC_LIBRARIES := \
     libaudiohalutils.qti
 

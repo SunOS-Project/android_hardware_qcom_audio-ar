@@ -102,6 +102,9 @@ bool isIPDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexc
 
 bool hasOutputDirectFlag(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
 
+bool hasOutputRawFlag(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
+bool hasInputRawFlag(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
+
 bool hasOutputCompressOffloadFlag(
         const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
 

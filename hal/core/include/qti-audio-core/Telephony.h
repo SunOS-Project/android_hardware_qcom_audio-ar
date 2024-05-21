@@ -69,6 +69,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
 
     float mCRSVolume = 0.4f; //default CRS call volume
     bool mIsCRSStarted{false};
+    VSID mCRSVSID{VSID::VSID_1};
     constexpr static size_t KCodecBackendDefaultBitWidth = 16;
     const static ::aidl::android::media::audio::common::AudioDevice kDefaultRxDevice;
     const static ::aidl::android::media::audio::common::AudioDevice kDefaultCRSRxDevice;

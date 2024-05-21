@@ -137,6 +137,12 @@ ModulePrimary::ModulePrimary() : Module(Type::DEFAULT) {
     mOffloadSpeedSupported = mPlatform.platformSupportsOffloadSpeed();
 }
 
+ndk::ScopedAStatus ModulePrimary::getMicrophones(std::vector<MicrophoneInfo>* _aidl_return) {
+    *_aidl_return = mPlatform.getMicrophoneInfo();
+    LOG(VERBOSE) << __func__ << ": returning " << ::android::internal::ToString(*_aidl_return);
+    return ndk::ScopedAStatus::ok();
+}
+
 ndk::ScopedAStatus ModulePrimary::getMicMute(bool* _aidl_return) {
     if (!mTelephony) {
         LOG(ERROR) << __func__ << ": Telephony not created ";
@@ -310,27 +316,28 @@ void ModulePrimary::setAudioPatchTelephony(const std::vector<AudioPortConfig*>& 
     LOG(DEBUG) << __func__ << ": device patch : " << patchDetails << patch.toString();
 }
 
-void ModulePrimary::onExternalDeviceConnectionChanged(
+int ModulePrimary::onExternalDeviceConnectionChanged(
         const ::aidl::android::media::audio::common::AudioPort& audioPort, bool connected) {
-
     if (mDebug.simulateDeviceConnections) {
         LOG(DEBUG) << __func__ << ": connection is in simulation mode";
-        return;
+        return 0;
     }
 
-    if (!mPlatform.handleDeviceConnectionChange(audioPort, connected)) {
+    if (int ret = mPlatform.handleDeviceConnectionChange(audioPort, connected); ret) {
         LOG(WARNING) << __func__ << " failed to handle device connection change:"
                      << (connected ? " connect" : "disconnect") << " for " << audioPort.toString();
+        return ret;
     }
 
     if (!mTelephony) {
         LOG(ERROR) << __func__ << ": Telephony not created ";
-        return;
+        return 0;
     }
 
     if (connected) {
         mTelephony->updateDevicesFromPrimaryPlayback();
     }
+    return 0;
 }
 
 int32_t ModulePrimary::getNominalLatencyMs(const AudioPortConfig& mixPortConfig) {
@@ -487,6 +494,7 @@ void ModulePrimary::onSetTelephonyParameters(const std::vector<VendorParameter>&
             isSetUpdate = true;
         } else if (Parameters::kVoiceCRSCall == p.id) {
             setUpdates.mIsCrsCall = paramValue == "true" ? true : false;
+            isSetUpdate = true;
         } else if (Parameters::kVoiceCRSVolume == p.id) {
             mTelephony->setCRSVolumeFromIndex(getInt64FromString(paramValue));
         } else if (Parameters::kVolumeBoost == p.id) {
@@ -526,6 +534,12 @@ void ModulePrimary::onSetWFDParameters(const std::vector<VendorParameter>& param
         if (Parameters::kWfdChannelMap == p.id) {
             auto numProxyChannels = static_cast<uint32_t>(getInt64FromString(paramValue));
             mPlatform.setWFDProxyChannels(numProxyChannels);
+        } else if (Parameters::kWfdIPAsProxyDevConnected == p.id) {
+            auto isIPAsProxy = getBoolFromString(paramValue);
+            mPlatform.setIPAsProxyDeviceConnected(isIPAsProxy);
+        } else if (Parameters::kProxyRecordFMQSize == p.id) {
+            const size_t& proxyRecordFMQSize = static_cast<int32_t>(getInt64FromString(paramValue));
+            mPlatform.setProxyRecordFMQSize(proxyRecordFMQSize);
         }
     }
     return;
@@ -621,6 +635,8 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
                                  {Parameters::kFbspValiValiTime, Feature::FTM},
                                  {Parameters::kTriggerSpeakerCall, Feature::FTM},
                                  {Parameters::kWfdChannelMap, Feature::WFD},
+                                 {Parameters::kWfdIPAsProxyDevConnected, Feature::WFD},
+                                 {Parameters::kProxyRecordFMQSize, Feature::WFD},
                                  {Parameters::kHapticsVolume, Feature::HAPTICS},
                                  {Parameters::kHapticsIntensity, Feature::HAPTICS}};
     return map;
@@ -834,6 +850,13 @@ std::vector<VendorParameter> ModulePrimary::onGetWFDParameters(
             parcel.value = mPlatform.IsProxyRecordActive();
             setParameter(parcel, param);
             results.push_back(param);
+        } else if (id == Parameters::kWfdIPAsProxyDevConnected) {
+            VendorParameter param;
+            param.id = id;
+            VString parcel;
+            parcel.value = mPlatform.isIPAsProxyDeviceConnected();
+            setParameter(parcel, param);
+            results.push_back(param);
         } else {
             LOG(ERROR) << __func__ << ": unknown parameter in WFD feature. id:" << id;
         }
@@ -888,6 +911,7 @@ ModulePrimary::GetParameterToFeatureMap ModulePrimary::fillGetParameterToFeature
                                  {Parameters::kA2dpSuspended, Feature::BLUETOOTH},
                                  {Parameters::kCanOpenProxy, Feature::WFD},
                                  {Parameters::kWfdProxyRecordActive, Feature::WFD},
+                                 {Parameters::kWfdIPAsProxyDevConnected, Feature::WFD},
                                  {Parameters::kFTMParam, Feature::FTM},
                                  {Parameters::kFTMSPKRParam, Feature::FTM},
                                  {Parameters::kFMStatus, Feature::AUDIOEXTENSION}};

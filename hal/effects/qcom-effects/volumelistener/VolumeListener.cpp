@@ -39,7 +39,7 @@ extern "C" binder_exception_t createEffect(const AudioUuid* uuid,
     }
     if (instanceSpp) {
         *instanceSpp = ndk::SharedRefBase::make<VolumeListener>(*uuid);
-        LOG(DEBUG) << __func__ << " instance " << instanceSpp->get() << " created";
+        LOG(VERBOSE) << __func__ << " instance " << instanceSpp->get() << " created";
         return EX_NONE;
     } else {
         LOG(ERROR) << __func__ << " invalid input parameter!";
@@ -69,7 +69,7 @@ extern "C" binder_exception_t queryEffect(const AudioUuid* uuid, Descriptor* _ai
 namespace aidl::qti::effects {
 
 VolumeListener::VolumeListener(const AudioUuid& uuid) {
-    LOG(DEBUG) << __func__ << uuid.toString();
+    LOG(VERBOSE) << __func__ << toString(uuid);
     if (uuid == kAlarmVolumeListenerUUID) {
         mType = VolumeListenerType::ALARM;
         mDescriptor = &kAlarmVolumeListenerDesc;
@@ -85,18 +85,18 @@ VolumeListener::VolumeListener(const AudioUuid& uuid) {
     } else if (uuid == kVoiceCallVolumeListenerUUID) {
         mType = VolumeListenerType::VOICECALL;
         mDescriptor = &kVoiceCallVolumeListenerDesc;
-        mEffectName = &kNotificationVolumeListenerEffectName;
+        mEffectName = &kVoiceCallVolumeListenerEffectName;
     } else if (uuid == kRingVolumeListenerUUID) {
         mType = VolumeListenerType::RING;
         mDescriptor = &kRingVolumeListenerDesc;
         mEffectName = &kRingVolumeListenerEffectName;
     } else {
-        LOG(ERROR) << __func__ << uuid.toString() << " not supported yet!";
+        LOG(ERROR) << __func__ << toString(uuid) << " not supported yet!";
     }
 }
 
 ndk::ScopedAStatus VolumeListener::getDescriptor(Descriptor* _aidl_return) {
-    LOG(DEBUG) << __func__ << (*mDescriptor).toString();
+    LOG(VERBOSE) << __func__ << (*mDescriptor).toString();
     *_aidl_return = *mDescriptor;
     return ndk::ScopedAStatus::ok();
 }

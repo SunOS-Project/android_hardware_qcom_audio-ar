@@ -4,6 +4,7 @@
  */
 
 #pragma once
+#include <PalApi.h>
 #include <aidl/android/hardware/audio/core/IModule.h>
 #include <aidl/android/hardware/audio/core/VendorParameter.h>
 #include <aidl/android/media/audio/common/AudioDevice.h>
@@ -11,11 +12,13 @@
 #include <aidl/android/media/audio/common/AudioPlaybackRate.h>
 #include <aidl/android/media/audio/common/AudioPort.h>
 #include <aidl/android/media/audio/common/AudioPortConfig.h>
+#include <aidl/android/media/audio/common/MicrophoneDynamicInfo.h>
+#include <aidl/android/media/audio/common/MicrophoneInfo.h>
 #include <extensions/AudioExtension.h>
+#include <qti-audio-core/AudioUsecase.h>
 #include <system/audio.h>
 
-#include <PalApi.h>
-#include <qti-audio-core/AudioUsecase.h>
+#include <unordered_map>
 
 namespace qti::audio::core {
 
@@ -26,6 +29,32 @@ struct HdmiParameters {
 };
 
 enum class PlaybackRateStatus { SUCCESS, UNSUPPORTED, ILLEGAL_ARGUMENT };
+
+using GetLatency = int32_t (*)();
+using GetFrameCount =
+        size_t (*)(const ::aidl::android::media::audio::common::AudioPortConfig& portConfig);
+using GetBufferConfig = struct BufferConfig (*)(
+        const ::aidl::android::media::audio::common::AudioPortConfig& portConfig);
+
+/*
+ * Helper to map getLatency, getFrameCount, getBufferConfig APIs
+ * from platform to audiousecase. While Introducing new usecase
+ * always provide the APIS.
+ */
+struct UsecaseOps {
+    GetLatency getLatency;
+    GetFrameCount getFrameCount;
+    GetBufferConfig getBufferConfig;
+};
+
+template <typename UsecaseClass>
+inline UsecaseOps makeUsecaseOps() {
+    UsecaseOps ops;
+    ops.getLatency = UsecaseClass::getLatency;
+    ops.getFrameCount = UsecaseClass::getFrameCount;
+    ops.getBufferConfig = UsecaseClass::getBufferConfig;
+    return ops;
+}
 
 class Platform {
   private:
@@ -46,6 +75,26 @@ class Platform {
     int mCallState;
     int mCallMode;
     static Platform& getInstance();
+
+    size_t getFrameCount(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
+            Usecase const& inTag = Usecase::INVALID);
+
+    struct BufferConfig getBufferConfig(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
+            Usecase const& inTag = Usecase::INVALID);
+
+    int32_t getLatencyMs(
+            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
+            Usecase const& inTag = Usecase::INVALID);
+
+    std::vector<::aidl::android::media::audio::common::MicrophoneInfo> getMicrophoneInfo() {
+        return mMicrophoneInfo;
+    }
+    std::vector<::aidl::android::media::audio::common::MicrophoneDynamicInfo>
+            getMicrophoneDynamicInfo(
+                    const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices);
+
     bool setParameter(const std::string& key, const std::string& value);
     bool setBluetoothParameters(const char* kvpairs);
     bool setVendorParameters(
@@ -63,15 +112,15 @@ class Platform {
     bool isOutputDevice(const ::aidl::android::media::audio::common::AudioDevice&) const noexcept;
     bool isBluetoothDevice(const ::aidl::android::media::audio::common::AudioDevice& d) const
             noexcept;
+    bool isIPInDevice(const ::aidl::android::media::audio::common::AudioDevice&) const noexcept;
     bool isSoundCardUp() const noexcept;
     bool isSoundCardDown() const noexcept;
     bool isValidAlsaAddr(const std::vector<int>& alsaAddress) const noexcept;
-    size_t getFrameCount(
-            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) const;
+
+
     size_t getMinimumStreamSizeFrames(
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
-            const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks)
-            const;
+            const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks);
     std::unique_ptr<pal_stream_attributes> getPalStreamAttributes(
             const ::aidl::android::media::audio::common::AudioPortConfig& portConfig,
             const bool isInput) const;
@@ -127,7 +176,7 @@ class Platform {
                                                             const size_t bufferCount) const;
     std::vector<::aidl::android::media::audio::common::AudioProfile> getDynamicProfiles(
             const ::aidl::android::media::audio::common::AudioPort& dynamicDeviceAudioPort) const;
-    bool handleDeviceConnectionChange(
+    int handleDeviceConnectionChange(
             const ::aidl::android::media::audio::common::AudioPort& deviceAudioPort,
             const bool isConnect) const;
     uint32_t getBluetoothLatencyMs(
@@ -170,9 +219,6 @@ class Platform {
 
     void setFacing(std::string const& value) { mFacing = value; }
 
-    int32_t getLatencyMs(
-            const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
-            Usecase const& inTag = Usecase::INVALID) const;
 
     /*
     * @brief creates a pal payload for a speed factor and sets to PAL
@@ -208,9 +254,13 @@ class Platform {
     bool isA2dpSuspended();
 
     void setWFDProxyChannels(const uint32_t numProxyChannels) noexcept;
+    void setProxyRecordFMQSize(const size_t& FMQSize) noexcept;
+    size_t getProxyRecordFMQSize() const noexcept;
     uint32_t getWFDProxyChannels() const noexcept;
     /* Check if proxy record session is active in  PAL_DEVICE_IN_RECORD_PROXY */
     std::string IsProxyRecordActive() const noexcept;
+    bool isIPAsProxyDeviceConnected() const noexcept { return mIsIPAsProxyConnected; };
+    void setIPAsProxyDeviceConnected(bool isIPAsProxy) noexcept { mIsIPAsProxyConnected = isIPAsProxy; };
 
     void setHapticsVolume(const float hapticsVolume) const noexcept;
     void setHapticsIntensity(const int hapticsIntensity) const noexcept;
@@ -244,19 +294,18 @@ class Platform {
     void setHdrOnPalDevice(pal_device* palDeviceIn);
     bool isHDRARMenabled();
     bool isHDRSPFEnabled();
-
-
   private:
     void customizePalDevices(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
             const Usecase& tag, std::vector<pal_device>& palDevices) const noexcept;
     void configurePalDevicesForHIFIPCMFilter(std::vector<pal_device>&) const noexcept;
-    bool getBtConfig(pal_param_bta2dp_t* bTConfig);
     std::vector<::aidl::android::media::audio::common::AudioProfile> getUsbProfiles(
             const ::aidl::android::media::audio::common::AudioPort& port) const;
 
     std::optional<struct HdmiParameters> getHdmiParameters(
             const ::aidl::android::media::audio::common::AudioDevice&) const;
+
+    void initUsecaseOpMap();
 
   public:
     constexpr static uint32_t kDefaultOutputSampleRate = 48000;
@@ -273,6 +322,7 @@ class Platform {
     bool mIsScreenTurnedOn{false};
     uint32_t mWFDProxyChannels{0};
     bool mIsUHQAEnabled{false};
+    bool mIsIPAsProxyConnected{false};
     ::aidl::android::hardware::audio::core::IModule::ScreenRotation mCurrentScreenRotation{
             ::aidl::android::hardware::audio::core::IModule::ScreenRotation::DEG_0};
     bool mOffloadSpeedSupported = false;
@@ -287,5 +337,13 @@ class Platform {
     std::string mOrientation{""};
     std::string mFacing{""};
 
+    std::unordered_map<Usecase, UsecaseOps> mUsecaseOpMap;
+    std::vector<::aidl::android::media::audio::common::MicrophoneInfo> mMicrophoneInfo;
+    using PalDevToMicDynamicInfoMap = std::unordered_map<
+            pal_device_id_t,
+            std::vector<::aidl::android::media::audio::common::MicrophoneDynamicInfo>>;
+    PalDevToMicDynamicInfoMap mMicrophoneDynamicInfoMap;
+    // proxy related info
+    size_t mProxyRecordFMQSize{0};
 };
 } // namespace qti::audio::core

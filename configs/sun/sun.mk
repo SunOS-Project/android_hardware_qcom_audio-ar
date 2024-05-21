@@ -69,6 +69,7 @@ PRODUCT_PACKAGES += fai__2.9.0_1.0__3.0.0_0.0__3.1.2_0.0__3.2.0_0.1__eai_4.6_enp
 PRODUCT_PACKAGES += fai__2.9.2_1.0__3.0.0_0.0__3.1.2_0.0__3.2.0_0.1__eai_4.6_enpuv5.pmd
 PRODUCT_PACKAGES += fai__4.8.4_0.0__3.0.0_0.0__3.1.2_0.0__3.2.0_0.1__eai_4.6_enpuv5.pmd
 PRODUCT_PACKAGES += fai__8.0.2_0.0__3.0.0_0.0__3.1.2_0.0__3.2.0_0.1__eai_4.6_enpuv5.pmd
+PRODUCT_PACKAGES += fai__8.0.3_0.0__3.0.0_0.0__3.1.2_0.0__3.2.0_0.1__eai_4.6_enpuv5.pmd
 PRODUCT_PACKAGES += fai__3.0.0_0.0__eai_4.6_enpuv5.pmd
 
 # Audio configuration xml's related to Lanai
@@ -145,6 +146,10 @@ endif
 # Reduce AF standby time for playback threads (except offload)
 PRODUCT_PROPERTY_OVERRIDES += \
    ro.audio.flinger_standbytime_ms=2000
+
+# timecheck timeout value for audio in ms
+PRODUCT_PROPERTY_OVERRIDES += \
+    vendor.audio_hal.timecheck_timeoutMS=8000
 
 # Low latency audio buffer size in frames
 PRODUCT_PROPERTY_OVERRIDES += \

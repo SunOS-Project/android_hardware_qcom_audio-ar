@@ -421,6 +421,13 @@ static const AudioUuid kInsertPresetReverbOffloadQtiUUID = {static_cast<int32_t>
                                                             0x9bca,
                                                             {0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b}};
 
+// quasar UUID: 71d0e2ee-e44d-483d-a809-09e75ee55ecd */
+static const AudioUuid kQuasarEffectQtiUUID = {static_cast<int32_t>(0x71d0e2ee),
+                                                            0xe44d,
+                                                            0x483d,
+                                                            0xa809,
+                                                            {0x09, 0xe7, 0x5e, 0xe5, 0x5e, 0xcd}};
+
 /**
  * @brief A map between effect name and effect type UUID.
  * All <name> attribution in effect/effectProxy of audio_effects.xml should be listed in this map.
@@ -451,7 +458,7 @@ static const std::map<const std::string /* effect type */, const AudioUuid&> kUu
         {"ring_helper", kRingVolumeListenerUUID},
         {"notification_helper", kNotificationVolumeListenerUUID},
         // {"audiosphere", kNotificationVolumeListenerUUID},
-        // {"quasar", kNotificationVolumeListenerUUID},
+        {"quasar", kQuasarEffectQtiUUID},
 };
 
 } // namespace aidl::qti::effects

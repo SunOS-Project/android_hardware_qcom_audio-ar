@@ -28,7 +28,6 @@ using aidl::android::media::audio::common::AudioDualMonoMode;
 using aidl::android::media::audio::common::AudioLatencyMode;
 using aidl::android::media::audio::common::AudioOffloadInfo;
 using aidl::android::media::audio::common::AudioPortExt;
-using aidl::android::media::audio::common::AudioPlaybackRate;
 using aidl::android::media::audio::common::AudioSource;
 using aidl::android::media::audio::common::MicrophoneDynamicInfo;
 using aidl::android::media::audio::common::MicrophoneInfo;
@@ -92,6 +91,13 @@ StreamInPrimary::~StreamInPrimary() {
     LOG(DEBUG) << __func__ << mLogPrefix;
 }
 
+ndk::ScopedAStatus StreamInPrimary::getActiveMicrophones(
+        std::vector<MicrophoneDynamicInfo>* _aidl_return) {
+    *_aidl_return = mPlatform.getMicrophoneDynamicInfo(mConnectedDevices);
+    LOG(VERBOSE) << __func__ << mLogPrefix << " " << ::android::internal::ToString(*_aidl_return);
+    return ndk::ScopedAStatus::ok();
+}
+
 // start of methods called from IModule
 ndk::ScopedAStatus StreamInPrimary::setConnectedDevices(
         const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices) {
@@ -147,6 +153,10 @@ void StreamInPrimary::setStreamMicMute(const bool muted) {
     }
 }
 
+struct BufferConfig StreamInPrimary::getBufferConfig() {
+    return mPlatform.getBufferConfig(mMixPortConfig, mTag);
+}
+
 ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd, int64_t* burstSizeFrames,
                                                         int32_t* flags, int32_t* bufferSizeFrames) {
     PerfLock perfLock;
@@ -179,8 +189,10 @@ ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd, int64_t* bu
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
-    const size_t ringBufSizeInBytes = getPeriodSize();
-    const size_t ringBufCount = getPeriodCount();
+    auto bufConfig = getBufferConfig();
+    const size_t ringBufSizeInBytes = bufConfig.bufferSize;
+    const size_t ringBufCount = bufConfig.bufferCount;
+
     auto palBufferConfig = mPlatform.getPalBufferConfig(ringBufSizeInBytes, ringBufCount);
     LOG(DEBUG) << __func__ << mLogPrefix << " set pal_stream_set_buffer_size to "
                  << std::to_string(ringBufSizeInBytes) << " with count "
@@ -325,7 +337,7 @@ void StreamInPrimary::resume() {
 
     if (mTag == Usecase::COMPRESS_CAPTURE) {
         auto& compressCapture = std::get<CompressCapture>(mExt);
-        compressCapture.mNumReadCalls++;
+        compressCapture.advanceReadCount();
         *latencyMs = compressCapture.getLatencyMs();
     } else if (mTag == Usecase::PCM_RECORD || mTag == Usecase::HOTWORD_RECORD) {
         *latencyMs = PcmRecord::kCaptureDurationMs;
@@ -352,33 +364,16 @@ void StreamInPrimary::resume() {
 
 ::android::status_t StreamInPrimary::refinePosition(
         ::aidl::android::hardware::audio::core::StreamDescriptor::Reply* reply) {
-    if (!mPalHandle) {
-        LOG(WARNING) << __func__ << mLogPrefix << " stream is not configured";
-        return ::android::OK;
-    }
     if (mTag == Usecase::COMPRESS_CAPTURE) {
         auto& compressCapture = std::get<CompressCapture>(mExt);
-        reply->observable.frames =
-                compressCapture.mNumReadCalls * compressCapture.mPCMSamplesPerFrame;
+        reply->observable.frames = compressCapture.getPositionInFrames();
     } else if (mTag == Usecase::MMAP_RECORD) {
-        int64_t frames = 0;
-        int64_t timeNs = 0;
-        int32_t ret = 0;
-
-        ret = std::get<MMapRecord>(mExt).getMMapPosition(&frames, &timeNs);
-        if (ret == 0) {
-            reply->hardware.frames = frames;
-            reply->hardware.timeNs = timeNs;
-#ifdef VERY_VERBOSE_LOGGING
-            LOG(VERBOSE) << __func__ << mLogPrefix << ": returning MMAP position: frames "
-                         << reply->hardware.frames << " timeNs " << reply->hardware.timeNs;
-#endif
-        } else {
-            LOG(ERROR) << __func__ << ": getMmapPosition failed, ret= " << ret;
-            return ::android::base::ERROR;
+        if (int32_t ret = std::get<MMapRecord>(mExt).getMMapPosition(&(reply->hardware.frames),
+                                                                     &(reply->hardware.timeNs));
+            ret != 0) {
+            return ::android::BAD_VALUE;
         }
     }
-
     return ::android::OK;
 }
 
@@ -555,47 +550,6 @@ ndk::ScopedAStatus StreamInPrimary::removeEffect(
 
 // end of StreamCommonInterface methods
 
-size_t StreamInPrimary::getPeriodSize() const noexcept {
-    if (mTag == Usecase::PCM_RECORD) {
-        return PcmRecord::getMinFrames(mMixPortConfig) * mFrameSizeBytes;
-    } else if (mTag == Usecase::FAST_RECORD) {
-        return FastRecord::getPeriodSize(mMixPortConfig);
-    } else if (mTag == Usecase::ULTRA_FAST_RECORD) {
-        return UltraFastRecord::kPeriodSize * mFrameSizeBytes;
-    } else if (mTag == Usecase::COMPRESS_CAPTURE) {
-        return CompressCapture::getPeriodBufferSize(mMixPortConfig.format.value());
-    } else if (mTag == Usecase::VOIP_RECORD) {
-        return (VoipRecord::kCaptureDurationMs * mMixPortConfig.sampleRate.value().value *
-                mFrameSizeBytes) /
-               1000;
-    } else if (mTag == Usecase::MMAP_RECORD) {
-        return MMapRecord::getPeriodSize(mMixPortConfig.format.value(),
-                                         mMixPortConfig.channelMask.value());
-    } else if (mTag == Usecase::VOICE_CALL_RECORD) {
-        return VoiceCallRecord::getPeriodSize(mMixPortConfig);
-    }
-    return 0;
-}
-
-size_t StreamInPrimary::getPeriodCount() const noexcept {
-    if (mTag == Usecase::PCM_RECORD) {
-        return PcmRecord::kPeriodCount;
-    } else if (mTag == Usecase::FAST_RECORD) {
-        return FastRecord::kPeriodCount;
-    } else if (mTag == Usecase::ULTRA_FAST_RECORD) {
-        return UltraFastRecord::kPeriodCount;
-    } else if (mTag == Usecase::COMPRESS_CAPTURE) {
-        return CompressCapture::kPeriodCount;
-    } else if (mTag == Usecase::VOIP_RECORD) {
-        return VoipRecord::kPeriodCount;
-    } else if (mTag == Usecase::MMAP_RECORD) {
-        return MMapRecord::kPeriodCount;
-    } else if (mTag == Usecase::VOICE_CALL_RECORD) {
-        return VoiceCallRecord::kPeriodCount;
-    }
-    return 0;
-}
-
 size_t StreamInPrimary::getPlatformDelay() const noexcept {
     return 0;
 }
@@ -672,8 +626,9 @@ void StreamInPrimary::configure() {
     }
     const auto palOpenApiEndTime = std::chrono::steady_clock::now();
 
-    const size_t ringBufSizeInBytes = getPeriodSize();
-    const size_t ringBufCount = getPeriodCount();
+    auto bufConfig = getBufferConfig();
+    const size_t ringBufSizeInBytes = bufConfig.bufferSize;
+    const size_t ringBufCount = bufConfig.bufferCount;
     auto palBufferConfig = mPlatform.getPalBufferConfig(ringBufSizeInBytes, ringBufCount);
     LOG(DEBUG) << __func__ << mLogPrefix << " set pal_stream_set_buffer_size to " << ringBufSizeInBytes
                  << " with count " << ringBufCount;

@@ -12,6 +12,7 @@
 #include <cutils/str_parms.h>
 #include <hardware/audio.h>
 #include <qti-audio-core/AudioUsecase.h>
+#include <qti-audio-core/MicrophoneInfoParser.h>
 #include <qti-audio-core/Platform.h>
 #include <qti-audio-core/PlatformUtils.h>
 #include <qti-audio/PlatformConverter.h>
@@ -46,62 +47,65 @@ using ::aidl::android::hardware::audio::common::getChannelCount;
 using ::aidl::android::hardware::audio::common::getFrameSizeInBytes;
 using ::aidl::android::hardware::audio::common::isBitPositionFlagSet;
 using ::aidl::android::hardware::audio::core::IModule;
+using aidl::android::media::audio::common::MicrophoneDynamicInfo;
+using aidl::android::media::audio::common::MicrophoneInfo;
 
 namespace qti::audio::core {
 
 btsco_lc3_cfg_t Platform::btsco_lc3_cfg = {};
 
-size_t Platform::getFrameCount(
-        const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig) const {
-    Usecase tag = getUsecaseTag(mixPortConfig);
+size_t Platform::getFrameCount(const AudioPortConfig& mixPortConfig, Usecase const& inTag) {
+    const auto& tag = (inTag == Usecase::INVALID ? getUsecaseTag(mixPortConfig) : inTag);
     size_t numFrames = 0;
-    if (tag == Usecase::DEEP_BUFFER_PLAYBACK) {
-        numFrames = DeepBufferPlayback::kPeriodSize;
-    } else if (tag == Usecase::PCM_OFFLOAD_PLAYBACK) {
-        numFrames = PcmOffloadPlayback::getFrameCount(mixPortConfig);
-    } else if (tag == Usecase::LOW_LATENCY_PLAYBACK) {
-        numFrames = LowLatencyPlayback::getMinFrames(mixPortConfig);
-    } else if (tag == Usecase::PCM_RECORD) {
-        numFrames = PcmRecord::getMinFrames(mixPortConfig);
-    } else if (tag == Usecase::FAST_RECORD) {
-        numFrames = FastRecord::getPeriodSize(mixPortConfig) /
-                    getFrameSizeInBytes(mixPortConfig.format.value(),
-                                        mixPortConfig.channelMask.value());
-    } else if (tag == Usecase::ULTRA_FAST_RECORD) {
-        numFrames = UltraFastRecord::kPeriodSize;
-    } else if (tag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        const size_t numBytes = CompressPlayback::getPeriodBufferSize(mixPortConfig.format.value());
-        constexpr size_t compressFrameSize = 1;
-        numFrames = numBytes / compressFrameSize;
-    } else if (tag == Usecase::COMPRESS_CAPTURE) {
-        numFrames = CompressCapture::getPeriodBufferSize(mixPortConfig.format.value());
-    } else if (tag == Usecase::ULL_PLAYBACK) {
-        numFrames = UllPlayback::getMinFrames(mixPortConfig);
-    } else if (tag == Usecase::MMAP_PLAYBACK) {
-        numFrames = MMapPlayback::kPeriodSize;
-    } else if (tag == Usecase::MMAP_RECORD) {
-        numFrames = MMapRecord::kPeriodSize;
-    } else if (tag == Usecase::VOIP_PLAYBACK) {
-        numFrames = VoipPlayback::getPeriodSize(mixPortConfig);
-    } else if (tag == Usecase::VOIP_RECORD) {
-        numFrames = VoipRecord::getPeriodSize(mixPortConfig);
-    } else if (tag == Usecase::VOICE_CALL_RECORD) {
-        numFrames = VoiceCallRecord::getPeriodSize(mixPortConfig);
-    } else if (tag == Usecase::IN_CALL_MUSIC) {
-        numFrames = InCallMusic::kPeriodSize;
-    } else if (tag == Usecase::SPATIAL_PLAYBACK) {
-        numFrames = SpatialPlayback::kPeriodSize;
-    } else if (tag == Usecase::HOTWORD_RECORD) {
-        numFrames = HotwordRecord::getMinFrames(mixPortConfig);
-    } else if (tag == Usecase::HAPTICS_PLAYBACK) {
-        numFrames = HapticsPlayback::kPeriodSize;
+
+    if (mUsecaseOpMap.find(tag) != mUsecaseOpMap.end()) {
+        numFrames = mUsecaseOpMap[tag].getFrameCount(mixPortConfig);
+    } else {
+        LOG(ERROR) << __func__ << "usecase not found " << getName(tag);
     }
+
     LOG(VERBOSE) << __func__ << " frames: " << numFrames << " for " << getName(tag);
     return numFrames;
 }
 
+struct BufferConfig Platform::getBufferConfig(const AudioPortConfig& mixPortConfig,
+                                              Usecase const& inTag) {
+    const auto& tag = (inTag == Usecase::INVALID ? getUsecaseTag(mixPortConfig) : inTag);
+    struct BufferConfig config;
+    if (mUsecaseOpMap.find(tag) != mUsecaseOpMap.end()) {
+        config = mUsecaseOpMap[tag].getBufferConfig(mixPortConfig);
+    } else {
+        LOG(ERROR) << __func__ << "usecase not found " << getName(tag);
+    }
+
+    return config;
+}
+
+int32_t Platform::getLatencyMs(const AudioPortConfig& mixPortConfig, Usecase const& inTag) {
+    if (mixPortConfig.ext.getTag() != AudioPortExt::Tag::mix) {
+        LOG(ERROR) << __func__
+                   << ": cannot deduce latency for port config which is not a mix port, "
+                   << mixPortConfig.toString();
+        return 0;
+    }
+
+    int32_t latencyMs = 0;
+
+    const auto& tag = (inTag == Usecase::INVALID ? getUsecaseTag(mixPortConfig) : inTag);
+
+    if (mUsecaseOpMap.find(tag) != mUsecaseOpMap.end()) {
+        latencyMs = mUsecaseOpMap[tag].getLatency();
+    } else {
+        LOG(ERROR) << __func__ << "usecase not found " << getName(tag);
+    }
+
+    LOG(VERBOSE) << __func__ << ": latency" << latencyMs << " for " << getName(tag);
+
+    return latencyMs;
+}
+
 size_t Platform::getMinimumStreamSizeFrames(const std::vector<AudioPortConfig*>& sources,
-                                            const std::vector<AudioPortConfig*>& sinks) const {
+                                            const std::vector<AudioPortConfig*>& sinks) {
     if (sources.size() > 1) {
         LOG(WARNING) << __func__ << " unable to decide the minimum stream size for sources "
                                     "more than one; actual size:"
@@ -482,21 +486,21 @@ std::optional<struct HdmiParameters> Platform::getHdmiParameters(
     return hdmiParam;
 }
 
-bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
+int Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
                                             const bool isConnect) const {
     const auto& devicePortExt = deviceAudioPort.ext.get<AudioPortExt::Tag::device>();
 
     auto& audioDeviceDesc = devicePortExt.device.type;
     const auto palDeviceId = PlatformConverter::getPalDeviceId(audioDeviceDesc);
     if (palDeviceId == PAL_DEVICE_OUT_MIN) {
-        return false;
+        return -EINVAL;
     }
 
     void* v = nullptr;
     const auto deviceConnection = std::make_unique<pal_param_device_connection_t>();
     if (!deviceConnection) {
         LOG(ERROR) << __func__ << ": allocation failed ";
-        return false;
+        return -EINVAL;
     }
 
     deviceConnection->connection_state = isConnect;
@@ -507,12 +511,13 @@ bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
         if (addressTag != AudioDeviceAddress::Tag::alsa) {
             LOG(ERROR) << __func__ << ": no alsa address provided for the AudioPort"
                        << deviceAudioPort.toString();
-            return false;
+            return -EINVAL;
         }
         const auto& deviceAddressAlsa =
                 devicePortExt.device.address.get<AudioDeviceAddress::Tag::alsa>();
-        if (!isValidAlsaAddr(deviceAddressAlsa))
-            return false;
+        if (!isValidAlsaAddr(deviceAddressAlsa)) {
+            return -EINVAL;
+        }
         const auto cardId = deviceAddressAlsa[0];
         const auto deviceId = deviceAddressAlsa[1];
         deviceConnection->device_config.usb_addr.card_id = cardId;
@@ -524,21 +529,24 @@ bool Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
             deviceConnection->device_config.dp_config.stream = result->stream;
             deviceConnection->id = result->deviceId;
         } else {
-            return false;
+            return -EINVAL;
         }
+    }  else if (isIPInDevice(devicePortExt.device)) {
+           return isIPAsProxyDeviceConnected();
     }
 
     v = deviceConnection.get();
     if (int32_t ret = ::pal_set_param(PAL_PARAM_ID_DEVICE_CONNECTION, v,
                                       sizeof(pal_param_device_connection_t));
         ret != 0) {
-        LOG(ERROR) << __func__ << ": pal set param failed for PAL_PARAM_ID_DEVICE_CONNECTION";
-        return false;
+        LOG(ERROR) << __func__ << ": pal_set_param failed for PAL_PARAM_ID_DEVICE_CONNECTION for "
+                   << audioDeviceDesc.toString();
+        return ret;
     }
     LOG(INFO) << __func__ << devicePortExt.device.toString()
               << (isConnect ? ": connected" : "disconnected");
 
-    return true;
+    return 0;
 }
 
 void Platform::setWFDProxyChannels(const uint32_t numProxyChannels) noexcept {
@@ -551,6 +559,14 @@ void Platform::setWFDProxyChannels(const uint32_t numProxyChannels) noexcept {
         LOG(ERROR) << __func__ << ": PAL_PARAM_ID_PROXY_CHANNEL_CONFIG failed: " << ret;
         return;
     }
+}
+
+void Platform::setProxyRecordFMQSize(const size_t& FMQSize) noexcept {
+    mProxyRecordFMQSize = FMQSize;
+}
+
+size_t Platform::getProxyRecordFMQSize() const noexcept {
+    return mProxyRecordFMQSize;
 }
 
 uint32_t Platform::getWFDProxyChannels() const noexcept {
@@ -585,66 +601,6 @@ void Platform::updateUHQA(const bool enable) noexcept {
 
 bool Platform::isUHQAEnabled() const noexcept {
     return mIsUHQAEnabled;
-}
-
-int32_t Platform::getLatencyMs(const AudioPortConfig& mixPortConfig,
-                               Usecase const& inTag) const {
-    if (mixPortConfig.ext.getTag() != AudioPortExt::Tag::mix) {
-        LOG(ERROR) << __func__
-                   << ": cannot deduce latency for port config which is not a mix port, "
-                   << mixPortConfig.toString();
-        return 0;
-    }
-
-    int32_t latencyMs = 0;
-
-    const auto& tag = (inTag == Usecase::INVALID ? getUsecaseTag(mixPortConfig) : inTag);
-
-    // decide the latency based on usecase
-    if (tag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        latencyMs = CompressPlayback::kLatencyMs * 2;
-    } else if (tag == Usecase::LOW_LATENCY_PLAYBACK) {
-        latencyMs = LowLatencyPlayback::kPeriodDurationMs * LowLatencyPlayback::kPeriodCount +
-                    LowLatencyPlayback::kPlatformDelayMs;
-    } else if (tag == Usecase::PCM_OFFLOAD_PLAYBACK) {
-        latencyMs = PcmOffloadPlayback::kPeriodDurationMs * PcmOffloadPlayback::kPeriodCount +
-                    PcmOffloadPlayback::kPlatformDelayMs;
-    } else if (tag == Usecase::DEEP_BUFFER_PLAYBACK) {
-        latencyMs = DeepBufferPlayback::kPeriodDurationMs * DeepBufferPlayback::kPeriodCount +
-                    DeepBufferPlayback::kPlatformDelayMs;
-    } else if (tag == Usecase::VOIP_PLAYBACK) {
-        latencyMs = VoipPlayback::kBufferDurationMs * VoipPlayback::kPeriodCount +
-                    VoipPlayback::kPlatformDelayMs;
-    } else if (tag == Usecase::SPATIAL_PLAYBACK) {
-        latencyMs = SpatialPlayback::kPeriodDurationMs * SpatialPlayback::kPeriodCount +
-                    SpatialPlayback::kPlatformDelayMs;
-    } else if (tag == Usecase::ULL_PLAYBACK) {
-        latencyMs = UllPlayback::kPeriodSize * UllPlayback::kPeriodMultiplier +
-                    UllPlayback::kPlatformDelayMs;
-    } else if (tag == Usecase::MMAP_PLAYBACK) {
-        latencyMs = MMapPlayback::kPeriodSize + MMapPlayback::kPlatformDelayMs;
-    } else if (tag == Usecase::HAPTICS_PLAYBACK) {
-        latencyMs = HapticsPlayback::kPeriodDurationMs * HapticsPlayback::kPeriodCount +
-                    HapticsPlayback::kPlatformDelayMs;
-    } else if (tag == Usecase::PCM_RECORD) {
-        latencyMs = PcmRecord::kCaptureDurationMs * PcmRecord::kPeriodCount +
-                    PcmRecord::kPlatformDelayMs;
-    } else if (tag == Usecase::COMPRESS_CAPTURE) {
-        latencyMs = CompressCapture::kPlatformDelayMs;
-    } else {
-        LOG(ERROR) << __func__ << ": no match for usecase, " << getName(tag);
-    }
-
-    if (latencyMs == 0) {
-        latencyMs = kDefaultLatencyMs;
-        LOG(WARNING) << __func__
-                     << ": none of the usecase matched, configured default latencyMs:" << latencyMs;
-    } else {
-        LOG(VERBOSE) << __func__ << ": nominal latency configured:" << latencyMs
-                  << ", for usecase: " << getName(tag);
-    }
-
-    return latencyMs;
 }
 
 void Platform::setFTMSpeakerProtectionMode(uint32_t const heatUpTime, uint32_t const runTime,
@@ -1100,6 +1056,14 @@ bool Platform::isUsbDevice(const AudioDevice& d) const noexcept {
     return false;
 }
 
+bool Platform::isIPInDevice(const AudioDevice& d) const noexcept {
+    if(d.type.type == AudioDeviceType::IN_DEVICE &&
+       d.type.connection == AudioDeviceDescription::CONNECTION_IP_V4) {
+        return true;
+    }
+    return false;
+}
+
 bool Platform::isHdmiDevice(const AudioDevice& d) const noexcept {
     if (d.type.connection == AudioDeviceDescription::CONNECTION_HDMI) {
         return true;
@@ -1140,18 +1104,29 @@ bool Platform::isValidAlsaAddr(const std::vector<int>& alsaAddress) const noexce
 }
 uint32_t Platform::getBluetoothLatencyMs(const std::vector<AudioDevice>& bluetoothDevices) {
     pal_param_bta2dp_t btConfig{};
+    pal_param_bta2dp_t *param_bt_a2dp_ptr = &btConfig;
+
     for (const auto& device : bluetoothDevices) {
-        btConfig.dev_id = PlatformConverter::getPalDeviceId(device.type);
+        size_t payloadSize = 0;
+        param_bt_a2dp_ptr->dev_id = PlatformConverter::getPalDeviceId(device.type);
         // first bluetooth device
-        if (btConfig.dev_id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
-            btConfig.dev_id == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
-            btConfig.dev_id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST) {
-            if (getBtConfig(&btConfig)) {
-                return btConfig.latency;
+        if (param_bt_a2dp_ptr->dev_id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
+            param_bt_a2dp_ptr->dev_id == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
+            param_bt_a2dp_ptr->dev_id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST) {
+            if (int32_t ret = ::pal_get_param(PAL_PARAM_ID_BT_A2DP_ENCODER_LATENCY,
+                             reinterpret_cast<void**>(&param_bt_a2dp_ptr), &payloadSize, nullptr);
+                ret) {
+                LOG(ERROR) << __func__ << " failure in PARAM_ID_BT_A2DP_ENCODER_LATENCY: " << ret;
+                continue;
+            }
+            if (payloadSize == 0) {
+                LOG(ERROR) << __func__ << " empty payload size!!!";
+                continue;;
             }
         }
     }
-    return 0;
+    LOG(DEBUG) << __func__ << " bt latency: " << param_bt_a2dp_ptr->latency;
+    return param_bt_a2dp_ptr->latency;
 }
 
 bool Platform::isA2dpSuspended() {
@@ -1337,27 +1312,6 @@ std::optional<std::pair<audio_format_t, audio_format_t>> Platform::requiresBuffe
     return std::nullopt;
 }
 
-// start of private
-bool Platform::getBtConfig(pal_param_bta2dp_t* bTConfig) {
-    if (bTConfig == nullptr) {
-        LOG(ERROR) << __func__ << " invalid bt config";
-        return false;
-    }
-    size_t payloadSize = 0;
-    if (int32_t ret = ::pal_get_param(PAL_PARAM_ID_BT_A2DP_ENCODER_LATENCY,
-                                      reinterpret_cast<void**>(&bTConfig), &payloadSize, nullptr);
-        ret) {
-        LOG(ERROR) << __func__ << " failure in PAL_PARAM_ID_BT_A2DP_ENCODER_LATENCY, ret :" << ret;
-        return false;
-    }
-    if (payloadSize == 0) {
-        LOG(ERROR) << __func__ << " empty payload size!!!";
-        return false;
-    }
-    return true;
-}
-// end of private
-
 std::string Platform::toString() const {
     std::ostringstream os;
     os << " === platform start ===" << std::endl;
@@ -1385,21 +1339,63 @@ int Platform::palGlobalCallback(uint32_t event_id, uint32_t* event_data, uint64_
     return 0;
 }
 
+void Platform::initUsecaseOpMap() {
+    mUsecaseOpMap[Usecase::PRIMARY_PLAYBACK] = makeUsecaseOps<PrimaryPlayback>();
+    mUsecaseOpMap[Usecase::LOW_LATENCY_PLAYBACK] = makeUsecaseOps<LowLatencyPlayback>();
+    mUsecaseOpMap[Usecase::DEEP_BUFFER_PLAYBACK] = makeUsecaseOps<DeepBufferPlayback>();
+    mUsecaseOpMap[Usecase::ULL_PLAYBACK] = makeUsecaseOps<UllPlayback>();
+    mUsecaseOpMap[Usecase::MMAP_PLAYBACK] = makeUsecaseOps<MMapPlayback>();
+    mUsecaseOpMap[Usecase::COMPRESS_OFFLOAD_PLAYBACK] = makeUsecaseOps<CompressPlayback>();
+    mUsecaseOpMap[Usecase::PCM_OFFLOAD_PLAYBACK] = makeUsecaseOps<PcmOffloadPlayback>();
+    mUsecaseOpMap[Usecase::VOIP_PLAYBACK] = makeUsecaseOps<VoipPlayback>();
+    mUsecaseOpMap[Usecase::HAPTICS_PLAYBACK] = makeUsecaseOps<HapticsPlayback>();
+    mUsecaseOpMap[Usecase::SPATIAL_PLAYBACK] = makeUsecaseOps<SpatialPlayback>();
+    mUsecaseOpMap[Usecase::IN_CALL_MUSIC] = makeUsecaseOps<InCallMusic>();
+
+    // Record usecases
+    mUsecaseOpMap[Usecase::PCM_RECORD] = makeUsecaseOps<PcmRecord>();
+    mUsecaseOpMap[Usecase::FAST_RECORD] = makeUsecaseOps<FastRecord>();
+    mUsecaseOpMap[Usecase::ULTRA_FAST_RECORD] = makeUsecaseOps<UltraFastRecord>();
+    mUsecaseOpMap[Usecase::MMAP_RECORD] = makeUsecaseOps<MMapRecord>();
+    mUsecaseOpMap[Usecase::COMPRESS_CAPTURE] = makeUsecaseOps<CompressCapture>();
+    mUsecaseOpMap[Usecase::VOIP_RECORD] = makeUsecaseOps<VoipRecord>();
+    mUsecaseOpMap[Usecase::VOICE_CALL_RECORD] = makeUsecaseOps<VoiceCallRecord>();
+    mUsecaseOpMap[Usecase::HOTWORD_RECORD] = makeUsecaseOps<HotwordRecord>();
+}
+
+std::vector<MicrophoneDynamicInfo> Platform::getMicrophoneDynamicInfo(
+        const std::vector<AudioDevice>& devices) {
+    auto palDevices = convertToPalDevices(devices);
+    std::vector<MicrophoneDynamicInfo> result;
+    for (const auto& palDevice : palDevices) {
+        auto id = palDevice.id;
+        if (mMicrophoneDynamicInfoMap.count(id) != 0) {
+            auto dynamicInfo = mMicrophoneDynamicInfoMap[id];
+            result.insert(result.end(), dynamicInfo.begin(), dynamicInfo.end());
+        }
+    }
+    return result;
+}
+
 Platform::Platform() {
+    initUsecaseOpMap();
     if (int32_t ret = pal_init(); ret) {
-        LOG(ERROR) << __func__ << "pal init failed!!! ret:" << ret;
+        LOG(ERROR) << __func__ << "pal_init failed, ret:" << ret;
         return;
     }
-    LOG(VERBOSE) << __func__ << " pal init successful";
+    LOG(VERBOSE) << __func__ << " pal_init successful";
     if (int32_t ret =
                 pal_register_global_callback(&palGlobalCallback, reinterpret_cast<uint64_t>(this));
         ret) {
-        LOG(ERROR) << __func__ << "pal register global callback failed!!! ret:" << ret;
+        LOG(ERROR) << __func__ << "pal register global callback failed, ret:" << ret;
         return;
     }
     mSndCardStatus = CARD_STATUS_ONLINE;
     LOG(VERBOSE) << __func__ << " pal register global callback successful";
     mOffloadSpeedSupported = property_get_bool("vendor.audio.offload.playspeed", true);
+    MicrophoneInfoParser micInfoParser;
+    mMicrophoneInfo = micInfoParser.getMicrophoneInfo();
+    mMicrophoneDynamicInfoMap = micInfoParser.getMicrophoneDynamicInfoMap();
 }
 
 // static
