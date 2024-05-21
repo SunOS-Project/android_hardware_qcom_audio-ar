@@ -16,6 +16,7 @@
 #include <qti-audio-core/Platform.h>
 #include <qti-audio-core/PlatformUtils.h>
 #include <qti-audio/PlatformConverter.h>
+#include <qti-audio-core/Utils.h>
 
 #include <aidl/qti/audio/core/VString.h>
 #include <cutils/properties.h>
@@ -544,8 +545,10 @@ int Platform::handleDeviceConnectionChange(const AudioPort& deviceAudioPort,
         } else {
             return -EINVAL;
         }
-    }  else if (isIPInDevice(devicePortExt.device)) {
-           return isIPAsProxyDeviceConnected();
+    }  else if (isIPDevice(devicePortExt.device)) {
+           if (!isIPAsProxyDeviceConnected()) {
+                return -EINVAL;
+           }
     }
 
     v = deviceConnection.get();
@@ -1046,57 +1049,6 @@ std::string Platform::getParameter(const std::string& key) const {
     return "";
 }
 
-bool Platform::isFormatTypePCM(const AudioFormatDescription& f) const noexcept {
-    if (f.type == AudioFormatType::PCM) {
-        return true;
-    }
-    return false;
-}
-
-bool Platform::isOutputDevice(const AudioDevice& d) const noexcept {
-    if (d.type.type >= AudioDeviceType::OUT_DEFAULT) {
-        return true;
-    }
-    return false;
-}
-
-bool Platform::isInputDevice(const AudioDevice& d) const noexcept {
-    if (d.type.type < AudioDeviceType::OUT_DEFAULT) {
-        return true;
-    }
-    return false;
-}
-
-bool Platform::isUsbDevice(const AudioDevice& d) const noexcept {
-    if (d.type.connection == AudioDeviceDescription::CONNECTION_USB) {
-        return true;
-    }
-    return false;
-}
-
-bool Platform::isIPInDevice(const AudioDevice& d) const noexcept {
-    if(d.type.type == AudioDeviceType::IN_DEVICE &&
-       d.type.connection == AudioDeviceDescription::CONNECTION_IP_V4) {
-        return true;
-    }
-    return false;
-}
-
-bool Platform::isHdmiDevice(const AudioDevice& d) const noexcept {
-    if (d.type.connection == AudioDeviceDescription::CONNECTION_HDMI) {
-        return true;
-    }
-    return false;
-}
-
-bool Platform::isBluetoothDevice(const AudioDevice& d) const noexcept {
-    if (d.type.connection == AudioDeviceDescription::CONNECTION_BT_A2DP ||
-        d.type.connection == AudioDeviceDescription::CONNECTION_BT_LE) {
-        return true;
-    }
-    return false;
-}
-
 bool Platform::isSoundCardUp() const noexcept {
     if (mSndCardStatus == CARD_STATUS_ONLINE) {
         return true;
@@ -1111,15 +1063,6 @@ bool Platform::isSoundCardDown() const noexcept {
     return false;
 }
 
-bool Platform::isValidAlsaAddr(const std::vector<int>& alsaAddress) const noexcept {
-    if (alsaAddress.size() != 2 || alsaAddress[0] < 0 || alsaAddress[1] < 0) {
-        LOG(ERROR) << __func__
-                   << ": malformed alsa address: "
-                   << ::android::internal::ToString(alsaAddress);
-        return false;
-    }
-    return true;
-}
 uint32_t Platform::getBluetoothLatencyMs(const std::vector<AudioDevice>& bluetoothDevices) {
     pal_param_bta2dp_t btConfig{};
     pal_param_bta2dp_t *param_bt_a2dp_ptr = &btConfig;

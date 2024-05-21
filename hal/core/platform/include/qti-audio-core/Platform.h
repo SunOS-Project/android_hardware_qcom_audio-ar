@@ -105,19 +105,8 @@ class Platform {
 
     std::string getParameter(const std::string& key) const;
     std::string toString() const;
-    bool isFormatTypePCM(const ::aidl::android::media::audio::common::AudioFormatDescription&) const
-            noexcept;
-    bool isUsbDevice(const ::aidl::android::media::audio::common::AudioDevice&) const noexcept;
-    bool isHdmiDevice(const ::aidl::android::media::audio::common::AudioDevice&) const noexcept;
-    bool isInputDevice(const ::aidl::android::media::audio::common::AudioDevice&) const noexcept;
-    bool isOutputDevice(const ::aidl::android::media::audio::common::AudioDevice&) const noexcept;
-    bool isBluetoothDevice(const ::aidl::android::media::audio::common::AudioDevice& d) const
-            noexcept;
-    bool isIPInDevice(const ::aidl::android::media::audio::common::AudioDevice&) const noexcept;
     bool isSoundCardUp() const noexcept;
     bool isSoundCardDown() const noexcept;
-    bool isValidAlsaAddr(const std::vector<int>& alsaAddress) const noexcept;
-
 
     size_t getMinimumStreamSizeFrames(
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,

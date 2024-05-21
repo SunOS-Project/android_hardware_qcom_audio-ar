@@ -101,6 +101,14 @@ bool hasMMapFlagsEnabled(const ::aidl::android::media::audio::common::AudioIoFla
 bool isInputAFEProxyDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
 
 bool isIPDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
+bool isIPInDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
+bool isIPOutDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
+
+bool isHdmiDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
+bool isUsbDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
+bool isValidAlsaAddr(const std::vector<int>& alsaAddress) noexcept;
+bool isInputDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
+bool isOutputDevice(const ::aidl::android::media::audio::common::AudioDevice&) noexcept;
 
 bool hasOutputDirectFlag(const ::aidl::android::media::audio::common::AudioIoFlags&) noexcept;
 
