@@ -156,6 +156,15 @@ bool Telephony::isCrsCallSupported() {
     return true;
 }
 
+bool Telephony::isAnyCallActive() {
+    for (int i = 0; i < MAX_VOICE_SESSIONS; i++) {
+         if (mVoiceSession.session[i].mCallState == CallState::ACTIVE) {
+             return true;
+         }
+    }
+    return false;
+}
+
 void Telephony::setDevices(const std::vector<AudioDevice>& devices, const bool updateRx) {
     std::scoped_lock lock{mLock};
 
@@ -345,8 +354,12 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
                                      (palDevices[1].id == PAL_DEVICE_IN_BLUETOOTH_BLE)) {
                                      updateVoiceMetadataForBT(true);
                                  }
-                                 startCall();
-                                 mVoiceSession.session[i] = mSetUpdates;
+                                 if (!isAnyCallActive()) {
+                                     startCall();
+                                     mVoiceSession.session[i] = mSetUpdates;
+                                 } else {
+                                     LOG(DEBUG) << __func__ << ": voice already started";
+                                 }
                              }
                              break;
 
@@ -563,7 +576,7 @@ void Telephony::startCall() {
         return;
     }
     if (int32_t ret = ::pal_stream_start(mPalHandle); ret) {
-        LOG(ERROR) << __func__ << ": pal stream open failed !!" << ret;
+        LOG(ERROR) << __func__ << ": pal stream start failed !!" << ret;
         pal_stream_close(mPalHandle);
         mPalHandle = nullptr;
         return;
