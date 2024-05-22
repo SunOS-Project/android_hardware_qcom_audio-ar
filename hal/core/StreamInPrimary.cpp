@@ -39,6 +39,8 @@ using ::aidl::android::hardware::audio::core::StreamDescriptor;
 using ::aidl::android::hardware::audio::core::VendorParameter;
 using ::aidl::android::hardware::audio::effect::getEffectTypeUuidAcousticEchoCanceler;
 using ::aidl::android::hardware::audio::effect::getEffectTypeUuidNoiseSuppression;
+using ::aidl::android::media::audio::common::AudioDeviceType;
+using ::aidl::android::media::audio::common::AudioDeviceDescription;
 
 // uncomment this to enable logging of very verbose logs like burst commands.
 // #define VERY_VERBOSE_LOGGING 1
@@ -76,6 +78,12 @@ StreamInPrimary::StreamInPrimary(StreamContext&& context, const SinkMetadata& si
     } else if (mTag == Usecase::HOTWORD_RECORD) {
         mExt.emplace<HotwordRecord>();
     }
+
+    /**
+     * In HIDL after open input stream there is subsequent call to
+     *  update metadata, in AIDL its not present , so doing here.
+     */
+    updateMetadata(sinkMetadata);
 
     std::ostringstream os;
     os << " : usecase: " << mTagName;
@@ -396,6 +404,35 @@ void StreamInPrimary::shutdown() {
 
 // start of StreamCommonInterface methods
 
+void StreamInPrimary::checkHearingAidRoutingForVoice(const Metadata& metadata, bool voiceActive) {
+
+    if (!voiceActive) {
+        return;
+    }
+
+    std::vector<AudioDevice> devices;
+    AudioDevice device;
+
+    device.type.type = AudioDeviceType::OUT_HEARING_AID;
+    device.type.connection = AudioDeviceDescription::CONNECTION_WIRELESS;
+    devices.push_back(device);
+
+    ::aidl::android::hardware::audio::common::SinkMetadata sinkMetadata =
+            std::get<::aidl::android::hardware::audio::common::SinkMetadata>(metadata);
+
+    for (auto& item : sinkMetadata.tracks) {
+         if (item.destinationDevice.has_value()) {
+             if (item.destinationDevice.value().type.type == AudioDeviceType::OUT_HEARING_AID) {
+                 if (auto telephony = mContext.getTelephony().lock()) {
+                     LOG(DEBUG) << __func__ << " Hearing aid device , calling voice routing";
+                     telephony->setDevices(devices, true);
+                 }
+                 break;
+             }
+         }
+    }
+}
+
 ndk::ScopedAStatus StreamInPrimary::updateMetadataCommon(const Metadata& metadata) {
     if (!isClosed()) {
         if (metadata.index() != mMetadata.index()) {
@@ -406,6 +443,13 @@ ndk::ScopedAStatus StreamInPrimary::updateMetadataCommon(const Metadata& metadat
     int callState = mPlatform.getCallState();
     int callMode = mPlatform.getCallMode();
     bool voiceActive = ((callState == 2) || (callMode == 2));
+
+    /**
+      * Based on sink metadata of recording session, we might need
+      * to update the voice routing if dest device in metadata is
+      * hearing aid.
+      */
+    checkHearingAidRoutingForVoice(metadata, voiceActive);
 
     StreamInPrimary::sinkMetadata_mutex_.lock();
     setAggregateSinkMetadata(voiceActive);
@@ -576,6 +620,16 @@ void StreamInPrimary::configure() {
                 attr->type = PAL_STREAM_RAW;
                 LOG(INFO) << __func__ << mLogPrefix << ": unprocessed capture";
             }
+            else {
+                auto countTelephonyRxDevices =
+                     std::count_if(mConnectedDevices.cbegin(), mConnectedDevices.cend(),
+                                   isTelephonyRXDevice);
+                if (countTelephonyRxDevices > 0) {
+                    attr->type = PAL_STREAM_PROXY;
+                    attr->info.opt_stream_info.tx_proxy_type = PAL_STREAM_PROXY_TX_TELEPHONY_RX;
+                    LOG(DEBUG) << __func__ << mLogPrefix << ": proxy capture for telephony rx";
+                }
+           }
         }
         if (mPlatform.getTranslationRecordState()) {
             mPlatform.configurePalDevicesCustomKey(palDevices, "translate_record");

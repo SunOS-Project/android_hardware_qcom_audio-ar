@@ -289,12 +289,14 @@ void ModulePrimary::setAudioPatchTelephony(const std::vector<AudioPortConfig*>& 
                                            const std::vector<AudioPortConfig*>& sinks,
                                            const AudioPatch& patch) {
     std::string patchDetails = getPatchDetails(patch);
+
     if (!mTelephony) {
         LOG(ERROR) << __func__ << ": Telephony not created " << patchDetails << patch.toString();
         return;
     }
 
     if (!isDevicePortConfig(*(sources.at(0))) || !isDevicePortConfig(*(sinks.at(0)))) {
+        LOG(VERBOSE) << __func__ << ": its not device to device patch ";
         return;
     }
     bool updateRx = isTelephonyRXDevice(sources.at(0)->ext.get<AudioPortExt::Tag::device>().device);

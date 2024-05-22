@@ -93,9 +93,6 @@ DevicePairs getDevicePairs() {
             {makeAudioDeviceDescription(AudioDeviceType::OUT_TELEPHONY_TX), PAL_DEVICE_NONE},
             {makeAudioDeviceDescription(AudioDeviceType::OUT_LINE_AUX), PAL_DEVICE_OUT_AUX_LINE},
             {makeAudioDeviceDescription(AudioDeviceType::OUT_SPEAKER_SAFE), PAL_DEVICE_OUT_SPEAKER},
-            {makeAudioDeviceDescription(AudioDeviceType::OUT_HEARING_AID,
-                                        AudioDeviceDescription::CONNECTION_WIRELESS),
-             PAL_DEVICE_OUT_HEARING_AID},
             {makeAudioDeviceDescription(AudioDeviceType::OUT_SPEAKER,
                                         AudioDeviceDescription::CONNECTION_BT_LE),
              PAL_DEVICE_OUT_BLUETOOTH_BLE},
@@ -188,7 +185,10 @@ DevicePairs getDevicePairs() {
              PAL_DEVICE_IN_BLUETOOTH_BLE},
             {makeAudioDeviceDescription(AudioDeviceType::OUT_HEADSET,
                                         AudioDeviceDescription::CONNECTION_BT_LE),
-             PAL_DEVICE_OUT_BLUETOOTH_BLE}};
+             PAL_DEVICE_OUT_BLUETOOTH_BLE},
+            {makeAudioDeviceDescription(AudioDeviceType::OUT_HEARING_AID,
+                                        AudioDeviceDescription::CONNECTION_WIRELESS),
+             PAL_DEVICE_OUT_HEARING_AID}};
     return pairs;
 }
 

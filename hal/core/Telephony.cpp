@@ -311,6 +311,8 @@ AudioDevice Telephony::getMatchingTxDevice(const AudioDevice& rxDevice) {
         } else {
             return AudioDevice{.type.type = AudioDeviceType::IN_MICROPHONE};
         }
+    } else if (rxDevice.type.type == AudioDeviceType::OUT_HEARING_AID) {
+        return AudioDevice{.type.type = AudioDeviceType::IN_MICROPHONE};
     } else {
         LOG(ERROR) << __func__ << ": unable to find matching TX device for " << rxDevice.toString();
     }
