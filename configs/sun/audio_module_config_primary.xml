@@ -9,7 +9,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <!-- based on role, mixport flags are identified as either input flags or
         output flags-->
         <!-- start of source mixports-->
-        <mixPort name="low_latency_out" role="source" flags="FAST PRIMARY">
+        <mixPort name="low_latency_out" role="source" flags="FAST PRIMARY" maxOpenCount="2" maxActiveCount="2">
             <profile samplingRates="48000" channelLayouts="LAYOUT_STEREO" formatType="PCM" pcmType="INT_16_BIT" />
         </mixPort>
         <mixPort name="raw_out" role="source" flags="FAST RAW">
