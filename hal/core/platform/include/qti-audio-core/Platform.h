@@ -72,6 +72,7 @@ class Platform {
     bool bt_lc3_speech_enabled;
     static btsco_lc3_cfg_t btsco_lc3_cfg;
 
+    mutable bool mUSBCapEnable;
     int mCallState;
     int mCallMode;
     static Platform& getInstance();
@@ -289,6 +290,7 @@ class Platform {
     void setHdrOnPalDevice(pal_device* palDeviceIn);
     bool isHDRARMenabled();
     bool isHDRSPFEnabled();
+    bool getUSBCapEnable() { return mUSBCapEnable; }
   private:
     void customizePalDevices(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
