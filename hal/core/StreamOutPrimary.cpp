@@ -496,6 +496,12 @@ void StreamOutPrimary::resume() {
             ret) {
             return ::android::BAD_VALUE;
         }
+    } else {
+        int64_t totalDelayFrames = 0;
+        totalDelayFrames = mContext.getNominalLatencyMs() *
+                           mMixPortConfig.sampleRate.value().value / 1000;
+        reply->observable.frames = (reply->observable.frames > totalDelayFrames) ?
+                                   (reply->observable.frames - totalDelayFrames) : 0;
     }
 
     // if the stream is connected to any bluetooth device, consider bluetooth encoder latency
@@ -504,11 +510,12 @@ void StreamOutPrimary::resume() {
         const auto& sampleRate = mMixPortConfig.sampleRate.value().value;
         const auto btExtraFrames = latencyMs * sampleRate / 1000;
         // Todo, Check do we want to consider this for MMAP usecase
-        if (reply->observable.frames >= btExtraFrames) {
-            reply->observable.frames -= btExtraFrames;
-        }
+        reply->observable.frames = (reply->observable.frames > btExtraFrames) ?
+                                   (reply->observable.frames - btExtraFrames) : 0;
         reply->latencyMs += latencyMs;
     }
+    reply->observable.timeNs = ::android::uptimeNanos();
+    LOG(VERBOSE) <<__func__ << mLogPrefix << " observable.frames: " << reply->observable.frames;
 
     return ::android::OK;
 }
