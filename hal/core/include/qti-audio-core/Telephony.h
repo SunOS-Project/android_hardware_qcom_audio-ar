@@ -108,9 +108,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     void setMicMute(const bool muted);
     bool isAnyCallActive();
 
-    // The following below APIs are both aimed to solve routing on telephony
-    // Hence Choose one
-
+    // The following below API are both aimed to solve routing on telephony
     /**
     * brief sets Rx and Tx devices from device to device patch.
     * @param devices devices obtained from the patch
@@ -119,8 +117,16 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     */
     void setDevices(const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices,
                     const bool updateRx);
-    // This API is called for routing devices as per primary playback devices.
-    void updateDevicesFromPrimaryPlayback();
+
+    // Telephony to decide its strategy where there is external device connection change
+    void onExternalDeviceConnectionChanged(
+            const ::aidl::android::media::audio::common::AudioDevice& extDevice,
+            const bool& connect);
+
+    /* Telephony to act on primary stream devices change */
+    void onOutputPrimaryStreamDevices(
+            const std::vector<::aidl::android::media::audio::common::AudioDevice>&);
+
     void updateVoiceMetadataForBT(bool call_active);
     std::weak_ptr<StreamOut> mStreamOutPrimary;
     std::weak_ptr<StreamIn> mStreamInPrimary;

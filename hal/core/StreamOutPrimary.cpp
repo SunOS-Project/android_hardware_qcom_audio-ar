@@ -123,8 +123,11 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
         return ndk::ScopedAStatus::ok();
     }
 
-    // update the primary playabck devices for any stream out devices
-    mPlatform.setPrimaryPlaybackDevices(mConnectedDevices);
+    if (mTag == Usecase::LOW_LATENCY_PLAYBACK) {
+        if (auto telephony = mContext.getTelephony().lock()) {
+            telephony->onOutputPrimaryStreamDevices(mConnectedDevices);
+        }
+    }
 
     if (!mPalHandle) {
         LOG(WARNING) << __func__ << mLogPrefix << ": stream is not configured";

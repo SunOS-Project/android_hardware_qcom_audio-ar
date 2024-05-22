@@ -334,9 +334,10 @@ int ModulePrimary::onExternalDeviceConnectionChanged(
         return 0;
     }
 
-    if (connected) {
-        mTelephony->updateDevicesFromPrimaryPlayback();
-    }
+    // At this point it is safe to assume this audio port if of type audio device
+    const auto& extDevice = audioPort.ext.get<AudioPortExt::Tag::device>().device;
+    mTelephony->onExternalDeviceConnectionChanged(extDevice, connected);
+
     return 0;
 }
 

@@ -245,18 +245,27 @@ void Telephony::updateVoiceMetadataForBT(bool call_active) {
         }
     }
 }
-void Telephony::updateDevicesFromPrimaryPlayback() {
+
+void Telephony::onExternalDeviceConnectionChanged(const AudioDevice& extDevice,
+                                                  const bool& connect) {
+    std::scoped_lock lock{mLock};
+    // Placeholder for telephony to act upon external device connection
+}
+
+void Telephony::onOutputPrimaryStreamDevices(const std::vector<AudioDevice>& primaryStreamDevices) {
     std::scoped_lock lock{mLock};
 
-    auto primaryDevices = mPlatform.getPrimaryPlaybackDevices();
-    if (primaryDevices.size() == 0) {
-        // Todo check on none devices on primary playback stream
-        primaryDevices = {kDefaultRxDevice};
+    /**
+     * CRS ringtone routing piggybacks on output primary stream devices
+     **/
+    if (!mIsCRSStarted) {
+        return;
     }
-
-    mRxDevice = primaryDevices[0];
-    mTxDevice = getMatchingTxDevice(mRxDevice);
-    updateDevices();
+    if (primaryStreamDevices.size() == 1) {// combo devices unsupported.
+        mRxDevice = primaryStreamDevices[0]; // expected to have 1 device.
+        mTxDevice = getMatchingTxDevice(mRxDevice);
+        updateDevices();
+     }
 }
 
 void Telephony::updateCrsDevice() {
