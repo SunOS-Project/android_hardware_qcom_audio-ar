@@ -158,7 +158,7 @@ ndk::ScopedAStatus ModulePrimary::setMicMute(bool in_mute) {
         LOG(ERROR) << __func__ << ": Telephony not created ";
         return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
     }
-    LOG(VERBOSE) << __func__ << ": " << in_mute;
+    LOG(DEBUG) << __func__ << ": " << in_mute;
     mMicMute = in_mute;
 
     mTelephony->setMicMute(mMicMute);
@@ -167,7 +167,12 @@ ndk::ScopedAStatus ModulePrimary::setMicMute(bool in_mute) {
 
     for (const auto& inputMixPortConfigId :
          getActiveInputMixPortConfigIds(getConfig().portConfigs)) {
-        mStreams.setStreamMicMute(inputMixPortConfigId, mMicMute);
+        if(!mPlatform.getTranslationRecordState()){
+            mStreams.setStreamMicMute(inputMixPortConfigId, mMicMute);
+        } else {
+            // Need to keep the Audio FFECNS Record stream unmuted when Translate Record Usecase Enabled
+            LOG(DEBUG) << __func__ << ": SetStreamMicMute skipped for Voice Translate Record";
+        }
     }
     return ndk::ScopedAStatus::ok();
 }
