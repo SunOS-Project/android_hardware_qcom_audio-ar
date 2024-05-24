@@ -139,6 +139,7 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
 
   private:
     std::string mLogPrefix = "";
+    bool mStarted = false;
     bool isHwVolumeSupported();
     struct BufferConfig getBufferConfig();
 

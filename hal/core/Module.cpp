@@ -29,6 +29,7 @@
 #include <aidl/android/media/audio/common/AudioInputFlags.h>
 #include <aidl/android/media/audio/common/AudioOutputFlags.h>
 #include <android-base/logging.h>
+#include <android-base/properties.h>
 #include <android/binder_ibinder_platform.h>
 #include <error/expected_utils.h>
 
@@ -1595,7 +1596,11 @@ ndk::ScopedAStatus Module::getAAudioHardwareBurstMinUsec(int32_t* _aidl_return) 
         LOG(DEBUG) << __func__ << ": mmap is not supported ";
         return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
     }
-    *_aidl_return = DEFAULT_AAUDIO_HARDWARE_BURST_MIN_DURATION_US;
+
+    const std::string kAaudioHwBurst = "aaudio.hw_burst_min_usec";
+    auto burstSize = ::android::base::GetUintProperty<size_t>(kAaudioHwBurst, 2000);
+
+    *_aidl_return = burstSize;
     LOG(DEBUG) << __func__ << ": returning " << *_aidl_return;
     return ndk::ScopedAStatus::ok();
 }
