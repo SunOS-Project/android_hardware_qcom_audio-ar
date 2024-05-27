@@ -106,7 +106,6 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     void setCRSVolumeFromIndex(const int index);
 
     void setMicMute(const bool muted);
-    bool isAnyCallActive();
 
     // The following below API are both aimed to solve routing on telephony
     /**
@@ -127,6 +126,9 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     void onOutputPrimaryStreamDevices(
             const std::vector<::aidl::android::media::audio::common::AudioDevice>&);
 
+    /* Telephony to act upon bluetooth sco enabled or disabled */
+    void onBluetoothScoEvent(const bool& enable);
+
     void updateVoiceMetadataForBT(bool call_active);
     std::weak_ptr<StreamOut> mStreamOutPrimary;
     std::weak_ptr<StreamIn> mStreamInPrimary;
@@ -146,6 +148,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     void stopCrsLoopback();
     ::aidl::android::media::audio::common::AudioDevice getMatchingTxDevice(
             const ::aidl::android::media::audio::common::AudioDevice & rxDevice);
+    bool isAnyCallActive();
 
   protected:
     // Gaurd all the public APIs

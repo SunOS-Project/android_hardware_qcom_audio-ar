@@ -89,6 +89,14 @@ bool isTelephonyTXDevice(const AudioDevice& device) noexcept {
     return device.type.type == AudioDeviceType::OUT_TELEPHONY_TX;
 };
 
+bool isBluetoothSCODevice(const AudioDevice& device) noexcept {
+    return (device.type.connection == AudioDeviceDescription::CONNECTION_BT_SCO);
+}
+
+bool isBluetoothLEDevice(const AudioDevice& device) noexcept {
+    return (device.type.connection == AudioDeviceDescription::CONNECTION_BT_LE);
+}
+
 bool isBluetoothDevice(const AudioDevice& device) noexcept {
     return (device.type.connection == AudioDeviceDescription::CONNECTION_BT_A2DP ||
             device.type.connection == AudioDeviceDescription::CONNECTION_BT_LE);
