@@ -619,8 +619,10 @@ void StreamInPrimary::configure() {
             } else if (source.value() == AudioSource::UNPROCESSED) {
                 attr->type = PAL_STREAM_RAW;
                 LOG(INFO) << __func__ << mLogPrefix << ": unprocessed capture";
-            }
-            else {
+            } else if (source.value() == AudioSource::VOICE_RECOGNITION) {
+                attr->type = PAL_STREAM_VOICE_RECOGNITION;
+                LOG(INFO) << __func__ << mLogPrefix << ": voice recognition capture";
+            } else {
                 auto countTelephonyRxDevices =
                      std::count_if(mConnectedDevices.cbegin(), mConnectedDevices.cend(),
                                    isTelephonyRXDevice);
