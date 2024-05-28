@@ -210,12 +210,6 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
-    if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
-        LOG(ERROR) << __func__ << mLogPrefix << " pal stream start failed, ret:" << std::to_string(ret);
-        ::pal_stream_close(mPalHandle);
-        mPalHandle = nullptr;
-        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
-    }
     LOG(INFO) << __func__ << mLogPrefix << ": stream is configured";
 
     if (mUseCachedVolume) {
@@ -348,7 +342,19 @@ void StreamOutPrimary::resume() {
 ::android::status_t StreamOutPrimary::start() {
     // hardware is expected to up on start
     // but we are doing on first write
-    LOG(VERBOSE) << __func__ << mLogPrefix;
+    LOG(DEBUG) << __func__ << mLogPrefix;
+
+    if (mTag == Usecase::MMAP_PLAYBACK && !mStarted) {
+        if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
+            LOG(ERROR) << __func__ << mLogPrefix
+                       << " pal stream start failed, ret:" << std::to_string(ret);
+            ::pal_stream_close(mPalHandle);
+            mPalHandle = nullptr;
+            return -EINVAL;
+        }
+        mStarted = true;
+    }
+
     if (mPalHandle && mIsPaused) {
         resume();
     }
@@ -491,11 +497,24 @@ void StreamOutPrimary::resume() {
         reply->observable.frames =
                 std::get<PcmOffloadPlayback>(mExt).getPositionInFrames(mPalHandle);
     } else if (mTag == Usecase::MMAP_PLAYBACK) {
-        if (int32_t ret = std::get<MMapPlayback>(mExt).getMMapPosition(&(reply->hardware.frames),
+        int32_t ret = std::get<MMapPlayback>(mExt).getMMapPosition(&(reply->hardware.frames),
                                                                        &(reply->hardware.timeNs));
-            ret) {
-            return ::android::BAD_VALUE;
+        if (ret != 0) {
+            LOG(ERROR) << __func__ << mLogPrefix << ": mmap position failed";
+            return android::BAD_VALUE;
         }
+
+        int64_t totalDelayFrames = 0;
+        totalDelayFrames =
+                mContext.getNominalLatencyMs() * mMixPortConfig.sampleRate.value().value / 1000;
+        reply->observable.frames = (reply->hardware.frames > totalDelayFrames)
+                                           ? (reply->hardware.frames - totalDelayFrames)
+                                           : 0;
+        reply->observable.timeNs = reply->hardware.timeNs;
+        LOG(VERBOSE) << __func__ << mLogPrefix << ": hw frames " << reply->hardware.frames
+                     << " observable frames " << reply->observable.frames
+                     << " time : " << reply->observable.timeNs;
+        return ::android::OK;
     } else {
         int64_t totalDelayFrames = 0;
         totalDelayFrames = mContext.getNominalLatencyMs() *
@@ -542,6 +561,7 @@ void StreamOutPrimary::shutdown() {
     if (karaoke) mAudExt.mKarokeExtension->karaoke_stop();
 
     mUseCachedVolume = false;
+    mStarted = false;
     mIsPaused = false;
     mPalHandle = nullptr;
     mHapticsPalHandle = nullptr;
