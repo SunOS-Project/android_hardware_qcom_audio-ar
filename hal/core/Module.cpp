@@ -843,8 +843,10 @@ ndk::ScopedAStatus Module::openInputStream(const OpenInputStreamArguments& in_ar
         mmapRef.flags = mmapFlags;
         _aidl_return->desc.bufferSizeFrames = bufferSizeFrames;
     }
-    AIBinder_setMinSchedulerPolicy(streamWrapper.getBinder().get(), SCHED_NORMAL,
-                                   ANDROID_PRIORITY_AUDIO);
+
+    auto streamBinder = streamWrapper.getBinder();
+    AIBinder_setMinSchedulerPolicy(streamBinder.get(), SCHED_NORMAL, ANDROID_PRIORITY_AUDIO);
+    AIBinder_setInheritRt(streamBinder.get(), true);
     mStreams.insert(port->id, in_args.portConfigId, std::move(streamWrapper));
     _aidl_return->stream = std::move(stream);
     return ndk::ScopedAStatus::ok();
@@ -903,8 +905,10 @@ ndk::ScopedAStatus Module::openOutputStream(const OpenOutputStreamArguments& in_
         mmapRef.flags = mmapFlags;
         _aidl_return->desc.bufferSizeFrames = bufferSizeFrames;
     }
-    AIBinder_setMinSchedulerPolicy(streamWrapper.getBinder().get(), SCHED_NORMAL,
-                                   ANDROID_PRIORITY_AUDIO);
+
+    auto streamBinder = streamWrapper.getBinder();
+    AIBinder_setMinSchedulerPolicy(streamBinder.get(), SCHED_NORMAL, ANDROID_PRIORITY_AUDIO);
+    AIBinder_setInheritRt(streamBinder.get(), true);
     mStreams.insert(port->id, in_args.portConfigId, std::move(streamWrapper));
     //    Module::updateStreamOutList(stream);
     _aidl_return->stream = std::move(stream);
