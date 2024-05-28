@@ -266,7 +266,7 @@ ndk::ScopedAStatus ModulePrimary::createOutputStream(
 
 std::vector<::aidl::android::media::audio::common::AudioProfile> ModulePrimary::getDynamicProfiles(
         const ::aidl::android::media::audio::common::AudioPort& audioPort) {
-    if (mPlatform.isUsbDevice(audioPort.ext.get<AudioPortExt::Tag::device>().device)) {
+    if (isUsbDevice(audioPort.ext.get<AudioPortExt::Tag::device>().device)) {
         /* as of now, we do dynamic fetching for usb devices*/
         auto dynamicProfiles = mPlatform.getDynamicProfiles(audioPort);
         return dynamicProfiles;
