@@ -892,6 +892,7 @@ void StreamOutPrimary::configure() {
                                                 isIPDevice);
         if (countProxyDevices > 0) {
             attr->type = PAL_STREAM_PROXY;
+            attr->info.opt_stream_info.rx_proxy_type = PAL_STREAM_PROXY_RX_WFD;
             LOG(INFO) << __func__ << mLogPrefix << ": proxy playback on IPV4";
         }
     } else if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
