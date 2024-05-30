@@ -178,6 +178,8 @@ class Platform {
                                       const std::string& customKey) const;
 
     bool setStreamMicMute(pal_stream_handle_t* streamHandlePtr, const bool muted);
+    bool getMicMuteStatus();
+    void setMicMuteStatus(bool mute);
     bool updateScreenState(const bool isTurnedOn) noexcept;
     bool isScreenTurnedOn() const noexcept;
 
@@ -313,6 +315,7 @@ class Platform {
     ::aidl::android::hardware::audio::core::IModule::ScreenRotation mCurrentScreenRotation{
             ::aidl::android::hardware::audio::core::IModule::ScreenRotation::DEG_0};
     bool mOffloadSpeedSupported = false;
+    bool mMicMuted = false;
 
     /* HDR */
     bool mHDREnabled{false};

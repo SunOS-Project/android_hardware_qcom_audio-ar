@@ -597,6 +597,9 @@ void Telephony::startCall() {
         mPalHandle = nullptr;
         return;
     }
+    if (mPlatform.getMicMuteStatus()) {
+        mPlatform.setStreamMicMute(mPalHandle, true);
+    }
     updateVoiceVolume();
     if (mSetUpdates.mIsCrsCall) {
         mPlatform.setStreamMicMute(mPalHandle, true);

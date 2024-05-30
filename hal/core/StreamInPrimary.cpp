@@ -237,6 +237,10 @@ ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd, int64_t* bu
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
+    if (mPlatform.getMicMuteStatus()) {
+        setStreamMicMute(true);
+    }
+
     LOG(INFO) << __func__ << mLogPrefix << ": stream is configured";
 
     return ndk::ScopedAStatus::ok();
@@ -719,6 +723,10 @@ void StreamInPrimary::configure() {
         ::pal_stream_close(mPalHandle);
         mPalHandle = nullptr;
         return;
+    }
+
+    if (mPlatform.getMicMuteStatus()) {
+        setStreamMicMute(true);
     }
 
     const auto palStartApiEndTime = std::chrono::steady_clock::now();

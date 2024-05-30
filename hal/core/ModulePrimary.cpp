@@ -159,11 +159,13 @@ ndk::ScopedAStatus ModulePrimary::setMicMute(bool in_mute) {
         return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
     }
     LOG(DEBUG) << __func__ << ": " << in_mute;
+
     mMicMute = in_mute;
+    mPlatform.setMicMuteStatus(mMicMute);
 
     mTelephony->setMicMute(mMicMute);
 
-    int ret = mAudExt.mHfpExtension->audio_extn_hfp_set_mic_mute(in_mute);
+    int ret = mAudExt.mHfpExtension->audio_extn_hfp_set_mic_mute(mMicMute);
 
     for (const auto& inputMixPortConfigId :
          getActiveInputMixPortConfigIds(getConfig().portConfigs)) {

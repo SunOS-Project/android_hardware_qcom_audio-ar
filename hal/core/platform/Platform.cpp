@@ -202,6 +202,14 @@ void Platform::configurePalDevicesCustomKey(std::vector<pal_device>& palDevices,
     }
 }
 
+bool Platform::getMicMuteStatus() {
+    return mMicMuted;
+}
+
+void Platform::setMicMuteStatus(bool mute) {
+    mMicMuted = mute;
+}
+
 bool Platform::setStreamMicMute(pal_stream_handle_t* streamHandlePtr, const bool muted) {
     if (int32_t ret = ::pal_stream_set_mute(streamHandlePtr, muted); ret) {
         return false;
