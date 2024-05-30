@@ -85,9 +85,10 @@ ndk::ScopedAStatus Telephony::switchAudioMode(AudioMode newAudioMode) {
         LOG(VERBOSE) << __func__ << ": no change" << toString(newAudioMode);
         return ndk::ScopedAStatus::ok();
     }
-    if (newAudioMode == AudioMode::IN_CALL && mAudioMode == AudioMode::NORMAL) {
-        // means call ready to start but defer start on set parameters
-        LOG(DEBUG) << __func__ << ": defer start call on call state ACTIVE";
+    if (newAudioMode == AudioMode::IN_CALL && (mAudioMode == AudioMode::NORMAL ||
+                                               mAudioMode == AudioMode::RINGTONE)) {
+        updateCalls();
+        LOG(DEBUG) << __func__ << ": start call on call state ACTIVE";
     } else if (newAudioMode == AudioMode::NORMAL && mAudioMode == AudioMode::IN_CALL) {
         // safe to stop now
         stopCall();
@@ -377,59 +378,62 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
 
     for (int i = 0; i < MAX_VOICE_SESSIONS; i++) {
          if (newUpdates.mVSID == mVoiceSession.session[i].mVSID) {
-             switch (newUpdates.mCallState) {
-                 case CallState::ACTIVE:
-                     switch (mVoiceSession.session[i].mCallState) {
-                         case CallState::IN_ACTIVE:
-                             if (mAudioMode != AudioMode::IN_CALL) {
-                                 // call state is ready to start but defer start on incall mode comes
-                                 LOG(DEBUG) << __func__ << ": defer start call on incall mode";
-                             } else {
-                                 LOG(DEBUG) << __func__ << " CallState: INACTIVE -> ACTIVE vsid:" << newUpdates.mVSID;
-                                 mSetUpdates = newUpdates;
-                                 if ((palDevices[0].id == PAL_DEVICE_OUT_BLUETOOTH_BLE) &&
-                                     (palDevices[1].id == PAL_DEVICE_IN_BLUETOOTH_BLE)) {
-                                     updateVoiceMetadataForBT(true);
-                                 }
-                                 if (!isAnyCallActive()) {
-                                     startCall();
-                                     mVoiceSession.session[i] = mSetUpdates;
-                                 } else {
-                                     LOG(DEBUG) << __func__ << ": voice already started";
-                                 }
-                             }
-                             break;
-
-                         default:
-                             LOG(INFO) << __func__ << " CallState: ACTIVE cannot be handled in "
-                                        << "state " << mVoiceSession.session[i].mCallState
-                                        << " vsid " << mVoiceSession.session[i].mVSID;
-                             break;
-                     }
-                     break;
-
-                 case CallState::IN_ACTIVE:
-                     switch (mVoiceSession.session[i].mCallState) {
-                         case CallState::ACTIVE:
-                             LOG(DEBUG) << __func__ << " CallState: ACTIVE -> INACTIVE vsid:" << newUpdates.mVSID;
-                             mSetUpdates = newUpdates;
-                             stopCall();
-                             mVoiceSession.session[i] = mSetUpdates;
-                             break;
-
-                         default:
-                             LOG(INFO) << __func__ << " CallState: Default cannot be handled in "
-                                        << "state " << mVoiceSession.session[i].mCallState
-                                        << " vsid " << mVoiceSession.session[i].mVSID;
-                             break;
-                     }
-                     break;
-                 default:
-                     break;
-             }
+             mVoiceSession.session[i] = newUpdates;
+             break;
          }
     }
+    if (mAudioMode == AudioMode::IN_CALL) {
+       updateCalls();
+    }
+
     LOG(DEBUG) << __func__ << ": Exit";
+}
+
+void Telephony::updateCalls() {
+     auto palDevices = mPlatform.convertToPalDevices({mRxDevice, mTxDevice});
+     for (int i = 0; i < MAX_VOICE_SESSIONS; i++) {
+          if (mSetUpdates.mVSID == mVoiceSession.session[i].mVSID) {
+            switch (mVoiceSession.session[i].mCallState) {
+                  case CallState::ACTIVE:
+                      switch (mSetUpdates.mCallState) {
+                            case CallState::IN_ACTIVE:
+                                LOG(DEBUG) << __func__ << " CallState: INACTIVE -> ACTIVE vsid:" << mSetUpdates.mVSID;
+                                if ((palDevices[0].id == PAL_DEVICE_OUT_BLUETOOTH_BLE) &&
+                                    (palDevices[1].id == PAL_DEVICE_IN_BLUETOOTH_BLE)) {
+                                    updateVoiceMetadataForBT(true);
+                                }
+                                startCall();
+                                mSetUpdates = mVoiceSession.session[i];
+                                break;
+
+                            default:
+                                LOG(INFO) << __func__ << " CallState: ACTIVE cannot be handled in "
+                                          << "state " << mVoiceSession.session[i].mCallState
+                                          << " vsid " << mVoiceSession.session[i].mVSID;
+                                break;
+                      }
+                      break;
+
+                  case CallState::IN_ACTIVE:
+                      switch (mSetUpdates.mCallState) {
+                            case CallState::ACTIVE:
+                                LOG(DEBUG) << __func__ << " CallState: ACTIVE -> INACTIVE vsid:" << mSetUpdates.mVSID;
+                                stopCall();
+                                mSetUpdates = mVoiceSession.session[i];
+                                break;
+
+                             default:
+                                 LOG(INFO) << __func__ << " CallState: Default cannot be handled in "
+                                          << "state " << mVoiceSession.session[i].mCallState
+                                           << " vsid " << mVoiceSession.session[i].mVSID;
+                                break;
+                      }
+                      break;
+                  default:
+                      break;
+            }
+          }
+     }
 }
 
 void Telephony::updateVolumeBoost(const bool enable) {
