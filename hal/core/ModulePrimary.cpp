@@ -224,6 +224,7 @@ ndk::ScopedAStatus ModulePrimary::getBluetoothLe(std::shared_ptr<IBluetoothLe>* 
 ndk::ScopedAStatus ModulePrimary::getTelephony(std::shared_ptr<ITelephony>* _aidl_return) {
     if (!mTelephony) {
         mTelephony = ndk::SharedRefBase::make<Telephony>();
+        mPlatform.setTelephony(mTelephony.getInstance());
     }
     *_aidl_return = mTelephony.getInstance();
     LOG(DEBUG) << __func__

@@ -12,6 +12,7 @@
 #include <aidl/android/media/audio/common/AudioPlaybackRate.h>
 #include <aidl/android/media/audio/common/AudioPort.h>
 #include <aidl/android/media/audio/common/AudioPortConfig.h>
+#include <aidl/android/hardware/audio/core/ITelephony.h>
 #include <aidl/android/media/audio/common/MicrophoneDynamicInfo.h>
 #include <aidl/android/media/audio/common/MicrophoneInfo.h>
 #include <extensions/AudioExtension.h>
@@ -211,6 +212,13 @@ class Platform {
 
     void setFacing(std::string const& value) { mFacing = value; }
 
+    void setTelephony(const std::weak_ptr<::aidl::android::hardware::audio::core::ITelephony> telephony) noexcept {
+        mTelephony = telephony;
+    }
+
+    std::weak_ptr<::aidl::android::hardware::audio::core::ITelephony> getTelephony() const noexcept {
+        return mTelephony;
+    }
 
     /*
     * @brief creates a pal payload for a speed factor and sets to PAL
@@ -335,5 +343,6 @@ class Platform {
     PalDevToMicDynamicInfoMap mMicrophoneDynamicInfoMap;
     // proxy related info
     size_t mProxyRecordFMQSize{0};
+    std::weak_ptr<::aidl::android::hardware::audio::core::ITelephony> mTelephony;
 };
 } // namespace qti::audio::core

@@ -268,6 +268,27 @@ void Telephony::onOutputPrimaryStreamDevices(const std::vector<AudioDevice>& pri
      }
 }
 
+void Telephony::onBluetoothScoEvent(const bool& enable) {
+    std::scoped_lock lock{mLock};
+
+    if (!mIsCRSStarted) {
+        return;
+    }
+
+   if (enable) {
+      mRxDevice = AudioDevice{.type.type = AudioDeviceType::OUT_DEVICE,
+                              .type.connection = AudioDeviceDescription::CONNECTION_BT_SCO};
+      mTxDevice = getMatchingTxDevice(mRxDevice);
+      updateDevices();
+   } else {
+     if (isBluetoothSCODevice(mRxDevice) || isBluetoothA2dpDevice(mRxDevice)) {
+         mRxDevice = kDefaultCRSRxDevice;
+         mTxDevice = getMatchingTxDevice(mRxDevice);
+         updateDevices();
+     }
+  }
+}
+
 void Telephony::updateCrsDevice() {
     LOG(VERBOSE) << __func__ << ": Enter";
 
@@ -664,6 +685,9 @@ void Telephony::stopCall() {
         updateVoiceMetadataForBT(false);
     }
     mPalHandle = nullptr;
+    if (mSetUpdates.mIsCrsCall) {
+        mRxDevice = kDefaultRxDevice;
+    }
     LOG(DEBUG) << __func__ << ": EXIT";
 }
 
@@ -755,7 +779,8 @@ void Telephony::updateDevices() {
     }
 
     if (mSetUpdates.mIsCrsCall) {
-        stopCrsLoopback();
+        if (mPalCrsHandle != nullptr)
+            stopCrsLoopback();
         updateCrsDevice();
         palDevices = mPlatform.convertToPalDevices({mRxDevice, mTxDevice});
         strlcpy(palDevices[0].custom_config.custom_key, "crsCall",
@@ -778,6 +803,7 @@ void Telephony::updateDevices() {
             startCrsLoopback();
         }
     }
+    updateVoiceVolume();
     LOG(DEBUG) << __func__ << ": Exit : Rx: " << mRxDevice.toString() << " Tx: " << mTxDevice.toString();
 }
 
