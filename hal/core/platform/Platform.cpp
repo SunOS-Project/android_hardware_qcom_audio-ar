@@ -705,6 +705,21 @@ void Platform::updateScreenRotation(const IModule::ScreenRotation in_rotation) n
         notifyDeviceRotation();
     }
 
+    // set for hdr params
+    if (in_rotation == IModule::ScreenRotation::DEG_90 ||
+        in_rotation == IModule::ScreenRotation::DEG_270) {
+        setOrientation("landscape");
+    } else {
+        setOrientation("portrait");
+    }
+
+    if (in_rotation == IModule::ScreenRotation::DEG_270 ||
+        in_rotation == IModule::ScreenRotation::DEG_180) {
+        setInverted(true);
+    } else {
+        setInverted(false);
+    }
+
     mCurrentScreenRotation = in_rotation;
 }
 
@@ -1205,7 +1220,6 @@ void Platform::setHdrOnPalDevice(pal_device* palDeviceIn) {
     const bool isInverted = platform.isInverted();
 
     LOG(ERROR) << __func__ << " platform.getOrientation():" << std::string(platform.getOrientation());
-
 
     if (isOrientationLandscape && !isInverted) {
         setPalDeviceCustomKey(*palDeviceIn, "unprocessed-hdr-mic-landscape");
