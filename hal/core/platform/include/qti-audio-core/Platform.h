@@ -72,6 +72,7 @@ class Platform {
     bool bt_lc3_speech_enabled;
     static btsco_lc3_cfg_t btsco_lc3_cfg;
 
+    mutable bool mUSBCapEnable;
     int mCallState;
     int mCallMode;
     static Platform& getInstance();
@@ -233,18 +234,13 @@ class Platform {
     PlaybackRateStatus setPlaybackRate(
             pal_stream_handle_t* handle, const Usecase& tag,
             const ::aidl::android::media::audio::common::AudioPlaybackRate& playbackRate);
-    std::vector<::aidl::android::media::audio::common::AudioDevice> getPrimaryPlaybackDevices()
-            const {
-        return mPrimaryPlaybackDevices;
-    }
-
-    void setPrimaryPlaybackDevices(
-            const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices) {
-        mPrimaryPlaybackDevices = devices;
-    }
 
     void setInCallMusicState(const bool state) noexcept { mInCallMusicEnabled = state; }
     bool getInCallMusicState() noexcept { return mInCallMusicEnabled; }
+
+    // Set and Get Value Functions for Translate Record.
+    void setTranslationRecordState(const bool state) noexcept { mIsTranslationRecordEnabled = state; }
+    bool getTranslationRecordState() noexcept { return mIsTranslationRecordEnabled; }
 
     void updateCallState(int callState) { mCallState = callState; }
     void updateCallMode(int callMode) { mCallMode = callMode; }
@@ -294,6 +290,7 @@ class Platform {
     void setHdrOnPalDevice(pal_device* palDeviceIn);
     bool isHDRARMenabled();
     bool isHDRSPFEnabled();
+    bool getUSBCapEnable() { return mUSBCapEnable; }
   private:
     void customizePalDevices(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig,
@@ -319,6 +316,7 @@ class Platform {
     std::map<std::string, std::string> mParameters;
     card_status_t mSndCardStatus{CARD_STATUS_OFFLINE};
     bool mInCallMusicEnabled{false};
+    bool mIsTranslationRecordEnabled{false};
     bool mIsScreenTurnedOn{false};
     uint32_t mWFDProxyChannels{0};
     bool mIsUHQAEnabled{false};

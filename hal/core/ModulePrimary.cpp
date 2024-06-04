@@ -289,12 +289,14 @@ void ModulePrimary::setAudioPatchTelephony(const std::vector<AudioPortConfig*>& 
                                            const std::vector<AudioPortConfig*>& sinks,
                                            const AudioPatch& patch) {
     std::string patchDetails = getPatchDetails(patch);
+
     if (!mTelephony) {
         LOG(ERROR) << __func__ << ": Telephony not created " << patchDetails << patch.toString();
         return;
     }
 
     if (!isDevicePortConfig(*(sources.at(0))) || !isDevicePortConfig(*(sinks.at(0)))) {
+        LOG(VERBOSE) << __func__ << ": its not device to device patch ";
         return;
     }
     bool updateRx = isTelephonyRXDevice(sources.at(0)->ext.get<AudioPortExt::Tag::device>().device);
@@ -334,9 +336,10 @@ int ModulePrimary::onExternalDeviceConnectionChanged(
         return 0;
     }
 
-    if (connected) {
-        mTelephony->updateDevicesFromPrimaryPlayback();
-    }
+    // At this point it is safe to assume this audio port if of type audio device
+    const auto& extDevice = audioPort.ext.get<AudioPortExt::Tag::device>().device;
+    mTelephony->onExternalDeviceConnectionChanged(extDevice, connected);
+
     return 0;
 }
 
@@ -431,6 +434,11 @@ void ModulePrimary::onSetGenericParameters(const std::vector<VendorParameter>& p
         } else if (Parameters::kUHQA == param.id) {
             const bool enable = paramValue == "on" ? true : false;
             mPlatform.updateUHQA(enable);
+        } else if (Parameters::kTranslateRecord == param.id) {
+            // Add Translate_Record param check and update using the Set Function
+            const auto isOn = getBoolFromString(paramValue);
+            mPlatform.setTranslationRecordState(isOn);
+            LOG(INFO) << __func__ << ": PCM Record FFECNS for Translation:" << isOn;
         }
     }
 }
@@ -628,6 +636,7 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
                                  {Parameters::kVoiceDeviceMute, Feature::TELEPHONY},
                                  {Parameters::kVoiceDirection, Feature::TELEPHONY},
                                  {Parameters::kInCallMusic, Feature::GENERIC},
+                                 {Parameters::kTranslateRecord, Feature::GENERIC},
                                  {Parameters::kUHQA, Feature::GENERIC},
                                  {Parameters::kFbspCfgWaitTime, Feature::FTM},
                                  {Parameters::kFbspFTMWaitTime, Feature::FTM},

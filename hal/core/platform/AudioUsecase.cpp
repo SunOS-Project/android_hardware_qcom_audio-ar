@@ -359,20 +359,6 @@ void CompressPlayback::configureGapless(pal_stream_handle_t* handle) {
     configureGapLessMetadata();
 }
 
-void CompressPlayback::reconfigureOnFlush() const {
-    if (mCompressPlaybackHandle == nullptr) {
-        return;
-    }
-    configureGapLessMetadata();
-}
-
-void CompressPlayback::reconfigureOnPartialDrain() const {
-    if (mCompressPlaybackHandle == nullptr) {
-        return;
-    }
-    configureGapLessMetadata();
-}
-
 ndk::ScopedAStatus CompressPlayback::getVendorParameters(
         const std::vector<std::string>& in_ids,
         std::vector<::aidl::android::hardware::audio::core::VendorParameter>* _aidl_return) {
@@ -414,7 +400,6 @@ int32_t CompressPlayback::palCallback(pal_stream_handle_t* palHandle, uint32_t e
         } break;
         case PAL_STREAM_CBK_EVENT_PARTIAL_DRAIN_READY: {
             LOG(VERBOSE) << __func__ << " partial drain ready";
-            compressPlayback->reconfigureOnPartialDrain();
             compressPlayback->setDrainReady();
             compressPlayback->mAsyncCallback->onDrainReady();
         } break;
@@ -1054,9 +1039,9 @@ ndk::ScopedAStatus CompressCapture::getVendorParameters(
     for (const auto& id : in_ids) {
         if (id == Aac::kDSPAacBitRate) {
             result.emplace_back(
-                    constructVendorParameter(id, std::to_string(mPalSndEnc.aac_enc.aac_bit_rate)));
+                    makeVendorParameter(id, std::to_string(mPalSndEnc.aac_enc.aac_bit_rate)));
         } else if (id == Aac::kDSPAacGlobalCutoffFrequency) {
-            result.emplace_back(constructVendorParameter(
+            result.emplace_back(makeVendorParameter(
                     id, std::to_string(mPalSndEnc.aac_enc.global_cutoff_freq)));
         }
     }

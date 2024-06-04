@@ -413,11 +413,16 @@ std::vector<::aidl::android::media::audio::common::AudioProfile> Platform::getUs
     }
 
     size_t payloadSize = 0;
-    deviceCapability->id = palDeviceId;
     deviceCapability->addr.card_id = cardId;
     deviceCapability->addr.device_num = deviceId;
     deviceCapability->config = dynamicMediaConfig.get();
-    deviceCapability->is_playback = isOutputDevice(devicePortExt.device);
+    if (isOutputDevice(devicePortExt.device)) {
+        deviceCapability->id = palDeviceId;
+        deviceCapability->is_playback = true;
+    } else {
+        deviceCapability->id = PAL_DEVICE_IN_USB_HEADSET;
+        deviceCapability->is_playback = false;
+    }
 
     void* deviceCapabilityPtr = deviceCapability.get();
     if (int32_t ret = pal_get_param(PAL_PARAM_ID_DEVICE_CAPABILITY, &deviceCapabilityPtr,
@@ -429,6 +434,14 @@ std::vector<::aidl::android::media::audio::common::AudioProfile> Platform::getUs
     if (!dynamicMediaConfig->jack_status) {
         LOG(ERROR) << __func__ << " false usb jack status ";
         return {};
+    }
+    if (!deviceCapability->is_playback) {
+        if ((dynamicMediaConfig.get()->sample_rate[0] == 0 && dynamicMediaConfig.get()->format[0] == 0 &&
+             dynamicMediaConfig.get()->mask[0] == 0) || (dynamicMediaConfig->jack_status == false)) {
+            mUSBCapEnable = false;
+        } else {
+            mUSBCapEnable = true;
+        }
     }
 
     return getSupportedAudioProfiles(deviceCapability.get(), "usb");
@@ -662,6 +675,11 @@ void Platform::updateScreenRotation(const IModule::ScreenRotation in_rotation) n
             ret) {
             LOG(ERROR) << ": PAL_PARAM_ID_DEVICE_ROTATION failed";
         }
+        LOG(INFO) << ": updated screen rotation from "
+                  << ::aidl::android::hardware::audio::core::toString(mCurrentScreenRotation)
+                  << " to "
+                  << ::aidl::android::hardware::audio::core::toString(
+                             in_rotation); // validation log
     };
 
     if (in_rotation == IModule::ScreenRotation::DEG_270 &&
@@ -1121,7 +1139,7 @@ uint32_t Platform::getBluetoothLatencyMs(const std::vector<AudioDevice>& bluetoo
             }
             if (payloadSize == 0) {
                 LOG(ERROR) << __func__ << " empty payload size!!!";
-                continue;;
+                continue;
             }
         }
     }

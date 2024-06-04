@@ -74,6 +74,13 @@ bool isDevicePortConfig(const AudioPortConfig& audioPortConfig) noexcept {
     return audioPortConfig.ext.getTag() == AudioPortExt::Tag::device;
 };
 
+bool isOutputAudioDevice(const AudioDevice& device) noexcept {
+    if (device.type.type >= AudioDeviceType::OUT_DEFAULT) {
+        return true;
+    }
+    return false;
+}
+
 bool isTelephonyRXDevice(const AudioDevice& device) noexcept {
     return device.type.type == AudioDeviceType::IN_TELEPHONY_RX;
 };

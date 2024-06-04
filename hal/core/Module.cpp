@@ -199,13 +199,19 @@ ndk::ScopedAStatus Module::createStreamContext(
                                           mVendorDebug.forceTransientBurst,
                                           mVendorDebug.forceSynchronousDrain};
     const int32_t& nominalLatency = getNominalLatencyMs(*portConfigIt);
+
+    std::weak_ptr<Telephony> wTelephony;
+    if (mTelephony) {
+        wTelephony = mTelephony.getInstance();
+    }
+
     StreamContext temp(
             std::make_unique<StreamContext::CommandMQ>(1, true /*configureEventFlagWord*/),
             std::make_unique<StreamContext::ReplyMQ>(1, true /*configureEventFlagWord*/),
             portConfigIt->format.value(), portConfigIt->channelMask.value(),
             portConfigIt->sampleRate.value().value,
             std::make_unique<StreamContext::DataMQ>(frameSize * in_bufferSizeFrames), asyncCallback,
-            outEventCallback, *portConfigIt, params, nominalLatency);
+            outEventCallback, *portConfigIt, params, nominalLatency, wTelephony);
     if (temp.isValid()) {
         *out_context = std::move(temp);
     } else {
