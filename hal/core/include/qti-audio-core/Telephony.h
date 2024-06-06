@@ -106,6 +106,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     void setCRSVolumeFromIndex(const int index);
 
     void setMicMute(const bool muted);
+    void updateCalls();
 
     // The following below API are both aimed to solve routing on telephony
     /**
