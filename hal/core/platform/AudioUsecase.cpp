@@ -685,9 +685,8 @@ int64_t CompressPlayback::getPositionInFrames(pal_stream_handle_t* palHandle) {
 
 void CompressPlayback::onFlush() {
     // on flush SPR module is reset to 0. Hence, we cache the DSP frames
-    // uncomment below to have observable position as non-retrograde
-    // mTotalDSPFrames = mTotalDSPFrames + mPrevFrames;
-    // mPrevFrames = 0;
+    mTotalDSPFrames = mTotalDSPFrames + mPrevFrames;
+    mPrevFrames = 0;
 }
 
 // [CompressPlayback End]
@@ -744,9 +743,8 @@ int64_t PcmOffloadPlayback::getPositionInFrames(pal_stream_handle_t* palHandle) 
 
 void PcmOffloadPlayback::onFlush() {
     // on flush SPR module is reset to 0. Hence, we cache the DSP frames
-    // uncomment below to have observable position as non-retrograde
-    // mTotalDSPFrames = mTotalDSPFrames + mPrevFrames;
-    // mPrevFrames = 0;
+    mTotalDSPFrames = mTotalDSPFrames + mPrevFrames;
+    mPrevFrames = 0;
 }
 
 // [PcmOffloadPlayback End]
