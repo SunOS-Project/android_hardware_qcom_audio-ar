@@ -559,14 +559,18 @@ void Telephony::updateVoiceVolume() {
     float volumeFloat = 0.0f;
     if (mSetUpdates.mIsCrsCall) {
         volumeFloat = mCRSVolume;
+    } else if (mPlatform.getTranslationMuteState()) {
+        volumeFloat = 0.0f;
+        LOG(INFO) << __func__ << ": set voice volume to mute.";
     } else {
         volumeFloat = mTelecomConfig.voiceVolume ? mTelecomConfig.voiceVolume.value().value : 1.0;
     }
+
     if (int32_t ret = mPlatform.setVolume(mPalHandle, {volumeFloat}); ret) {
         LOG(ERROR) << __func__ << ": pal stream set volume failed !!" << ret;
         return;
     }
-    LOG(VERBOSE) << __func__ << ": updated voice volume value as " << volumeFloat;
+    LOG(DEBUG) << __func__ << ": updated voice volume value as " << volumeFloat;
 }
 
 void Telephony::updateTtyMode() {

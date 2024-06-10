@@ -241,6 +241,10 @@ class Platform {
     void setTranslationRecordState(const bool state) noexcept { mIsTranslationRecordEnabled = state; }
     bool getTranslationRecordState() noexcept { return mIsTranslationRecordEnabled; }
 
+    // Set and Get Value Functions for Voice Call Volume mute during Translation Record Usecase.
+    void setTranslationMuteState(const bool state) noexcept { mIsTranslationMuteEnabled = state; }
+    bool getTranslationMuteState() noexcept { return mIsTranslationMuteEnabled; }
+
     void updateCallState(int callState) { mCallState = callState; }
     void updateCallMode(int callMode) { mCallMode = callMode; }
 
@@ -316,6 +320,7 @@ class Platform {
     card_status_t mSndCardStatus{CARD_STATUS_OFFLINE};
     bool mInCallMusicEnabled{false};
     bool mIsTranslationRecordEnabled{false};
+    bool mIsTranslationMuteEnabled{false};
     bool mIsScreenTurnedOn{false};
     uint32_t mWFDProxyChannels{0};
     bool mIsUHQAEnabled{false};

@@ -527,6 +527,9 @@ void ModulePrimary::onSetTelephonyParameters(const std::vector<VendorParameter>&
             isDeviceMuteUpdate = true;
         } else if (Parameters::kVoiceDirection == p.id) {
             muteDirection = paramValue;
+        } else if (Parameters::kVoiceTranslationMute == p.id) {
+            const auto isOn = getBoolFromString(paramValue);
+            mPlatform.setTranslationMuteState(isOn);
         }
     }
 
@@ -643,6 +646,7 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
                                  {Parameters::kVoiceHDVoice, Feature::TELEPHONY},
                                  {Parameters::kVoiceDeviceMute, Feature::TELEPHONY},
                                  {Parameters::kVoiceDirection, Feature::TELEPHONY},
+                                 {Parameters::kVoiceTranslationMute, Feature::TELEPHONY},
                                  {Parameters::kInCallMusic, Feature::GENERIC},
                                  {Parameters::kTranslateRecord, Feature::GENERIC},
                                  {Parameters::kUHQA, Feature::GENERIC},
