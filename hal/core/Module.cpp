@@ -994,43 +994,6 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
             return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
         }
     }
-    else {
-        //check if current portconfig exists in any other patches
-        //if its there, then update to new patch and remove it from list
-        for (auto & element : patches)
-        {
-             if (isMixPortConfig(*(sources.at(0))) ||
-                (isDevicePortConfig(*(sources.at(0))) &&
-                 isTelephonyRXDevice(sources.at(0)->ext.get<AudioPortExt::Tag::device>().device))) {
-                 if (element.sourcePortConfigIds == in_requested.sourcePortConfigIds) {
-                     LOG(ERROR) << __func__ << " found same mixport config in patch id: " << element.id;
-                     existing = findById<AudioPatch>(patches, element.id);
-                     if (existing != patches.end()) {
-                         patchesBackup = mPatches;
-                         cleanUpPatch(existing->id);
-                     } else {
-                          LOG(ERROR) << __func__ << ": not found existing patch id " << in_requested.id;
-                          return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
-                     }
-                     break;
-                 }
-             }
-             else {
-                 if (element.sinkPortConfigIds == in_requested.sinkPortConfigIds) {
-                     LOG(ERROR) << __func__ << " found same sink mixport config in patch id: " << element.id;
-                     existing = findById<AudioPatch>(patches, element.id);
-                     if (existing != patches.end()) {
-                         patchesBackup = mPatches;
-                         cleanUpPatch(existing->id);
-                     } else {
-                          LOG(ERROR) << __func__ << ": not found existing patch id " << in_requested.id;
-                          return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
-                     }
-                     break;
-                 }
-             }
-        }
-    }
     // Validate the requested patch.
     for (const auto & [ sinkPortId, nonExclusive ] : allowedSinkPorts) {
         if (!nonExclusive && mPatches.count(sinkPortId) != 0) {
