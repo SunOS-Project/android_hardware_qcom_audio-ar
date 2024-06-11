@@ -1049,8 +1049,11 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
         _aidl_return->id = getConfig().nextPatchId++;
         _aidl_return->minimumStreamBufferSizeFrames = kMinimumStreamBufferSizeFrames;
         _aidl_return->latenciesMs.clear();
+        // LatencyMs for a new patch is provided with arbitary value.
+        // Real LatencyMs is fetched via StreamDescriptor::Reply::latencyMs 
+        constexpr int32_t kLatencyMsDefault = 10;
         _aidl_return->latenciesMs.insert(_aidl_return->latenciesMs.end(),
-                                         _aidl_return->sinkPortConfigIds.size(), kLatencyMs);
+                                         _aidl_return->sinkPortConfigIds.size(), kLatencyMsDefault);
         onNewPatchCreation(sources, sinks, *_aidl_return);
         patches.push_back(*_aidl_return);
     } else {
