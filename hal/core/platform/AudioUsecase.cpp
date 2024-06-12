@@ -724,6 +724,13 @@ int64_t PcmOffloadPlayback::getPositionInFrames(pal_stream_handle_t* palHandle) 
         return mTotalDSPFrames + mPrevFrames;
     }
 
+    // if sound card not up, then cache position
+    auto& platform = Platform::getInstance();
+    if (!platform.isSoundCardUp()) {
+        mTotalDSPFrames = mTotalDSPFrames + mPrevFrames;
+        return mTotalDSPFrames;
+    }
+
     pal_session_time tstamp;
     if (int32_t ret = ::pal_get_timestamp(palHandle, &tstamp); ret) {
         LOG(ERROR) << __func__ << " pal_get_timestamp failure, returning previous" << ret;
