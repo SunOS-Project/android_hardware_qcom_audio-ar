@@ -36,6 +36,7 @@
 #include <aidl/android/media/audio/common/AudioIoFlags.h>
 #include <aidl/android/media/audio/common/AudioOffloadInfo.h>
 #include <aidl/android/media/audio/common/MicrophoneInfo.h>
+#include <extensions/AudioExtension.h>
 #include <error/expected_utils.h>
 #include <fmq/AidlMessageQueue.h>
 #include <system/thread_defs.h>
