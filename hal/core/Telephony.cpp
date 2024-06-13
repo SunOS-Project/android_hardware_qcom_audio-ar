@@ -48,8 +48,12 @@ const AudioDevice Telephony::kDefaultCRSRxDevice =
         AudioDevice{.type.type = AudioDeviceType::OUT_SPEAKER};
 
 Telephony::Telephony() {
-    mVoiceSession.session[VSID1_VOICE_SESSION].mVSID = VSID::VSID_1;
-    mVoiceSession.session[VSID2_VOICE_SESSION].mVSID = VSID::VSID_2;
+    mVoiceSession.session[VSID1_VOICE_SESSION].CallUpdate.mVSID = VSID::VSID_1;
+    mVoiceSession.session[VSID1_VOICE_SESSION].state.current_ = CallState::IN_ACTIVE;
+    mVoiceSession.session[VSID1_VOICE_SESSION].state.new_ = CallState::IN_ACTIVE;
+    mVoiceSession.session[VSID2_VOICE_SESSION].CallUpdate.mVSID = VSID::VSID_2;
+    mVoiceSession.session[VSID2_VOICE_SESSION].state.current_ = CallState::IN_ACTIVE;
+    mVoiceSession.session[VSID2_VOICE_SESSION].state.new_ = CallState::IN_ACTIVE;
     mTelecomConfig.voiceVolume = Float{TelecomConfig::VOICE_VOLUME_MAX};
     mTelecomConfig.ttyMode = TelecomConfig::TtyMode::OFF;
     mTelecomConfig.isHacEnabled = Boolean{false};
@@ -159,7 +163,7 @@ bool Telephony::isCrsCallSupported() {
 
 bool Telephony::isAnyCallActive() {
     for (int i = 0; i < MAX_VOICE_SESSIONS; i++) {
-         if (mVoiceSession.session[i].mCallState == CallState::ACTIVE) {
+         if (mVoiceSession.session[i].state.current_ == CallState::ACTIVE) {
              return true;
          }
     }
@@ -365,7 +369,7 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
     } else {
          if (mIsCRSStarted && mCRSVSID == newUpdates.mVSID) {
              stopCall();
-             if (mRxDevice.type.type != AudioDeviceType::OUT_SPEAKER) {
+             if (mPalCrsHandle != nullptr) {
                  stopCrsLoopback();
              }
              mSetUpdates.mIsCrsCall = newUpdates.mIsCrsCall;
@@ -376,8 +380,9 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
     }
 
     for (int i = 0; i < MAX_VOICE_SESSIONS; i++) {
-         if (newUpdates.mVSID == mVoiceSession.session[i].mVSID) {
-             mVoiceSession.session[i] = newUpdates;
+         if (newUpdates.mVSID == mVoiceSession.session[i].CallUpdate.mVSID) {
+             mVoiceSession.session[i].state.new_  = newUpdates.mCallState;
+             mVoiceSession.session[i].CallUpdate = newUpdates;
              break;
          }
     }
@@ -391,47 +396,51 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
 void Telephony::updateCalls() {
      auto palDevices = mPlatform.convertToPalDevices({mRxDevice, mTxDevice});
      for (int i = 0; i < MAX_VOICE_SESSIONS; i++) {
-          if (mSetUpdates.mVSID == mVoiceSession.session[i].mVSID) {
-            switch (mVoiceSession.session[i].mCallState) {
+            switch (mVoiceSession.session[i].state.new_) {
                   case CallState::ACTIVE:
-                      switch (mSetUpdates.mCallState) {
+                      switch (mVoiceSession.session[i].state.current_) {
                             case CallState::IN_ACTIVE:
-                                LOG(DEBUG) << __func__ << " CallState: INACTIVE -> ACTIVE vsid:" << mSetUpdates.mVSID;
+                                LOG(DEBUG) << __func__ << " CallState: INACTIVE -> ACTIVE vsid:" << mVoiceSession.session[i].CallUpdate.mVSID;
                                 if ((palDevices[0].id == PAL_DEVICE_OUT_BLUETOOTH_BLE) &&
                                     (palDevices[1].id == PAL_DEVICE_IN_BLUETOOTH_BLE)) {
                                     updateVoiceMetadataForBT(true);
                                 }
-                                startCall();
-                                mSetUpdates = mVoiceSession.session[i];
+                                if (!isAnyCallActive()) {
+                                    mSetUpdates =  mVoiceSession.session[i].CallUpdate;
+                                    startCall();
+                                    mVoiceSession.session[i].state.current_ = mVoiceSession.session[i].state.new_;
+                                } else {
+                                    LOG(DEBUG) << __func__ << ": voice already started";
+                                }
                                 break;
 
                             default:
                                 LOG(INFO) << __func__ << " CallState: ACTIVE cannot be handled in "
-                                          << "state " << mVoiceSession.session[i].mCallState
-                                          << " vsid " << mVoiceSession.session[i].mVSID;
+                                          << "state " << mVoiceSession.session[i].state.current_
+                                          << " vsid " << mVoiceSession.session[i].CallUpdate.mVSID;
                                 break;
                       }
                       break;
 
                   case CallState::IN_ACTIVE:
-                      switch (mSetUpdates.mCallState) {
+                      switch (mVoiceSession.session[i].state.current_) {
                             case CallState::ACTIVE:
-                                LOG(DEBUG) << __func__ << " CallState: ACTIVE -> INACTIVE vsid:" << mSetUpdates.mVSID;
+                                LOG(DEBUG) << __func__ << " CallState: ACTIVE -> INACTIVE vsid:" << mVoiceSession.session[i].CallUpdate.mVSID;
+                                mSetUpdates =  mVoiceSession.session[i].CallUpdate;
                                 stopCall();
-                                mSetUpdates = mVoiceSession.session[i];
+                                mVoiceSession.session[i].state.current_ = mVoiceSession.session[i].state.new_;
                                 break;
 
                              default:
                                  LOG(INFO) << __func__ << " CallState: Default cannot be handled in "
-                                          << "state " << mVoiceSession.session[i].mCallState
-                                           << " vsid " << mVoiceSession.session[i].mVSID;
+                                           << "state " << mVoiceSession.session[i].state.current_
+                                           << " vsid " << mVoiceSession.session[i].CallUpdate.mVSID;
                                 break;
                       }
                       break;
                   default:
                       break;
             }
-          }
      }
 }
 

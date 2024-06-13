@@ -66,6 +66,11 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
         }
     };
 
+    struct CallStatus {
+        CallState current_;
+        CallState new_;
+    };
+
     float mCRSVolume = 0.4f; //default CRS call volume
     bool mIsCRSStarted{false};
     VSID mCRSVSID{VSID::VSID_1};
@@ -78,10 +83,14 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     static constexpr int32_t MIN_CRS_VOL_INDEX = 0;
     static constexpr int32_t MAX_CRS_VOL_INDEX = 7;
     struct SetUpdateSession {
-        SetUpdates session[MAX_VOICE_SESSIONS];
+        CallStatus state;
+        SetUpdates CallUpdate;
     };
 
-    SetUpdateSession mVoiceSession;
+    struct VoiceSession {
+        SetUpdateSession session[MAX_VOICE_SESSIONS];
+    };
+    VoiceSession mVoiceSession;
 
     /* All the public APIs are guarded by mLock, Hence never call a public
      * API from anther public API */
