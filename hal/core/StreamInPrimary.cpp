@@ -354,10 +354,8 @@ void StreamInPrimary::resume() {
         *latencyMs = compressCapture.getLatencyMs();
     } else if (mTag == Usecase::PCM_RECORD || mTag == Usecase::HOTWORD_RECORD) {
         *latencyMs = PcmRecord::kCaptureDurationMs;
-    } else {
-        // default latency
-        *latencyMs = Module::kLatencyMs;
     }
+
     if (bytesRead < 0) {
         LOG(ERROR) << __func__ << mLogPrefix << " read failed, ret:" << std::to_string(bytesRead);
         *actualFrameCount = frameCount;

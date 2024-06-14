@@ -39,8 +39,6 @@ namespace qti::audio::core {
 class Module : public ::aidl::android::hardware::audio::core::BnModule,
                public std::enable_shared_from_this<Module> {
   public:
-    // This value is used for all AudioPatches and reported by all streams.
-    static constexpr int32_t kLatencyMs = 10;
     enum Type : int { DEFAULT, R_SUBMIX, STUB, USB };
 
     explicit Module(Type type);

@@ -118,7 +118,6 @@ StreamStub::StreamStub(StreamContext* context, const Metadata& metadata)
         }
     }
     *actualFrameCount = frameCount;
-    *latencyMs = Module::kLatencyMs;
     return ::android::OK;
 }
 
