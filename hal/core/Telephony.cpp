@@ -559,7 +559,7 @@ void Telephony::updateVoiceVolume() {
     float volumeFloat = 0.0f;
     if (mSetUpdates.mIsCrsCall) {
         volumeFloat = mCRSVolume;
-    } else if (mPlatform.getTranslationMuteState()) {
+    } else if (mPlatform.getTranslationRxMuteState()) {
         volumeFloat = 0.0f;
         LOG(INFO) << __func__ << ": set voice volume to mute.";
     } else {

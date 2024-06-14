@@ -39,8 +39,8 @@ const static std::string kVoiceHDVoice{"hd_voice"};
 const static std::string kVoiceIsCRsSupported{"isCRSsupported"};
 const static std::string kVoiceCRSCall{"crs_call"};
 const static std::string kVoiceCRSVolume{"CRS_volume"};
-const static std::string kVoiceTranslationMute{"voice_translation_mute"};
-/** kVoiceTranslationMute : helps to set the Voice Volume
+const static std::string kVoiceTranslationRxMute{"voice_translation_rx_mute"};
+/** kVoiceTranslationRxMute : helps to set the Voice Rx Volume
 * to mute when the param is set to enabled during the
 * voice call translation usecase running.
 **/
