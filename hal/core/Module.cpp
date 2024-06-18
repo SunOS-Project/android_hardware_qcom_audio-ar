@@ -1144,6 +1144,10 @@ void Module::setAudioPatchTelephony(
     return;
 }
 
+void Module::resetAudioPatchTelephony(const AudioPatch& patch) {
+    LOG(INFO) << __func__ << " no-op implementation ";
+}
+
 ndk::ScopedAStatus Module::setAudioPortConfig(const AudioPortConfig& in_requested,
                                               AudioPortConfig* out_suggested, bool* _aidl_return) {
     LOG(DEBUG) << __func__ << ": requested " << in_requested.toString();
@@ -1295,6 +1299,7 @@ ndk::ScopedAStatus Module::resetAudioPatch(int32_t in_patchId) {
     auto& patches = getConfig().patches;
     auto patchIt = findById<AudioPatch>(patches, in_patchId);
     if (patchIt != patches.end()) {
+        resetAudioPatchTelephony(*patchIt);
         auto patchesBackup = mPatches;
         cleanUpPatch(patchIt->id);
         if (auto status = updateStreamsConnectedState(*patchIt, AudioPatch{}); !status.isOk()) {

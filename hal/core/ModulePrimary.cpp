@@ -304,9 +304,9 @@ void ModulePrimary::setAudioPatchTelephony(const std::vector<AudioPortConfig*>& 
     }
 
     if (!isDevicePortConfig(*(sources.at(0))) || !isDevicePortConfig(*(sinks.at(0)))) {
-        LOG(VERBOSE) << __func__ << ": its not device to device patch ";
         return;
     }
+
     bool updateRx = isTelephonyRXDevice(sources.at(0)->ext.get<AudioPortExt::Tag::device>().device);
     bool updateTx = isTelephonyTXDevice(sinks.at(0)->ext.get<AudioPortExt::Tag::device>().device);
 
@@ -323,7 +323,45 @@ void ModulePrimary::setAudioPatchTelephony(const std::vector<AudioPortConfig*>& 
     }
 
     mTelephony->setDevices(devices, updateRx);
-    LOG(DEBUG) << __func__ << ": device patch : " << patchDetails << patch.toString();
+    LOG(INFO) << __func__ << ": set telephony " << (updateRx ? "RX" : "TX") << " devices";
+}
+
+void ModulePrimary::resetAudioPatchTelephony(const AudioPatch& patch) {
+    const std::string patchDetails = getPatchDetails(patch);
+    if (!mTelephony) {
+        LOG(ERROR) << __func__ << ": Telephony not created " << patchDetails << patch.toString();
+        return;
+    }
+
+    auto& configs = getConfig().portConfigs;
+    std::vector<int32_t> missingIds;
+    auto sources = selectByIds<AudioPortConfig>(configs, patch.sourcePortConfigIds, &missingIds);
+    if (!missingIds.empty()) {
+        LOG(ERROR) << __func__ << ": following source port config ids not found: "
+                   << ::android::internal::ToString(missingIds);
+    }
+    auto sinks = selectByIds<AudioPortConfig>(configs, patch.sinkPortConfigIds, &missingIds);
+    if (!missingIds.empty()) {
+        LOG(ERROR) << __func__ << ": following sink port config ids not found: "
+                   << ::android::internal::ToString(missingIds);
+    }
+
+    if (!isDevicePortConfig(*(sources.at(0))) || !isDevicePortConfig(*(sinks.at(0)))) {
+        // atleast one of the port config is a mix port config.
+        return;
+    }
+
+    bool updateRx = isTelephonyRXDevice(sources.at(0)->ext.get<AudioPortExt::Tag::device>().device);
+    bool updateTx = isTelephonyTXDevice(sinks.at(0)->ext.get<AudioPortExt::Tag::device>().device);
+
+    if (!updateRx && !updateTx) {
+        LOG(ERROR) << __func__ << ": neither RX nor TX update " << patchDetails << patch.toString();
+        return;
+    }
+
+    mTelephony->resetDevices(updateRx);
+
+    LOG(INFO) << __func__ << ": reset telephony " << (updateRx ? "RX" : "TX") << " devices";
 }
 
 int ModulePrimary::onExternalDeviceConnectionChanged(

@@ -117,6 +117,11 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     */
     void setDevices(const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices,
                     const bool updateRx);
+    /**
+     * The following API resets the RX and TX device
+     * @param resetRx, indicates device to reset, true for RX, false for TX
+     **/
+    void resetDevices(const bool resetRx);
 
     // Telephony to decide its strategy where there is external device connection change
     void onExternalDeviceConnectionChanged(

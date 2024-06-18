@@ -203,6 +203,8 @@ class Module : public ::aidl::android::hardware::audio::core::BnModule,
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sinks,
             const ::aidl::android::hardware::audio::core::AudioPatch& patch);
+    virtual void resetAudioPatchTelephony(
+            const ::aidl::android::hardware::audio::core::AudioPatch&);
     virtual std::string toStringInternal() { return std::string("No-op implementation"); }
     /**
      * Call this API only for debugging purpose
