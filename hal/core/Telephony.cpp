@@ -139,6 +139,7 @@ ndk::ScopedAStatus Telephony::setTelecomConfig(const TelecomConfig& in_config,
     }
     if (in_config.isHacEnabled.has_value()) {
         mTelecomConfig.isHacEnabled = in_config.isHacEnabled;
+        mPlatform.setHACEnabled(mTelecomConfig.isHacEnabled.value().value);
     }
     *_aidl_return = mTelecomConfig;
     LOG(DEBUG) << __func__ << ": received " << in_config.toString() << ", returning "

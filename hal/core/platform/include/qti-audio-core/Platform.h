@@ -245,6 +245,10 @@ class Platform {
     void setTranslationRxMuteState(const bool state) noexcept { mIsTranslationRxMuteEnabled = state; }
     bool getTranslationRxMuteState() noexcept { return mIsTranslationRxMuteEnabled; }
 
+    void setHACEnabled(const bool& enable) noexcept { mIsHACEnabled = enable; }
+
+    bool isHACEnabled() const noexcept { return mIsHACEnabled; }
+
     void updateCallState(int callState) { mCallState = callState; }
     void updateCallMode(int callMode) { mCallMode = callMode; }
 
@@ -339,6 +343,9 @@ class Platform {
     bool mInverted{false};
     std::string mOrientation{""};
     std::string mFacing{""};
+
+    /* HAC enablement*/
+    bool mIsHACEnabled{false};
 
     std::unordered_map<Usecase, UsecaseOps> mUsecaseOpMap;
     std::vector<::aidl::android::media::audio::common::MicrophoneInfo> mMicrophoneInfo;

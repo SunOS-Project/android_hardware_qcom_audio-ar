@@ -228,6 +228,15 @@ bool hasOutputRawFlag(const AudioIoFlags& ioFlags) noexcept {
     return false;
 }
 
+bool hasOutputVoipRxFlag(const AudioIoFlags& ioFlags) noexcept {
+    if (ioFlags.getTag() == AudioIoFlags::Tag::output) {
+        constexpr auto voipRxFlag =
+                static_cast<int32_t>(1 << static_cast<int32_t>(AudioOutputFlags::VOIP_RX));
+        return ((voipRxFlag & ioFlags.get<AudioIoFlags::Tag::output>()) != 0);
+    }
+    return false;
+}
+
 bool hasOutputCompressOffloadFlag(const AudioIoFlags& ioFlags) noexcept {
     if (ioFlags.getTag() == AudioIoFlags::Tag::output) {
         constexpr auto compressOffloadFlag =
