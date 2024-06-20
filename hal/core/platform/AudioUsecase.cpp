@@ -677,7 +677,8 @@ int64_t CompressPlayback::getPositionInFrames(pal_stream_handle_t* palHandle) {
              tstamp.session_time.value_lsw);
     const auto& sampleRate = getSampleRate(mMixPortConfig).value();
     // sessionTimeUs to frames
-    mPrevFrames = static_cast<int64_t>((sessionTimeUs / 1000) * (sampleRate / 1000));
+    // try to convert the session to frames without loss of precision.
+    mPrevFrames = static_cast<int64_t>((sessionTimeUs / 1000) * sampleRate / 1000);
     LOG(VERBOSE) << __func__ << " dsp frames consumed: (" << mTotalDSPFrames << "+" << mPrevFrames
                  << ") = " << mTotalDSPFrames + mPrevFrames;
     return mTotalDSPFrames + mPrevFrames;
@@ -735,7 +736,8 @@ int64_t PcmOffloadPlayback::getPositionInFrames(pal_stream_handle_t* palHandle) 
              tstamp.session_time.value_lsw);
     const auto& sampleRate = getSampleRate(mMixPortConfig).value();
     // sessionTimeUs to frames
-    mPrevFrames = static_cast<int64_t>((sessionTimeUs / 1000) * (sampleRate / 1000));
+    // try to convert the session to frames without loss of precision.
+    mPrevFrames = static_cast<int64_t>((sessionTimeUs / 1000) * sampleRate / 1000);
     LOG(VERBOSE) << __func__ << " dsp frames consumed: (" << mTotalDSPFrames << "+" << mPrevFrames
                  << ") = " << mTotalDSPFrames + mPrevFrames;
     return mTotalDSPFrames + mPrevFrames;
