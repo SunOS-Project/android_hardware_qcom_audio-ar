@@ -163,6 +163,18 @@ bool isIPOutDevice(const AudioDevice& d) noexcept {
     return false;
 }
 
+bool isOutputSpeakerEarpiece(const AudioDevice& d) noexcept {
+    if (d.type.type == AudioDeviceType::OUT_SPEAKER_EARPIECE) {
+        return true;
+    }
+    return false;
+}
+
+bool hasOutputSpeakerEarpiece(const std::vector<AudioDevice>& devices) noexcept {
+    auto itr = std::find_if(devices.cbegin(), devices.cend(), isOutputSpeakerEarpiece);
+    return itr != devices.cend();
+}
+
 bool isHdmiDevice(const AudioDevice& d) noexcept {
     if (d.type.connection == AudioDeviceDescription::CONNECTION_HDMI) {
         return true;

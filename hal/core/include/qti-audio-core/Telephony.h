@@ -144,6 +144,9 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     /* Telephony to act upon bluetooth sco enabled or disabled */
     void onBluetoothScoEvent(const bool& enable);
 
+    /* set the voip stream */
+    void setVoipPlaybackStream(std::weak_ptr<StreamCommonInterface> voipStream);
+
     void updateVoiceMetadataForBT(bool call_active);
     std::weak_ptr<StreamOut> mStreamOutPrimary;
     std::weak_ptr<StreamIn> mStreamInPrimary;
@@ -161,6 +164,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     void updateCrsDevice();
     void startCrsLoopback();
     void stopCrsLoopback();
+    void triggerHACinVoipPlayback();
     ::aidl::android::media::audio::common::AudioDevice getMatchingTxDevice(
             const ::aidl::android::media::audio::common::AudioDevice & rxDevice);
     bool isAnyCallActive();
@@ -186,6 +190,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     bool mIsHDVoiceEnabled{false};
     bool mIsDeviceMuted{false};
     std::string mMuteDirection{""};
+
     using TtyMap = std::map<TelecomConfig::TtyMode, pal_tty_t>;
     const TtyMap mTtyMap{
             {TelecomConfig::TtyMode::OFF, PAL_TTY_OFF},
@@ -198,6 +203,8 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     ::aidl::android::media::audio::common::AudioDevice mTxDevice; // mic, speaker mic
     pal_stream_handle_t* mPalCrsHandle{nullptr};
     pal_stream_handle_t* mPalHandle{nullptr};
+    // Stream Handle for VOIP Playback
+    std::weak_ptr<StreamCommonInterface> mVoipStreamWptr;
     Platform& mPlatform{Platform::getInstance()};
 };
 
