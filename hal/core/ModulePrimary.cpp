@@ -158,16 +158,23 @@ ndk::ScopedAStatus ModulePrimary::setMicMute(bool in_mute) {
         LOG(ERROR) << __func__ << ": Telephony not created ";
         return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
     }
-    LOG(VERBOSE) << __func__ << ": " << in_mute;
+    LOG(DEBUG) << __func__ << ": " << in_mute;
+
     mMicMute = in_mute;
+    mPlatform.setMicMuteStatus(mMicMute);
 
     mTelephony->setMicMute(mMicMute);
 
-    int ret = mAudExt.mHfpExtension->audio_extn_hfp_set_mic_mute(in_mute);
+    int ret = mAudExt.mHfpExtension->audio_extn_hfp_set_mic_mute(mMicMute);
 
     for (const auto& inputMixPortConfigId :
          getActiveInputMixPortConfigIds(getConfig().portConfigs)) {
-        mStreams.setStreamMicMute(inputMixPortConfigId, mMicMute);
+        if(!mPlatform.getTranslationRecordState()){
+            mStreams.setStreamMicMute(inputMixPortConfigId, mMicMute);
+        } else {
+            // Need to keep the Audio FFECNS Record stream unmuted when Translate Record Usecase Enabled
+            LOG(DEBUG) << __func__ << ": SetStreamMicMute skipped for Voice Translate Record";
+        }
     }
     return ndk::ScopedAStatus::ok();
 }
@@ -217,6 +224,7 @@ ndk::ScopedAStatus ModulePrimary::getBluetoothLe(std::shared_ptr<IBluetoothLe>* 
 ndk::ScopedAStatus ModulePrimary::getTelephony(std::shared_ptr<ITelephony>* _aidl_return) {
     if (!mTelephony) {
         mTelephony = ndk::SharedRefBase::make<Telephony>();
+        mPlatform.setTelephony(mTelephony.getInstance());
     }
     *_aidl_return = mTelephony.getInstance();
     LOG(DEBUG) << __func__
@@ -261,7 +269,7 @@ ndk::ScopedAStatus ModulePrimary::createOutputStream(
 
 std::vector<::aidl::android::media::audio::common::AudioProfile> ModulePrimary::getDynamicProfiles(
         const ::aidl::android::media::audio::common::AudioPort& audioPort) {
-    if (mPlatform.isUsbDevice(audioPort.ext.get<AudioPortExt::Tag::device>().device)) {
+    if (isUsbDevice(audioPort.ext.get<AudioPortExt::Tag::device>().device)) {
         /* as of now, we do dynamic fetching for usb devices*/
         auto dynamicProfiles = mPlatform.getDynamicProfiles(audioPort);
         return dynamicProfiles;
@@ -519,6 +527,9 @@ void ModulePrimary::onSetTelephonyParameters(const std::vector<VendorParameter>&
             isDeviceMuteUpdate = true;
         } else if (Parameters::kVoiceDirection == p.id) {
             muteDirection = paramValue;
+        } else if (Parameters::kVoiceTranslationRxMute == p.id) {
+            const auto isOn = getBoolFromString(paramValue);
+            mPlatform.setTranslationRxMuteState(isOn);
         }
     }
 
@@ -635,6 +646,7 @@ ModulePrimary::SetParameterToFeatureMap ModulePrimary::fillSetParameterToFeature
                                  {Parameters::kVoiceHDVoice, Feature::TELEPHONY},
                                  {Parameters::kVoiceDeviceMute, Feature::TELEPHONY},
                                  {Parameters::kVoiceDirection, Feature::TELEPHONY},
+                                 {Parameters::kVoiceTranslationRxMute, Feature::TELEPHONY},
                                  {Parameters::kInCallMusic, Feature::GENERIC},
                                  {Parameters::kTranslateRecord, Feature::GENERIC},
                                  {Parameters::kUHQA, Feature::GENERIC},

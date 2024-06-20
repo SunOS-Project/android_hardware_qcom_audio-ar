@@ -249,17 +249,14 @@ size_t UllPlayback::getFrameCount(const AudioPortConfig& mixPortConfig) {
 
 // [ULLPlayback End]
 
-// [MMapPlayback Start]
-size_t MMapPlayback::getFrameCount(const AudioPortConfig& mixPortConfig) {
-    return kPeriodSize;
-}
+// [MmapUsecaseBase Start]
 
-void MMapPlayback::setPalHandle(pal_stream_handle_t* handle) {
+void MmapUsecaseBase::setPalHandle(pal_stream_handle_t* handle) {
     mPalHandle = handle;
 }
 
-int32_t MMapPlayback::createMMapBuffer(int64_t frameSize, int32_t* fd, int64_t* burstSizeFrames,
-                                       int32_t* flags, int32_t* bufferSizeFrames) {
+int32_t MmapUsecaseBase::createMMapBuffer(int64_t frameSize, int32_t* fd, int64_t* burstSizeFrames,
+                                          int32_t* flags, int32_t* bufferSizeFrames) {
     if (!mPalHandle) {
         LOG(ERROR) << __func__ << ": pal stream handle is null";
         return -EINVAL;
@@ -274,10 +271,12 @@ int32_t MMapPlayback::createMMapBuffer(int64_t frameSize, int32_t* fd, int64_t* 
     *burstSizeFrames = palMMapBuf.burst_size_frames;
     *flags = palMMapBuf.flags;
     *bufferSizeFrames = palMMapBuf.buffer_size_frames;
+    LOG(DEBUG) << __func__ << " burstSizeFrames " << *burstSizeFrames << " flags " << *flags
+               << " bufferSizeFrames " << *bufferSizeFrames << " fd " << *fd;
     return 0;
 }
 
-int32_t MMapPlayback::getMMapPosition(int64_t* frames, int64_t* timeNs) {
+int32_t MmapUsecaseBase::getMMapPosition(int64_t* frames, int64_t* timeNs) {
     if (!mPalHandle) {
         LOG(ERROR) << __func__ << ": pal stream handle is null";
         return -EINVAL;
@@ -292,6 +291,11 @@ int32_t MMapPlayback::getMMapPosition(int64_t* frames, int64_t* timeNs) {
     *frames = pal_mmap_pos.position_frames;
     LOG(VERBOSE) << __func__ << ": frames:" << *frames << ", timeNs:" << *timeNs;
     return 0;
+}
+// [MmapUsecaseBase End]
+// [MMapPlayback Start]
+size_t MMapPlayback::getFrameCount(const AudioPortConfig& mixPortConfig) {
+    return kPeriodSize;
 }
 
 // [MMapPlayback End]
@@ -681,9 +685,8 @@ int64_t CompressPlayback::getPositionInFrames(pal_stream_handle_t* palHandle) {
 
 void CompressPlayback::onFlush() {
     // on flush SPR module is reset to 0. Hence, we cache the DSP frames
-    // uncomment below to have observable position as non-retrograde
-    // mTotalDSPFrames = mTotalDSPFrames + mPrevFrames;
-    // mPrevFrames = 0;
+    mTotalDSPFrames = mTotalDSPFrames + mPrevFrames;
+    mPrevFrames = 0;
 }
 
 // [CompressPlayback End]
@@ -740,9 +743,8 @@ int64_t PcmOffloadPlayback::getPositionInFrames(pal_stream_handle_t* palHandle) 
 
 void PcmOffloadPlayback::onFlush() {
     // on flush SPR module is reset to 0. Hence, we cache the DSP frames
-    // uncomment below to have observable position as non-retrograde
-    // mTotalDSPFrames = mTotalDSPFrames + mPrevFrames;
-    // mPrevFrames = 0;
+    mTotalDSPFrames = mTotalDSPFrames + mPrevFrames;
+    mPrevFrames = 0;
 }
 
 // [PcmOffloadPlayback End]
@@ -833,45 +835,6 @@ size_t MMapRecord::getFrameCount(const AudioPortConfig& mixPortConfig) {
     return kPeriodSize;
 }
 
-void MMapRecord::setPalHandle(pal_stream_handle_t* handle) {
-    mPalHandle = handle;
-}
-
-int32_t MMapRecord::createMMapBuffer(int64_t frameSize, int32_t* fd, int64_t* burstSizeFrames,
-                                     int32_t* flags, int32_t* bufferSizeFrames) {
-    if (!mPalHandle) {
-        LOG(ERROR) << __func__ << ": pal stream handle is null";
-        return -EINVAL;
-    }
-    struct pal_mmap_buffer palMMapBuf;
-    if (int32_t ret = pal_stream_create_mmap_buffer(mPalHandle, frameSize, &palMMapBuf); ret) {
-        LOG(ERROR) << __func__ << ": pal stream create mmap buffer failed "
-                   << "returned " << ret;
-        return ret;
-    }
-    *fd = palMMapBuf.fd;
-    *burstSizeFrames = palMMapBuf.burst_size_frames;
-    *flags = palMMapBuf.flags;
-    *bufferSizeFrames = palMMapBuf.buffer_size_frames;
-    return 0;
-}
-
-int32_t MMapRecord::getMMapPosition(int64_t* frames, int64_t* timeNs) {
-    if (!mPalHandle) {
-        LOG(ERROR) << __func__ << ": pal stream handle is null";
-        return -EINVAL;
-    }
-    struct pal_mmap_position pal_mmap_pos;
-    if (int32_t ret = pal_stream_get_mmap_position(mPalHandle, &pal_mmap_pos); ret) {
-        LOG(ERROR) << __func__ << ": failed to get mmap positon "
-                   << "returned " << ret;
-        return ret;
-    }
-    *timeNs = pal_mmap_pos.time_nanoseconds;
-    *frames = pal_mmap_pos.position_frames;
-    LOG(VERBOSE) << __func__ << ": frames:" << *frames << ", timeNs:" << *timeNs;
-    return 0;
-}
 // [MMapRecord End]
 
 // [HotwordRecord Start]

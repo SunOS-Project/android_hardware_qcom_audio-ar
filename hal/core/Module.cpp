@@ -29,6 +29,7 @@
 #include <aidl/android/media/audio/common/AudioInputFlags.h>
 #include <aidl/android/media/audio/common/AudioOutputFlags.h>
 #include <android-base/logging.h>
+#include <android-base/properties.h>
 #include <android/binder_ibinder_platform.h>
 #include <error/expected_utils.h>
 
@@ -842,8 +843,10 @@ ndk::ScopedAStatus Module::openInputStream(const OpenInputStreamArguments& in_ar
         mmapRef.flags = mmapFlags;
         _aidl_return->desc.bufferSizeFrames = bufferSizeFrames;
     }
-    AIBinder_setMinSchedulerPolicy(streamWrapper.getBinder().get(), SCHED_NORMAL,
-                                   ANDROID_PRIORITY_AUDIO);
+
+    auto streamBinder = streamWrapper.getBinder();
+    AIBinder_setMinSchedulerPolicy(streamBinder.get(), SCHED_NORMAL, ANDROID_PRIORITY_AUDIO);
+    AIBinder_setInheritRt(streamBinder.get(), true);
     mStreams.insert(port->id, in_args.portConfigId, std::move(streamWrapper));
     _aidl_return->stream = std::move(stream);
     return ndk::ScopedAStatus::ok();
@@ -902,8 +905,10 @@ ndk::ScopedAStatus Module::openOutputStream(const OpenOutputStreamArguments& in_
         mmapRef.flags = mmapFlags;
         _aidl_return->desc.bufferSizeFrames = bufferSizeFrames;
     }
-    AIBinder_setMinSchedulerPolicy(streamWrapper.getBinder().get(), SCHED_NORMAL,
-                                   ANDROID_PRIORITY_AUDIO);
+
+    auto streamBinder = streamWrapper.getBinder();
+    AIBinder_setMinSchedulerPolicy(streamBinder.get(), SCHED_NORMAL, ANDROID_PRIORITY_AUDIO);
+    AIBinder_setInheritRt(streamBinder.get(), true);
     mStreams.insert(port->id, in_args.portConfigId, std::move(streamWrapper));
     //    Module::updateStreamOutList(stream);
     _aidl_return->stream = std::move(stream);
@@ -1044,8 +1049,11 @@ ndk::ScopedAStatus Module::setAudioPatch(const AudioPatch& in_requested, AudioPa
         _aidl_return->id = getConfig().nextPatchId++;
         _aidl_return->minimumStreamBufferSizeFrames = kMinimumStreamBufferSizeFrames;
         _aidl_return->latenciesMs.clear();
+        // LatencyMs for a new patch is provided with arbitary value.
+        // Real LatencyMs is fetched via StreamDescriptor::Reply::latencyMs 
+        constexpr int32_t kLatencyMsDefault = 10;
         _aidl_return->latenciesMs.insert(_aidl_return->latenciesMs.end(),
-                                         _aidl_return->sinkPortConfigIds.size(), kLatencyMs);
+                                         _aidl_return->sinkPortConfigIds.size(), kLatencyMsDefault);
         onNewPatchCreation(sources, sinks, *_aidl_return);
         patches.push_back(*_aidl_return);
     } else {
@@ -1595,7 +1603,11 @@ ndk::ScopedAStatus Module::getAAudioHardwareBurstMinUsec(int32_t* _aidl_return) 
         LOG(DEBUG) << __func__ << ": mmap is not supported ";
         return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
     }
-    *_aidl_return = DEFAULT_AAUDIO_HARDWARE_BURST_MIN_DURATION_US;
+
+    const std::string kAaudioHwBurst = "aaudio.hw_burst_min_usec";
+    auto burstSize = ::android::base::GetUintProperty<size_t>(kAaudioHwBurst, 2000);
+
+    *_aidl_return = burstSize;
     LOG(DEBUG) << __func__ << ": returning " << *_aidl_return;
     return ndk::ScopedAStatus::ok();
 }

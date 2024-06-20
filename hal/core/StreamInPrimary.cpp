@@ -237,6 +237,10 @@ ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd, int64_t* bu
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
+    if (mPlatform.getMicMuteStatus()) {
+        setStreamMicMute(true);
+    }
+
     LOG(INFO) << __func__ << mLogPrefix << ": stream is configured";
 
     return ndk::ScopedAStatus::ok();
@@ -350,10 +354,8 @@ void StreamInPrimary::resume() {
         *latencyMs = compressCapture.getLatencyMs();
     } else if (mTag == Usecase::PCM_RECORD || mTag == Usecase::HOTWORD_RECORD) {
         *latencyMs = PcmRecord::kCaptureDurationMs;
-    } else {
-        // default latency
-        *latencyMs = Module::kLatencyMs;
     }
+
     if (bytesRead < 0) {
         LOG(ERROR) << __func__ << mLogPrefix << " read failed, ret:" << std::to_string(bytesRead);
         *actualFrameCount = frameCount;
@@ -619,8 +621,10 @@ void StreamInPrimary::configure() {
             } else if (source.value() == AudioSource::UNPROCESSED) {
                 attr->type = PAL_STREAM_RAW;
                 LOG(INFO) << __func__ << mLogPrefix << ": unprocessed capture";
-            }
-            else {
+            } else if (source.value() == AudioSource::VOICE_RECOGNITION) {
+                attr->type = PAL_STREAM_VOICE_RECOGNITION;
+                LOG(INFO) << __func__ << mLogPrefix << ": voice recognition capture";
+            } else {
                 auto countTelephonyRxDevices =
                      std::count_if(mConnectedDevices.cbegin(), mConnectedDevices.cend(),
                                    isTelephonyRXDevice);
@@ -717,6 +721,10 @@ void StreamInPrimary::configure() {
         ::pal_stream_close(mPalHandle);
         mPalHandle = nullptr;
         return;
+    }
+
+    if (mPlatform.getMicMuteStatus()) {
+        setStreamMicMute(true);
     }
 
     const auto palStartApiEndTime = std::chrono::steady_clock::now();

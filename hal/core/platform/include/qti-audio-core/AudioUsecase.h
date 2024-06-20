@@ -185,21 +185,28 @@ class UllPlayback : public UsecaseConfig<UllPlayback> {
     static int32_t getLatency() { return kPeriodDurationMs * kPeriodMultiplier + kPlatformDelayMs; }
 };
 
-class MMapPlayback : public UsecaseConfig<MMapPlayback> {
+class MmapUsecaseBase {
+  public:
+    virtual ~MmapUsecaseBase() {}
+    virtual void setPalHandle(pal_stream_handle_t* handle);
+    virtual int32_t createMMapBuffer(int64_t frameSize, int32_t* fd, int64_t* burstSizeFrames,
+                                     int32_t* flags, int32_t* bufferSizeFrames);
+    virtual int32_t getMMapPosition(int64_t* frames, int64_t* timeNs);
+
+  protected:
+    pal_stream_handle_t* mPalHandle{nullptr};
+};
+
+class MMapPlayback : public MmapUsecaseBase, public UsecaseConfig<MMapPlayback> {
   public:
     constexpr static size_t kPeriodSize = 48; // 1ms
     constexpr static size_t kPlatformDelayMs = 3;
     constexpr static uint32_t kPeriodCount = 512;
-    void setPalHandle(pal_stream_handle_t* handle);
-    int32_t createMMapBuffer(int64_t frameSize, int32_t* fd, int64_t* burstSizeFrames,
-                             int32_t* flags, int32_t* bufferSizeFrames);
-    int32_t getMMapPosition(int64_t* frames, int64_t* timeNs);
 
     static size_t getFrameCount(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
 
     static int32_t getLatency() { return kPlatformDelayMs; }
-    pal_stream_handle_t* mPalHandle{nullptr};
 };
 
 class CompressPlayback : public UsecaseConfig<CompressPlayback, false /*IsPcm*/> {
@@ -459,17 +466,11 @@ class UltraFastRecord : public UsecaseConfig<UltraFastRecord> {
     static int32_t getLatency() { return kPlatformDelayMs; }
 };
 
-class MMapRecord : public UsecaseConfig<MMapRecord> {
+class MMapRecord : public MmapUsecaseBase, public UsecaseConfig<MMapRecord> {
   public:
     constexpr static uint32_t kPeriodSize = 48; // Same as Playback?
     constexpr static size_t kPeriodCount = 512;
     constexpr static size_t kPlatformDelayMs = 4;
-    void setPalHandle(pal_stream_handle_t* handle);
-    int32_t createMMapBuffer(int64_t frameSize, int32_t* fd, int64_t* burstSizeFrames,
-                             int32_t* flags, int32_t* bufferSizeFrames);
-    int32_t getMMapPosition(int64_t* frames, int64_t* timeNs);
-
-    pal_stream_handle_t* mPalHandle{nullptr};
 
     static size_t getFrameCount(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);

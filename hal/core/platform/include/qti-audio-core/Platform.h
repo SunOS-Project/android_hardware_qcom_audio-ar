@@ -12,6 +12,7 @@
 #include <aidl/android/media/audio/common/AudioPlaybackRate.h>
 #include <aidl/android/media/audio/common/AudioPort.h>
 #include <aidl/android/media/audio/common/AudioPortConfig.h>
+#include <aidl/android/hardware/audio/core/ITelephony.h>
 #include <aidl/android/media/audio/common/MicrophoneDynamicInfo.h>
 #include <aidl/android/media/audio/common/MicrophoneInfo.h>
 #include <extensions/AudioExtension.h>
@@ -105,19 +106,8 @@ class Platform {
 
     std::string getParameter(const std::string& key) const;
     std::string toString() const;
-    bool isFormatTypePCM(const ::aidl::android::media::audio::common::AudioFormatDescription&) const
-            noexcept;
-    bool isUsbDevice(const ::aidl::android::media::audio::common::AudioDevice&) const noexcept;
-    bool isHdmiDevice(const ::aidl::android::media::audio::common::AudioDevice&) const noexcept;
-    bool isInputDevice(const ::aidl::android::media::audio::common::AudioDevice&) const noexcept;
-    bool isOutputDevice(const ::aidl::android::media::audio::common::AudioDevice&) const noexcept;
-    bool isBluetoothDevice(const ::aidl::android::media::audio::common::AudioDevice& d) const
-            noexcept;
-    bool isIPInDevice(const ::aidl::android::media::audio::common::AudioDevice&) const noexcept;
     bool isSoundCardUp() const noexcept;
     bool isSoundCardDown() const noexcept;
-    bool isValidAlsaAddr(const std::vector<int>& alsaAddress) const noexcept;
-
 
     size_t getMinimumStreamSizeFrames(
             const std::vector<::aidl::android::media::audio::common::AudioPortConfig*>& sources,
@@ -189,6 +179,8 @@ class Platform {
                                       const std::string& customKey) const;
 
     bool setStreamMicMute(pal_stream_handle_t* streamHandlePtr, const bool muted);
+    bool getMicMuteStatus();
+    void setMicMuteStatus(bool mute);
     bool updateScreenState(const bool isTurnedOn) noexcept;
     bool isScreenTurnedOn() const noexcept;
 
@@ -220,6 +212,13 @@ class Platform {
 
     void setFacing(std::string const& value) { mFacing = value; }
 
+    void setTelephony(const std::weak_ptr<::aidl::android::hardware::audio::core::ITelephony> telephony) noexcept {
+        mTelephony = telephony;
+    }
+
+    std::weak_ptr<::aidl::android::hardware::audio::core::ITelephony> getTelephony() const noexcept {
+        return mTelephony;
+    }
 
     /*
     * @brief creates a pal payload for a speed factor and sets to PAL
@@ -241,6 +240,10 @@ class Platform {
     // Set and Get Value Functions for Translate Record.
     void setTranslationRecordState(const bool state) noexcept { mIsTranslationRecordEnabled = state; }
     bool getTranslationRecordState() noexcept { return mIsTranslationRecordEnabled; }
+
+    // Set and Get Value Functions for Voice Call Volume mute during Translation Record Usecase.
+    void setTranslationRxMuteState(const bool state) noexcept { mIsTranslationRxMuteEnabled = state; }
+    bool getTranslationRxMuteState() noexcept { return mIsTranslationRxMuteEnabled; }
 
     void updateCallState(int callState) { mCallState = callState; }
     void updateCallMode(int callMode) { mCallMode = callMode; }
@@ -317,6 +320,7 @@ class Platform {
     card_status_t mSndCardStatus{CARD_STATUS_OFFLINE};
     bool mInCallMusicEnabled{false};
     bool mIsTranslationRecordEnabled{false};
+    bool mIsTranslationRxMuteEnabled{false};
     bool mIsScreenTurnedOn{false};
     uint32_t mWFDProxyChannels{0};
     bool mIsUHQAEnabled{false};
@@ -324,6 +328,7 @@ class Platform {
     ::aidl::android::hardware::audio::core::IModule::ScreenRotation mCurrentScreenRotation{
             ::aidl::android::hardware::audio::core::IModule::ScreenRotation::DEG_0};
     bool mOffloadSpeedSupported = false;
+    bool mMicMuted = false;
 
     /* HDR */
     bool mHDREnabled{false};
@@ -343,5 +348,6 @@ class Platform {
     PalDevToMicDynamicInfoMap mMicrophoneDynamicInfoMap;
     // proxy related info
     size_t mProxyRecordFMQSize{0};
+    std::weak_ptr<::aidl::android::hardware::audio::core::ITelephony> mTelephony;
 };
 } // namespace qti::audio::core

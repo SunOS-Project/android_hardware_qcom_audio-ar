@@ -33,19 +33,6 @@ PRODUCT_HWASAN_INCLUDE_PATHS += \
     vendor/qcom/opensource/agm
 endif
 
-ifneq ($(filter hwaddress,$(SANITIZE_TARGET)),)
-$(warning audio hwasan enabled at target level)
-AUDIO_FEATURE_USE_HWASAN_ARTIFACTS := true
-endif
-
-# this feature flag is only set when hwasan is enabled (local or global)
-ifeq ($(AUDIO_FEATURE_USE_HWASAN_ARTIFACTS), true)
-$(warning audio use hwasan artifacts)
-$(call add_soong_config_var_value,vendor_audio_hwasan_config,use_hwasan,true)
-else
-$(call add_soong_config_var_value,vendor_audio_hwasan_config,use_hwasan,false)
-endif
-
 # Pro Audio feature
 PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.audio.pro.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.audio.pro.xml
@@ -53,6 +40,7 @@ PRODUCT_COPY_FILES += \
 SOONG_CONFIG_qtiaudio_var00 := false
 SOONG_CONFIG_qtiaudio_var11 := false
 SOONG_CONFIG_qtiaudio_var22 := false
+SOONG_CONFIG_qtiaudio_hwasan := false
 
 ifneq ($(BUILD_AUDIO_TECHPACK_SOURCE), true)
     SOONG_CONFIG_qtiaudio_var00 := true
@@ -64,4 +52,18 @@ ifeq (,$(wildcard $(QCPATH)/mm-audio-noship))
 endif
 ifeq (,$(wildcard $(QCPATH)/mm-audio))
     SOONG_CONFIG_qtiaudio_var22 := true
+endif
+
+ifneq ($(filter hwaddress,$(SANITIZE_TARGET)),)
+$(warning audio hwasan enabled at target level)
+AUDIO_FEATURE_USE_HWASAN_ARTIFACTS := true
+SOONG_CONFIG_qtiaudio_hwasan := true
+endif
+
+# this feature flag is only set when hwasan is enabled (local or global)
+ifeq ($(AUDIO_FEATURE_USE_HWASAN_ARTIFACTS), true)
+$(warning audio use hwasan artifacts)
+$(call add_soong_config_var_value,vendor_audio_hwasan_config,use_hwasan,true)
+else
+$(call add_soong_config_var_value,vendor_audio_hwasan_config,use_hwasan,false)
 endif

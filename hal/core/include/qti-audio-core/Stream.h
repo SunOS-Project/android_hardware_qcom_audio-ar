@@ -319,7 +319,8 @@ class StreamWorkerImpl : public StreamWorkerInterface,
     void setIsConnected(bool isConnected) override { WorkerImpl::setIsConnected(isConnected); }
     void setClosed() override { WorkerImpl::setClosed(); }
     bool start() override {
-        return WorkerImpl::start(WorkerImpl::kThreadName, ANDROID_PRIORITY_AUDIO);
+        // This is an "audio service thread," must have elevated priority.
+        return WorkerImpl::start(WorkerImpl::kThreadName, ANDROID_PRIORITY_URGENT_AUDIO);
     }
     pid_t getTid() override { return WorkerImpl::getTid(); }
     void stop() override { return WorkerImpl::stop(); }
