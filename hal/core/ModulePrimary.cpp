@@ -824,11 +824,12 @@ std::vector<VendorParameter> ModulePrimary::onGetBluetoothParams(
     for (const auto& id : ids) {
         if (id == Parameters::kA2dpSuspended) {
             VendorParameter param;
-            bool a2dpSuspended = false;
+            bool a2dpEnabled = false;
             param.id = id;
             VString parcel;
-            mBluetoothA2dp->isEnabled(&a2dpSuspended);
-            parcel.value = a2dpSuspended ? "1" : "0";
+            mBluetoothA2dp->isEnabled(&a2dpEnabled);
+            //if a2dp enabled is true then suspend is 0, else suspend is 1
+            parcel.value = a2dpEnabled ? "0" : "1";
             setParameter(parcel, param);
             results.push_back(param);
         }
