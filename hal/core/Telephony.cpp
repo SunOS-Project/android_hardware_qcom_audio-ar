@@ -546,8 +546,7 @@ void Telephony::configureDeviceMute() {
     auto bytes = std::make_unique<uint8_t[]>(byteSize);
     auto palParamPayload = reinterpret_cast<pal_param_payload*>(bytes.get());
     palParamPayload->payload_size = sizeof(pal_device_mute_t);
-    auto palDeviceMute =
-            reinterpret_cast<pal_device_mute_t*>(palParamPayload + sizeof(pal_param_payload));
+    auto palDeviceMute = reinterpret_cast<pal_device_mute_t*>(palParamPayload->payload);
     palDeviceMute->mute = mIsDeviceMuted;
     if (mMuteDirection == "rx") {
         palDeviceMute->dir = PAL_AUDIO_OUTPUT;
