@@ -144,7 +144,9 @@ std::string StreamWorkerCommonLogic::init() {
 
 void StreamWorkerCommonLogic::populateReply(StreamDescriptor::Reply* reply,
                                             bool isConnected) const {
-    reply->status = STATUS_OK;
+    if (reply->status != STATUS_DEAD_OBJECT) {
+        reply->status = STATUS_OK;
+    }
     reply->latencyMs = mContext->getNominalLatencyMs();
     if (isConnected) {
         reply->observable.frames = mContext->getFrameCount();
@@ -478,7 +480,7 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
                     mState != StreamDescriptor::State::TRANSFERRING &&
                     mState != StreamDescriptor::State::TRANSFER_PAUSED) {
                     if (!write(fmqByteCount, &reply)) {
-                        mState = StreamDescriptor::State::ERROR;
+                        LOG(ERROR) << __func__ << ": write failed, but dont put in error state ";
                     }
                     std::shared_ptr<IStreamCallback> asyncCallback = mContext->getAsyncCallback();
                     if (mState == StreamDescriptor::State::STANDBY ||
@@ -622,17 +624,20 @@ bool StreamOutWorkerLogic::write(size_t clientSize, StreamDescriptor::Reply* rep
         size_t actualFrameCount = 0;
         if (isConnected) {
             if (::android::status_t status = mDriver->transfer(
-                        mDataBuffer.get(), byteCount / frameSize, &actualFrameCount, &latency);
+                 mDataBuffer.get(), byteCount / frameSize, &actualFrameCount, &latency);
                 status != ::android::OK) {
                 reply->status = STATUS_DEAD_OBJECT;
                 fatal = true;
                 LOG(ERROR) << __func__ << ": write failed: " << status;
             }
         } else {
-            if (mContext->getAsyncCallback() == nullptr) {
-                usleep(3000); // Simulate blocking transfer delay.
-            }
-            actualFrameCount = byteCount / frameSize;
+                if (mContext->getAsyncCallback() == nullptr) {
+                    usleep(3000); // Simulate blocking transfer delay.
+                } else {
+                    reply->status = STATUS_DEAD_OBJECT;
+                    fatal = true;
+                    LOG(ERROR) << __func__ << ": async write failed, device not connected: ";
+                }
         }
         const size_t actualByteCount = actualFrameCount * frameSize;
         // Frames are consumed and counted regardless of the connection status.
