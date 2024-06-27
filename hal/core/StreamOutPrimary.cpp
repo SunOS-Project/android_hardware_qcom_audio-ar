@@ -241,6 +241,9 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
         LOG(ERROR) << __func__ << mLogPrefix << " failed to drain the stream, ret:" << ret;
         return ret;
     }
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        std::get<CompressPlayback>(mExt).setExpectDrainReady();
+    }
     LOG(DEBUG) << __func__ << mLogPrefix << " drained ";
     return ::android::OK;
 }

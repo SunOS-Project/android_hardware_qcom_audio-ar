@@ -302,6 +302,7 @@ class CompressPlayback : public UsecaseConfig<CompressPlayback, false /*IsPcm*/>
     /* To reconfigure the codec, gapless info */
     void setAndConfigureCodecInfo(pal_stream_handle_t* handle);
     void configureGapless(pal_stream_handle_t* handle);
+    void setExpectDrainReady();
     // if fetched, when status is set, it resets the status
     bool fetchDrainReady();
     void setDrainReady();
@@ -345,6 +346,7 @@ class CompressPlayback : public UsecaseConfig<CompressPlayback, false /*IsPcm*/>
     int32_t mBitWidth;
     std::atomic<bool> mIsDrainReady{false};
     std::atomic<bool> mIsTransferReady{false};
+    std::atomic<bool> mExpectDrainReady{false};
     int64_t mTotalDSPFrames{0};
     int64_t mPrevFrames{0};
     const ::aidl::android::media::audio::common::AudioPortConfig& mMixPortConfig;
