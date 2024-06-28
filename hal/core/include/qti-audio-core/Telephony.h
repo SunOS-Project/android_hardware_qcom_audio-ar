@@ -113,7 +113,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
 
     bool isCrsCallSupported();
     void setCRSVolumeFromIndex(const int index);
-
+    void updateVoiceVolume();
     void setMicMute(const bool muted);
     void updateCalls();
 
@@ -155,7 +155,6 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     void configureSlowTalk();
     void configureHDVoice();
     void configureDeviceMute();
-    void updateVoiceVolume();
     void updateDevices();
     void updateTtyMode();
     void updateCrsDevice();
