@@ -90,7 +90,7 @@ ndk::ScopedAStatus Telephony::switchAudioMode(AudioMode newAudioMode) {
         return ndk::ScopedAStatus::ok();
     }
     if (newAudioMode == AudioMode::IN_CALL && (mAudioMode == AudioMode::NORMAL ||
-                                               mAudioMode == AudioMode::RINGTONE)) {
+                                               mAudioMode == AudioMode::RINGTONE || mAudioMode == AudioMode::IN_COMMUNICATION)) {
         updateCalls();
         LOG(DEBUG) << __func__ << ": start call on call state ACTIVE";
     } else if (newAudioMode == AudioMode::NORMAL && mAudioMode == AudioMode::IN_CALL) {
