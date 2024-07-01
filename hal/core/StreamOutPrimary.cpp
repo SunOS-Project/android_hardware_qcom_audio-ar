@@ -233,6 +233,18 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
         LOG(WARNING) << __func__ << mLogPrefix << ": stream is not configured";
         return ::android::OK;
     }
+    // drain is stop for mmap
+    if (mTag == Usecase::MMAP_PLAYBACK && mIsMMapStarted) {
+        LOG(DEBUG) << __func__ << mLogPrefix << ": stopping out mmap";
+        if (int32_t ret = pal_stream_stop(mPalHandle); ret) {
+            LOG(ERROR) << __func__ << mLogPrefix
+                       << " failed to stop MMAP stream, ret:" << std::to_string(ret);
+            return -EINVAL;
+        }
+        mIsMMapStarted = false;
+        return ::android::OK;
+    }
+
     auto palDrainMode =
             mode == ::aidl::android::hardware::audio::core::StreamDescriptor::DrainMode::DRAIN_ALL
                     ? PAL_DRAIN
@@ -287,23 +299,17 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
         return ::android::OK;
     }
 
-    if (mTag == Usecase::LOW_LATENCY_PLAYBACK || mTag == Usecase::ULL_PLAYBACK) {
+    // AAUdio/mmap triggres stop for pause, so we can ignore here
+    if (mTag == Usecase::LOW_LATENCY_PLAYBACK || mTag == Usecase::ULL_PLAYBACK ||
+                       mTag == Usecase::MMAP_PLAYBACK ) {
         LOG(VERBOSE) << __func__ << mLogPrefix << " unsupported operation!!, Hence ignored";
         return ::android::OK;
     }
 
-    if (mTag == Usecase::MMAP_PLAYBACK) {
-        if (int32_t ret = pal_stream_stop(mPalHandle); ret) {
-            LOG(ERROR) << __func__ << mLogPrefix
-                       << " failed to stop MMAP stream, ret:" << std::to_string(ret);
-            return ret;
-        }
-    } else {
-        if (int32_t ret = pal_stream_pause(mPalHandle); ret) {
-            LOG(ERROR) << __func__ << mLogPrefix
-                       << " failed to pause the stream, ret:" << std::to_string(ret);
-            return ret;
-        }
+    if (int32_t ret = pal_stream_pause(mPalHandle); ret) {
+        LOG(ERROR) << __func__ << mLogPrefix
+                   << " failed to pause the stream, ret:" << std::to_string(ret);
+        return ret;
     }
     mIsPaused = true;
     LOG(DEBUG) << __func__ << mLogPrefix;
@@ -344,7 +350,7 @@ void StreamOutPrimary::resume() {
     // but we are doing on first write
     LOG(DEBUG) << __func__ << mLogPrefix;
 
-    if (mTag == Usecase::MMAP_PLAYBACK && !mStarted) {
+    if (mTag == Usecase::MMAP_PLAYBACK && !mIsMMapStarted) {
         if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
             LOG(ERROR) << __func__ << mLogPrefix
                        << " pal stream start failed, ret:" << std::to_string(ret);
@@ -352,7 +358,8 @@ void StreamOutPrimary::resume() {
             mPalHandle = nullptr;
             return -EINVAL;
         }
-        mStarted = true;
+        mIsMMapStarted = true;
+        return ::android::OK;
     }
 
     if (mPalHandle && mIsPaused) {
@@ -561,7 +568,7 @@ void StreamOutPrimary::shutdown() {
     if (karaoke) mAudExt.mKarokeExtension->karaoke_stop();
 
     mUseCachedVolume = false;
-    mStarted = false;
+    mIsMMapStarted = false;
     mIsPaused = false;
     mPalHandle = nullptr;
     mHapticsPalHandle = nullptr;

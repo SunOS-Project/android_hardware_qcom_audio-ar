@@ -386,8 +386,8 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
             stateDurationMs >= mTransientStateDelayMs) {
             std::shared_ptr<IStreamCallback> asyncCallback = mContext->getAsyncCallback();
             if (asyncCallback == nullptr) {
-                // In blocking mode, mState can only be DRAINING.
-                mState = StreamDescriptor::State::IDLE;
+                /* do nothing, from draining we go to idle
+                as we get pause as part of standby*/
             } else {
                 if (mState == StreamDescriptor::State::DRAINING && mDriver->isDrainReady()) {
                     mState = StreamDescriptor::State::IDLE;

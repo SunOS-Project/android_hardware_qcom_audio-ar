@@ -230,12 +230,6 @@ ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd, int64_t* bu
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
-    if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
-        LOG(ERROR) << __func__ << mLogPrefix << " pal_stream_start failed!! ret:" << std::to_string(ret);
-        ::pal_stream_close(mPalHandle);
-        mPalHandle = nullptr;
-        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
-    }
 
     if (mPlatform.getMicMuteStatus()) {
         setStreamMicMute(true);
@@ -260,7 +254,15 @@ ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd, int64_t* bu
         LOG(WARNING) << __func__ << mLogPrefix << " stream is not configured";
         return ::android::OK;
     }
-    // No op
+    if (mTag == Usecase::MMAP_RECORD && mIsMMapStarted) {
+        LOG(DEBUG) << __func__ << mLogPrefix << ": stopping input mmap";
+        if (int32_t ret = pal_stream_stop(mPalHandle); ret) {
+            LOG(ERROR) << __func__ << mLogPrefix
+                       << " failed to stop MMAP stream, ret:" << std::to_string(ret);
+            return -EINVAL;
+        }
+        mIsMMapStarted = false;
+    }
     return ::android::OK;
 }
 
@@ -289,6 +291,16 @@ void StreamInPrimary::resume() {
 }
 
 ::android::status_t StreamInPrimary::start() {
+    LOG(DEBUG) << __func__ << mLogPrefix;
+    if (mTag == Usecase::MMAP_RECORD && !mIsMMapStarted) {
+        if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
+            LOG(ERROR) << __func__ << mLogPrefix << " pal_stream_start failed!! ret:" << std::to_string(ret);
+            ::pal_stream_close(mPalHandle);
+            mPalHandle = nullptr;
+            return -EINVAL;
+        }
+        mIsMMapStarted = true;
+    }
     return ::android::OK;
 }
 
@@ -400,6 +412,7 @@ void StreamInPrimary::shutdown() {
         }
     }
     mPalHandle = nullptr;
+    mIsMMapStarted = false;
 }
 
 // end of driverInterface methods
