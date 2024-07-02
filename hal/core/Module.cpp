@@ -904,6 +904,9 @@ ndk::ScopedAStatus Module::openOutputStream(const OpenOutputStreamArguments& in_
         mmapRef.burstSizeFrames = burstSizeFrames;
         mmapRef.flags = mmapFlags;
         _aidl_return->desc.bufferSizeFrames = bufferSizeFrames;
+    } else if (mTelephony && hasOutputVoipRxFlag(port->flags)) {
+        // TODO remove this way of handling streams for telephony
+        mTelephony.getInstance()->setVoipPlaybackStream(stream);
     }
 
     auto streamBinder = streamWrapper.getBinder();
