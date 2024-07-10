@@ -989,6 +989,11 @@ void StreamOutPrimary::configure() {
         mPalHandle = nullptr;
         return;
     }
+
+    if (mUseCachedVolume) {
+        setHwVolume(mVolumes);
+    }
+
     if (mTag == Usecase::HAPTICS_PLAYBACK) {
 
         hapticChannelLayout = AudioChannelLayout::make<AudioChannelLayout::Tag::layoutMask>
@@ -1112,10 +1117,6 @@ void StreamOutPrimary::configure() {
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         // Must be after pal stream start
         std::get<CompressPlayback>(mExt).configureGapless(mPalHandle);
-    }
-
-    if (mUseCachedVolume) {
-        setHwVolume(mVolumes);
     }
 
     if (mPlaybackRate != sDefaultPlaybackRate) {
