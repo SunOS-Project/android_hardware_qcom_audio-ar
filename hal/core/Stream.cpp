@@ -147,6 +147,11 @@ void StreamWorkerCommonLogic::populateReply(StreamDescriptor::Reply* reply,
     if (reply->status != STATUS_DEAD_OBJECT) {
         reply->status = STATUS_OK;
     }
+
+    static const StreamDescriptor::Position kUnknownPosition = {
+      .frames = StreamDescriptor::Position::UNKNOWN,
+      .timeNs = StreamDescriptor::Position::UNKNOWN};
+
     reply->latencyMs = mContext->getNominalLatencyMs();
     if (isConnected) {
         reply->observable.frames = mContext->getFrameCount();
@@ -154,10 +159,17 @@ void StreamWorkerCommonLogic::populateReply(StreamDescriptor::Reply* reply,
         if (auto status = mDriver->refinePosition(reply); status == ::android::OK) {
             return;
         }
+        else {
+           if (hasMMapFlagsEnabled(mContext->getFlags())) {
+               // if mmap position fails,return error to framework
+               // for any error other than.. not enough data, AAudio will stop
+               reply->status = STATUS_INVALID_OPERATION;
+           }
+        }
     }
+
     LOG(ERROR) << __func__ << ": stream is not connected to any device";
-    reply->observable.frames = StreamDescriptor::Position::UNKNOWN;
-    reply->observable.timeNs = StreamDescriptor::Position::UNKNOWN;
+    reply->observable = reply->hardware = kUnknownPosition;
 }
 
 void StreamWorkerCommonLogic::populateReplyWrongState(
