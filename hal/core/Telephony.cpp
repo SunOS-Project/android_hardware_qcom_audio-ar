@@ -650,20 +650,19 @@ void Telephony::startCall() {
     }
 
     const size_t numDevices = 2;
+    //set custom key for hac mode
+    if (mTelecomConfig.isHacEnabled.has_value() && mTelecomConfig.isHacEnabled.value().value &&
+        palDevices[0].id == PAL_DEVICE_OUT_HANDSET) {
+        strlcpy(palDevices[0].custom_config.custom_key, "HAC",
+                sizeof(palDevices[0].custom_config.custom_key));
+        LOG(VERBOSE) << __func__ << "setting custom key as " << palDevices[0].custom_config.custom_key;
+    }
     if (mSetUpdates.mIsCrsCall) {
         strlcpy(palDevices[0].custom_config.custom_key, "crsCall",
                 sizeof(palDevices[0].custom_config.custom_key));
-        LOG(VERBOSE) << __func__ << "setting custom key as ", palDevices[0].custom_config.custom_key;
-    } else {
-        strlcpy(palDevices[0].custom_config.custom_key, "",
-                sizeof(palDevices[0].custom_config.custom_key));
+        LOG(VERBOSE) << __func__ << "setting custom key as " << palDevices[0].custom_config.custom_key;
     }
-    //set custom key for hac mode
-    if (mTelecomConfig.isHacEnabled && palDevices[0].id == PAL_DEVICE_OUT_HANDSET) {
-        strlcpy(palDevices[0].custom_config.custom_key, "HAC",
-                sizeof(palDevices[0].custom_config.custom_key));
-        LOG(VERBOSE) << __func__ << "setting custom key as ", palDevices[0].custom_config.custom_key;
-    }
+
     if (int32_t ret = ::pal_stream_open(
                 attributes.get(), numDevices, reinterpret_cast<pal_device*>(palDevices.data()), 0,
                 nullptr, nullptr, reinterpret_cast<uint64_t>(this), &mPalHandle);
@@ -837,6 +836,17 @@ void Telephony::updateDevices() {
         }
     }
 
+    //set or remove custom key for hac mode
+    if (mTelecomConfig.isHacEnabled.has_value() && mTelecomConfig.isHacEnabled.value().value &&
+        palDevices[0].id == PAL_DEVICE_OUT_HANDSET) {
+        strlcpy(palDevices[0].custom_config.custom_key, "HAC",
+                sizeof(palDevices[0].custom_config.custom_key));
+        LOG(VERBOSE) << __func__ << "setting custom key as " << palDevices[0].custom_config.custom_key;
+    } else {
+        strlcpy(palDevices[0].custom_config.custom_key, "",
+                sizeof(palDevices[0].custom_config.custom_key));
+    }
+
     if (mSetUpdates.mIsCrsCall) {
         if (mPalCrsHandle != nullptr)
             stopCrsLoopback();
@@ -844,19 +854,9 @@ void Telephony::updateDevices() {
         palDevices = mPlatform.convertToPalDevices({mRxDevice, mTxDevice});
         strlcpy(palDevices[0].custom_config.custom_key, "crsCall",
                   sizeof(palDevices[0].custom_config.custom_key));
-    } else {
-        strlcpy(palDevices[0].custom_config.custom_key, "",
-                  sizeof(palDevices[0].custom_config.custom_key));
     }
 
     if (mPalHandle == nullptr) return;
-
-     //set custom key for hac mode
-    if (mTelecomConfig.isHacEnabled && palDevices[0].id == PAL_DEVICE_OUT_HANDSET) {
-        strlcpy(palDevices[0].custom_config.custom_key, "HAC",
-                sizeof(palDevices[0].custom_config.custom_key));
-        LOG(VERBOSE) << __func__ << "setting custom key as ", palDevices[0].custom_config.custom_key;
-    }
 
     if (int32_t ret = ::pal_stream_set_device(mPalHandle, 2,
                                               reinterpret_cast<pal_device*>(palDevices.data()));
