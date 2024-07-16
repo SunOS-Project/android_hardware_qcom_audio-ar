@@ -515,7 +515,7 @@ void StreamOutPrimary::resume() {
                                                                        &(reply->hardware.timeNs));
         if (ret != 0) {
             LOG(ERROR) << __func__ << mLogPrefix << ": mmap position failed";
-            return android::BAD_VALUE;
+            return android::INVALID_OPERATION;
         }
 
         int64_t totalDelayFrames = 0;

@@ -390,7 +390,7 @@ void StreamInPrimary::resume() {
         if (int32_t ret = std::get<MMapRecord>(mExt).getMMapPosition(&(reply->hardware.frames),
                                                                      &(reply->hardware.timeNs));
             ret != 0) {
-            return ::android::BAD_VALUE;
+            return android::INVALID_OPERATION;
         }
     }
     return ::android::OK;
