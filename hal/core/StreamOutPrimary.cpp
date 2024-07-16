@@ -108,7 +108,7 @@ struct BufferConfig StreamOutPrimary::getBufferConfig() {
 }
 
 StreamOutPrimary::~StreamOutPrimary() {
-    shutdown();
+    shutdown_I();
     LOG(DEBUG) << __func__ << mLogPrefix;
 }
 
@@ -351,7 +351,7 @@ void StreamOutPrimary::resume() {
         return ::android::OK;
     }
 
-    shutdown();
+    shutdown_I();
     LOG(DEBUG) << __func__ << mLogPrefix;
     return ::android::OK;
 }
@@ -561,32 +561,7 @@ void StreamOutPrimary::resume() {
 }
 
 void StreamOutPrimary::shutdown() {
-    if (mPalHandle != nullptr) {
-        enableOffloadEffects(false);
-        ::pal_stream_stop(mPalHandle);
-        ::pal_stream_close(mPalHandle);
-    }
-    if (mHapticsPalHandle != nullptr) {
-        ::pal_stream_stop(mHapticsPalHandle);
-        ::pal_stream_close(mHapticsPalHandle);
-        if (mHapticsBuffer) {
-            mHapticsBuffer = nullptr;
-        }
-        mHapticsBufSize = 0;
-    }
-
-    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        std::get<CompressPlayback>(mExt).setAndConfigureCodecInfo(nullptr);
-    }
-
-    if (karaoke) mAudExt.mKarokeExtension->karaoke_stop();
-
-    mUseCachedVolume = false;
-    mIsMMapStarted = false;
-    mIsPaused = false;
-    mPalHandle = nullptr;
-    mHapticsPalHandle = nullptr;
-    LOG(VERBOSE) << __func__ << mLogPrefix;
+    return shutdown_I();
 }
 
 bool StreamOutPrimary::isDrainReady() {
@@ -895,7 +870,7 @@ size_t StreamOutPrimary::getPlatformDelay() const noexcept {
 }
 
 ::android::status_t StreamOutPrimary::onWriteError(const size_t sleepFrameCount) {
-    shutdown();
+    shutdown_I();
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         // return error for offload, so that FW sends data again
         LOG(ERROR) << __func__ << mLogPrefix << ": cannot afford write failure";
@@ -1202,6 +1177,35 @@ ndk::ScopedAStatus StreamOutPrimary::setLatencyMode(
     if (ret) ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
 
     return ndk::ScopedAStatus::ok();
+}
+
+void StreamOutPrimary::shutdown_I() {
+    if (mPalHandle != nullptr) {
+        enableOffloadEffects(false);
+        ::pal_stream_stop(mPalHandle);
+        ::pal_stream_close(mPalHandle);
+    }
+    if (mHapticsPalHandle != nullptr) {
+        ::pal_stream_stop(mHapticsPalHandle);
+        ::pal_stream_close(mHapticsPalHandle);
+        if (mHapticsBuffer) {
+            mHapticsBuffer = nullptr;
+        }
+        mHapticsBufSize = 0;
+    }
+
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        std::get<CompressPlayback>(mExt).setAndConfigureCodecInfo(nullptr);
+    }
+
+    if (karaoke) mAudExt.mKarokeExtension->karaoke_stop();
+
+    mUseCachedVolume = false;
+    mIsMMapStarted = false;
+    mIsPaused = false;
+    mPalHandle = nullptr;
+    mHapticsPalHandle = nullptr;
+    LOG(VERBOSE) << __func__ << mLogPrefix;
 }
 
 } // namespace qti::audio::core
