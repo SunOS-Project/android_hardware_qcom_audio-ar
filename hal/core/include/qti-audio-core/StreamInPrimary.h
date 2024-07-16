@@ -106,6 +106,7 @@ class StreamInPrimary : public StreamIn, public StreamCommonImpl {
     bool mAECEnabled = false;
     bool mNSEnabled = false;
     bool mEffectsApplied = true;
+    bool mIsMMapStarted = false;
     std::string mLogPrefix = "";
 };
 
