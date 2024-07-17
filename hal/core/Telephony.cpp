@@ -575,6 +575,11 @@ void Telephony::setVoipPlaybackStream(std::weak_ptr<StreamCommonInterface> voipS
     mVoipStreamWptr = voipStream;
 }
 
+void Telephony::onVoipPlaybackClose() {
+    std::scoped_lock lock{mLock};
+    // TODO
+}
+
 void Telephony::triggerHACinVoipPlayback() {
     auto voipStream = mVoipStreamWptr.lock();
     if (!voipStream) {
