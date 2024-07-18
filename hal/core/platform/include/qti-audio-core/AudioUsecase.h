@@ -219,7 +219,7 @@ class CompressPlayback : public UsecaseConfig<CompressPlayback, false /*IsPcm*/>
     static size_t getFrameCount(
             const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig);
 
-    static int32_t getLatency() { return kLatencyMs * 2; }
+    static int32_t getLatency() { return kLatencyMs; }
 
     class Flac final {
       public:
