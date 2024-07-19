@@ -12,6 +12,7 @@
 #include <qti-audio-core/AudioUsecase.h>
 #include <qti-audio-core/Platform.h>
 #include <qti-audio-core/PlatformUtils.h>
+#include <qti-audio-core/PlatformStreamCallback.h>
 #include <qti-audio-core/Utils.h>
 
 using ::aidl::android::media::audio::common::AudioIoFlags;
@@ -320,9 +321,9 @@ size_t CompressPlayback::getFrameCount(const AudioPortConfig& mixPortConfig) {
 
 CompressPlayback::CompressPlayback(
         const ::aidl::android::media::audio::common::AudioOffloadInfo& offloadInfo,
-        std::shared_ptr<::aidl::android::hardware::audio::core::IStreamCallback> asyncCallback,
+        PlatformStreamCallback* const callback,
         const ::aidl::android::media::audio::common::AudioPortConfig& mixPortConfig)
-    : mOffloadInfo(offloadInfo), mAsyncCallback(asyncCallback), mMixPortConfig(mixPortConfig) {
+    : mOffloadInfo(offloadInfo), mPlatformStreamCallback(callback), mMixPortConfig(mixPortConfig) {
     configureDefault();
 }
 
@@ -369,26 +370,6 @@ ndk::ScopedAStatus CompressPlayback::getVendorParameters(
     return ndk::ScopedAStatus::ok();
 }
 
-void CompressPlayback::setExpectDrainReady(){
-    mExpectDrainReady = true;
-}
-
-bool CompressPlayback::fetchDrainReady() {
-    return mIsDrainReady.exchange(false);
-}
-
-void CompressPlayback::setDrainReady() {
-    mIsDrainReady.store(true);
-}
-
-bool CompressPlayback::fetchTransferReady() {
-    return mIsTransferReady.exchange(false);
-}
-
-void CompressPlayback::setTransferReady() {
-    mIsTransferReady.store(true);
-}
-
 // static
 int32_t CompressPlayback::palCallback(pal_stream_handle_t* palHandle, uint32_t eventId,
                                       uint32_t* eventData, uint32_t eventSize, uint64_t cookie) {
@@ -396,35 +377,17 @@ int32_t CompressPlayback::palCallback(pal_stream_handle_t* palHandle, uint32_t e
 
     switch (eventId) {
         case PAL_STREAM_CBK_EVENT_WRITE_READY: {
-            LOG(VERBOSE) << __func__ << " ready to write";
-            compressPlayback->setTransferReady();
-            compressPlayback->mAsyncCallback->onTransferReady();
+            compressPlayback->mPlatformStreamCallback->onTransferReady();
         } break;
-
         case PAL_STREAM_CBK_EVENT_DRAIN_READY: {
-            if (!(compressPlayback->mExpectDrainReady)) {
-                LOG(WARNING) << __func__ << ": not expecting drain ready";
-                break;
-            }
-            LOG(VERBOSE) << __func__ << " drain ready";
-            compressPlayback->setDrainReady();
-            compressPlayback->mAsyncCallback->onDrainReady();
-            compressPlayback->mExpectDrainReady = false;
+            compressPlayback->mPlatformStreamCallback->onDrainReady();
         } break;
         case PAL_STREAM_CBK_EVENT_PARTIAL_DRAIN_READY: {
-            if (!(compressPlayback->mExpectDrainReady)) {
-                LOG(WARNING) << __func__ << ": not expecting drain ready";
-                break;
-            }
-            LOG(VERBOSE) << __func__ << " partial drain ready";
-            compressPlayback->setDrainReady();
-            compressPlayback->mAsyncCallback->onDrainReady();
-            compressPlayback->mExpectDrainReady = false;
+            compressPlayback->mPlatformStreamCallback->onDrainReady();
         } break;
-        case PAL_STREAM_CBK_EVENT_ERROR:
-            LOG(ERROR) << __func__ << " error!!!";
-            compressPlayback->mAsyncCallback->onError();
-            break;
+        case PAL_STREAM_CBK_EVENT_ERROR: {
+            compressPlayback->mPlatformStreamCallback->onError();
+        } break;
         default:
             LOG(ERROR) << __func__ << " invalid!!! event id:" << eventId;
             return -EINVAL;
@@ -702,7 +665,6 @@ void CompressPlayback::onFlush() {
     // on flush SPR module is reset to 0. Hence, we cache the DSP frames
     mTotalDSPFrames = mTotalDSPFrames + mPrevFrames;
     mPrevFrames = 0;
-    mExpectDrainReady = false;
 }
 
 // [CompressPlayback End]

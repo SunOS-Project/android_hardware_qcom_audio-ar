@@ -63,7 +63,7 @@ StreamOutPrimary::StreamOutPrimary(StreamContext&& context, const SourceMetadata
     } else if (mTag == Usecase::DEEP_BUFFER_PLAYBACK) {
         mExt.emplace<DeepBufferPlayback>();
     } else if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        mExt.emplace<CompressPlayback>(offloadInfo.value(), getContext().getAsyncCallback(),
+        mExt.emplace<CompressPlayback>(offloadInfo.value(), this,
                                        mMixPortConfig);
     } else if (mTag == Usecase::PCM_OFFLOAD_PLAYBACK) {
         mExt.emplace<PcmOffloadPlayback>(mMixPortConfig);
@@ -260,9 +260,6 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
     if (int32_t ret = ::pal_stream_drain(mPalHandle, palDrainMode); ret) {
         LOG(ERROR) << __func__ << mLogPrefix << " failed to drain the stream, ret:" << ret;
         return ret;
-    }
-    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        std::get<CompressPlayback>(mExt).setExpectDrainReady();
     }
     LOG(DEBUG) << __func__ << mLogPrefix << " drained ";
     return ::android::OK;
@@ -564,27 +561,23 @@ void StreamOutPrimary::shutdown() {
     return shutdown_I();
 }
 
-bool StreamOutPrimary::isDrainReady() {
-    if (!mPalHandle) {
-        return false;
-    }
-    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        return std::get<CompressPlayback>(mExt).fetchDrainReady();
-    }
-    return false;
-}
-
-bool StreamOutPrimary::isTransferReady() {
-    if (!mPalHandle) {
-        return false;
-    }
-    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        return std::get<CompressPlayback>(mExt).fetchTransferReady();
-    }
-    return false;
-}
-
 // end of DriverInterface Methods
+
+// start of PlatformStreamCallback methods
+
+void StreamOutPrimary::onTransferReady() {
+    publishTransferReady();
+}
+
+void StreamOutPrimary::onDrainReady() {
+    publishDrainReady();
+}
+
+void StreamOutPrimary::onError() {
+    publishError();
+}
+
+// end of PlatformStreamCallback methods
 
 // start of IStreamOut Methods
 ndk::ScopedAStatus StreamOutPrimary::updateOffloadMetadata(

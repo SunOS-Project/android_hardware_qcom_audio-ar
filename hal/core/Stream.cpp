@@ -386,6 +386,50 @@ bool StreamInWorkerLogic::read(size_t clientSize, StreamDescriptor::Reply* reply
 
 const std::string StreamOutWorkerLogic::kThreadName = "writer";
 
+void StreamOutWorkerLogic::publishTransferReady() {
+    if (!mContext->getAsyncCallback()) {
+        return;
+    }
+    std::unique_lock lock{mAsyncMutex};
+    mPendingCallBack = std::nullopt;
+    if (mState == StreamDescriptor::State::TRANSFERRING) {
+        mState = StreamDescriptor::State::ACTIVE;
+        mContext->getAsyncCallback()->onTransferReady();
+        LOG(VERBOSE) << __func__ << ": sent transfer ready to client";
+    } else if (mState == StreamDescriptor::State::TRANSFER_PAUSED) {
+        mPendingCallBack = StreamCallbackType::TR;
+        LOG(VERBOSE) << __func__ << ": pending transfer ready";
+    } else {
+        LOG(WARNING) << __func__ << ": shouldn't happen !!";
+    }
+}
+
+void StreamOutWorkerLogic::publishDrainReady() {
+    if (!mContext->getAsyncCallback()) {
+        return;
+    }
+    std::unique_lock lock{mAsyncMutex};
+    mPendingCallBack = std::nullopt;
+    if (mState == StreamDescriptor::State::DRAINING) {
+        mContext->getAsyncCallback()->onDrainReady();
+        mState = StreamDescriptor::State::IDLE;
+        LOG(VERBOSE) << __func__ << ": sent drain ready to client";
+    } else if (mState == StreamDescriptor::State::DRAIN_PAUSED) {
+        mPendingCallBack = StreamCallbackType::DR;
+        LOG(VERBOSE) << __func__ << ": pending drain ready";
+    } else {
+        LOG(WARNING) << __func__ << ": shouldn't happen !!";
+    }
+}
+
+void StreamOutWorkerLogic::publishError() {
+    if (!mContext->getAsyncCallback()) {
+        return;
+    }
+    mContext->getAsyncCallback()->onError();
+    LOG(WARNING) << __func__ << ": sent Error to the client";
+}
+
 StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
     StreamDescriptor::Command command{};
     if (!mContext->getCommandMQ()->readBlocking(&command, 1)) {
@@ -393,43 +437,22 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
         mState = StreamDescriptor::State::ERROR;
         return Status::ABORT;
     }
-    if (mState == StreamDescriptor::State::DRAINING ||
-        mState == StreamDescriptor::State::TRANSFERRING) {
-        if (auto stateDurationMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-                    std::chrono::steady_clock::now() - mTransientStateStart);
-            stateDurationMs >= mTransientStateDelayMs) {
-            std::shared_ptr<IStreamCallback> asyncCallback = mContext->getAsyncCallback();
-            if (asyncCallback == nullptr) {
-                /* do nothing, from draining we go to idle
-                as we get pause as part of standby*/
-            } else {
-                if (mState == StreamDescriptor::State::DRAINING && mDriver->isDrainReady()) {
-                    mState = StreamDescriptor::State::IDLE;
-                } else if (mState == StreamDescriptor::State::TRANSFERRING &&
-                           mDriver->isTransferReady()) {
-                    mState = StreamDescriptor::State::ACTIVE;
-                }
-            }
-            if (mTransientStateDelayMs.count() != 0) {
-                LOG(DEBUG) << __func__ << ": switched to state " << toString(mState)
-                           << " after a timeout";
-            }
-        }
+
+    std::unique_lock asyncLock{mAsyncMutex, std::defer_lock};
+    if (mContext->getAsyncCallback()) {
+        // Accquring the lock in case of Asynchronous Stream
+        asyncLock.lock();
     }
+
     using Tag = StreamDescriptor::Command::Tag;
     using LogSeverity = ::android::base::LogSeverity;
     const LogSeverity severity =
             command.getTag() == Tag::burst || command.getTag() == Tag::getStatus
                     ? LogSeverity::VERBOSE
                     : LogSeverity::DEBUG;
-#ifdef VERY_VERBOSE_LOGGING
-    LOG(severity) << __func__ << ": received command " << command.toString() << " in "
-                  << kThreadName;
-#else
-    if (command.getTag() != Tag::burst && command.getTag() != Tag::getStatus)
-        LOG(DEBUG) << __func__ << ": received command " << command.toString() << " in "
+
+    LOG(VERBOSE) << __func__ << ": received command " << command.toString() << " in "
                    << kThreadName;
-#endif
 
     StreamDescriptor::Reply reply{};
     reply.status = STATUS_BAD_VALUE;
@@ -610,6 +633,35 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
         mState = StreamDescriptor::State::ERROR;
         return Status::ABORT;
     }
+
+    if (mContext->getAsyncCallback() && mPendingCallBack && command.getTag() != Tag::getStatus) {
+        /**
+         * After the writing the reply, handle the pending callback, if any
+         * and issue to the client based on the stream state.
+         **/
+        if (command.getTag() == Tag::start && mState == StreamDescriptor::State::TRANSFERRING &&
+            mPendingCallBack == StreamCallbackType::TR) {
+            mContext->getAsyncCallback()->onTransferReady();
+            mState = StreamDescriptor::State::ACTIVE;
+            mPendingCallBack = {};
+            LOG(VERBOSE) << __func__ << ": sent pending transfer ready !!!";
+        } else if (command.getTag() == Tag::start && mState == StreamDescriptor::State::DRAINING &&
+                   mPendingCallBack == StreamCallbackType::DR) {
+            mContext->getAsyncCallback()->onDrainReady();
+            mState = StreamDescriptor::State::IDLE;
+            mPendingCallBack = {};
+            LOG(VERBOSE) << __func__ << ": sent pending drain ready !!!";
+        } else if (command.getTag() == Tag::flush || command.getTag() == Tag::drain) {
+            // clear the pending callbacks
+            mPendingCallBack = {};
+            LOG(VERBOSE) << __func__ << ": cleared the pending callback !!!";
+        } else {
+            // clear the pending callbacks
+            // mPendingCallBack = {};
+            LOG(WARNING) << __func__ << ": shouldn't happen !!!";
+        }
+    }
+
     return Status::CONTINUE;
 }
 
