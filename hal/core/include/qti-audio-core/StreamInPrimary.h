@@ -79,6 +79,7 @@ class StreamInPrimary : public StreamIn, public StreamCommonImpl {
      */
     void configure();
     void resume();
+    void shutdown_I();
     size_t getPlatformDelay() const noexcept;
 
     // API which are *_I are internal 

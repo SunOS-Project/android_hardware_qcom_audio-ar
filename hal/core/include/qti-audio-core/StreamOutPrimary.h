@@ -95,6 +95,7 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
      */
     void configure();
     void resume();
+    void shutdown_I();
     size_t getPlatformDelay() const noexcept;
     ::android::status_t onWriteError(const size_t sleepFrameCount);
 
