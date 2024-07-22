@@ -369,6 +369,10 @@ ndk::ScopedAStatus CompressPlayback::getVendorParameters(
     return ndk::ScopedAStatus::ok();
 }
 
+void CompressPlayback::setExpectDrainReady(){
+    mExpectDrainReady = true;
+}
+
 bool CompressPlayback::fetchDrainReady() {
     return mIsDrainReady.exchange(false);
 }
@@ -398,14 +402,24 @@ int32_t CompressPlayback::palCallback(pal_stream_handle_t* palHandle, uint32_t e
         } break;
 
         case PAL_STREAM_CBK_EVENT_DRAIN_READY: {
+            if (!(compressPlayback->mExpectDrainReady)) {
+                LOG(WARNING) << __func__ << ": not expecting drain ready";
+                break;
+            }
             LOG(VERBOSE) << __func__ << " drain ready";
             compressPlayback->setDrainReady();
             compressPlayback->mAsyncCallback->onDrainReady();
+            compressPlayback->mExpectDrainReady = false;
         } break;
         case PAL_STREAM_CBK_EVENT_PARTIAL_DRAIN_READY: {
+            if (!(compressPlayback->mExpectDrainReady)) {
+                LOG(WARNING) << __func__ << ": not expecting drain ready";
+                break;
+            }
             LOG(VERBOSE) << __func__ << " partial drain ready";
             compressPlayback->setDrainReady();
             compressPlayback->mAsyncCallback->onDrainReady();
+            compressPlayback->mExpectDrainReady = false;
         } break;
         case PAL_STREAM_CBK_EVENT_ERROR:
             LOG(ERROR) << __func__ << " error!!!";
@@ -688,6 +702,7 @@ void CompressPlayback::onFlush() {
     // on flush SPR module is reset to 0. Hence, we cache the DSP frames
     mTotalDSPFrames = mTotalDSPFrames + mPrevFrames;
     mPrevFrames = 0;
+    mExpectDrainReady = false;
 }
 
 // [CompressPlayback End]

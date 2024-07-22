@@ -110,6 +110,14 @@ ndk::ScopedAStatus StreamInPrimary::setConnectedDevices(
         const std::vector<::aidl::android::media::audio::common::AudioDevice>& devices) {
     mWorker->setIsConnected(!devices.empty());
     mConnectedDevices = devices;
+    return configureConnectedDevices_I();
+}
+
+ndk::ScopedAStatus StreamInPrimary::reconfigureConnectedDevices() {
+    return configureConnectedDevices_I();
+}
+
+ndk::ScopedAStatus StreamInPrimary::configureConnectedDevices_I() {
     auto connectedPalDevices =
             mPlatform.configureAndFetchPalDevices(mMixPortConfig, mTag, mConnectedDevices);
     if (mTag == Usecase::PCM_RECORD || mTag == Usecase::COMPRESS_CAPTURE) {
@@ -148,8 +156,8 @@ ndk::ScopedAStatus StreamInPrimary::setConnectedDevices(
     };
 
     LOG(DEBUG) << __func__ << mLogPrefix << " stream is connected to devices:"
-                 << std::accumulate(mConnectedDevices.cbegin(), mConnectedDevices.cend(),
-                                    std::string(""), devicesString);
+               << std::accumulate(mConnectedDevices.cbegin(), mConnectedDevices.cend(),
+                                  std::string(""), devicesString);
 
     return ndk::ScopedAStatus::ok();
 }
@@ -382,7 +390,7 @@ void StreamInPrimary::resume() {
         if (int32_t ret = std::get<MMapRecord>(mExt).getMMapPosition(&(reply->hardware.frames),
                                                                      &(reply->hardware.timeNs));
             ret != 0) {
-            return ::android::BAD_VALUE;
+            return android::INVALID_OPERATION;
         }
     }
     return ::android::OK;

@@ -568,6 +568,8 @@ void ModulePrimary::onSetTelephonyParameters(const std::vector<VendorParameter>&
         } else if (Parameters::kVoiceTranslationRxMute == p.id) {
             const auto isOn = getBoolFromString(paramValue);
             mPlatform.setTranslationRxMuteState(isOn);
+            LOG(DEBUG) << __func__ << " : translation Rx mute set as true" ;
+            mTelephony->updateVoiceVolume();
         }
     }
 

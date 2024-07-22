@@ -90,7 +90,7 @@ ndk::ScopedAStatus Telephony::switchAudioMode(AudioMode newAudioMode) {
         return ndk::ScopedAStatus::ok();
     }
     if (newAudioMode == AudioMode::IN_CALL && (mAudioMode == AudioMode::NORMAL ||
-                                               mAudioMode == AudioMode::RINGTONE)) {
+                                               mAudioMode == AudioMode::RINGTONE || mAudioMode == AudioMode::IN_COMMUNICATION)) {
         updateCalls();
         LOG(DEBUG) << __func__ << ": start call on call state ACTIVE";
     } else if (newAudioMode == AudioMode::NORMAL && mAudioMode == AudioMode::IN_CALL) {
@@ -116,7 +116,7 @@ ndk::ScopedAStatus Telephony::switchAudioMode(AudioMode newAudioMode) {
 
 ndk::ScopedAStatus Telephony::setTelecomConfig(const TelecomConfig& in_config,
                                                TelecomConfig* _aidl_return) {
-    std::scoped_lock lock{mLock};
+    std::unique_lock lock{mLock};
 
     if (in_config.voiceVolume.has_value() &&
         (in_config.voiceVolume.value().value <
@@ -139,6 +139,16 @@ ndk::ScopedAStatus Telephony::setTelecomConfig(const TelecomConfig& in_config,
     }
     if (in_config.isHacEnabled.has_value()) {
         mTelecomConfig.isHacEnabled = in_config.isHacEnabled;
+        mPlatform.setHACEnabled(mTelecomConfig.isHacEnabled.value().value);
+        /**
+         * TODO remove this unusual way with streams
+         * remove the telephony lock before handling the streams.
+         * unlocking the telephony is necessary because the stream already have telephony instance.
+         */
+
+        lock.unlock();
+        triggerHACinVoipPlayback();
+        lock.lock();
     }
     *_aidl_return = mTelecomConfig;
     LOG(DEBUG) << __func__ << ": received " << in_config.toString() << ", returning "
@@ -546,8 +556,7 @@ void Telephony::configureDeviceMute() {
     auto bytes = std::make_unique<uint8_t[]>(byteSize);
     auto palParamPayload = reinterpret_cast<pal_param_payload*>(bytes.get());
     palParamPayload->payload_size = sizeof(pal_device_mute_t);
-    auto palDeviceMute =
-            reinterpret_cast<pal_device_mute_t*>(palParamPayload + sizeof(pal_param_payload));
+    auto palDeviceMute = reinterpret_cast<pal_device_mute_t*>(palParamPayload->payload);
     palDeviceMute->mute = mIsDeviceMuted;
     if (mMuteDirection == "rx") {
         palDeviceMute->dir = PAL_AUDIO_OUTPUT;
@@ -558,6 +567,23 @@ void Telephony::configureDeviceMute() {
         ret) {
         LOG(ERROR) << __func__ << ": failed to set PAL_PARAM_ID_DEVICE_MUTE";
         return;
+    }
+}
+
+void Telephony::setVoipPlaybackStream(std::weak_ptr<StreamCommonInterface> voipStream) {
+    std::scoped_lock lock{mLock};
+    mVoipStreamWptr = voipStream;
+}
+
+void Telephony::triggerHACinVoipPlayback() {
+    auto voipStream = mVoipStreamWptr.lock();
+    if (!voipStream) {
+        return;
+    }
+    const auto& voipConnectedDevices = voipStream->getConnectedDevices();
+    if (hasOutputSpeakerEarpiece(voipConnectedDevices)) {
+        LOG(INFO) << __func__ << ": HAC status changed for VOIP playback";
+        voipStream->reconfigureConnectedDevices();
     }
 }
 

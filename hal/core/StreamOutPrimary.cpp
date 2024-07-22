@@ -118,6 +118,14 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
     mWorker->setIsConnected(!devices.empty());
     mConnectedDevices = devices;
 
+    return configureConnectedDevices_I();
+}
+
+ndk::ScopedAStatus StreamOutPrimary::reconfigureConnectedDevices() {
+    return configureConnectedDevices_I();
+}
+
+ndk::ScopedAStatus StreamOutPrimary::configureConnectedDevices_I() {
     if (mConnectedDevices.empty()) {
         LOG(DEBUG) << __func__ << mLogPrefix << ": stream is not connected";
         return ndk::ScopedAStatus::ok();
@@ -137,7 +145,7 @@ ndk::ScopedAStatus StreamOutPrimary::setConnectedDevices(
     auto connectedPalDevices =
             mPlatform.configureAndFetchPalDevices(mMixPortConfig, mTag, mConnectedDevices);
 
-   if (int32_t ret = ::pal_stream_set_device(mPalHandle, connectedPalDevices.size(),
+    if (int32_t ret = ::pal_stream_set_device(mPalHandle, connectedPalDevices.size(),
                                               connectedPalDevices.data());
         ret) {
         LOG(ERROR) << __func__ << mLogPrefix << " failed to set devices on stream, ret:" << ret;
@@ -240,6 +248,9 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
     if (int32_t ret = ::pal_stream_drain(mPalHandle, palDrainMode); ret) {
         LOG(ERROR) << __func__ << mLogPrefix << " failed to drain the stream, ret:" << ret;
         return ret;
+    }
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        std::get<CompressPlayback>(mExt).setExpectDrainReady();
     }
     LOG(DEBUG) << __func__ << mLogPrefix << " drained ";
     return ::android::OK;
@@ -393,8 +404,11 @@ void StreamOutPrimary::resume() {
     }
     if (bytesWritten < 0) {
         LOG(ERROR) << __func__ << mLogPrefix << " write failed, ret: " << bytesWritten;
-        *actualFrameCount = frameCount;
-        return onWriteError(frameCount);
+       *actualFrameCount = frameCount;
+       if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+           *actualFrameCount = 0;
+       }
+       return onWriteError(frameCount);
     }
 
     *actualFrameCount = static_cast<size_t>(bytesWritten / mFrameSizeBytes);
@@ -501,7 +515,7 @@ void StreamOutPrimary::resume() {
                                                                        &(reply->hardware.timeNs));
         if (ret != 0) {
             LOG(ERROR) << __func__ << mLogPrefix << ": mmap position failed";
-            return android::BAD_VALUE;
+            return android::INVALID_OPERATION;
         }
 
         int64_t totalDelayFrames = 0;
@@ -876,8 +890,9 @@ size_t StreamOutPrimary::getPlatformDelay() const noexcept {
 ::android::status_t StreamOutPrimary::onWriteError(const size_t sleepFrameCount) {
     shutdown();
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        // return error for offload, so that FW sends data again
         LOG(ERROR) << __func__ << mLogPrefix << ": cannot afford write failure";
-        return ::android::OK;
+        return ::android::DEAD_OBJECT;
     }
     auto& sampleRate = mMixPortConfig.sampleRate.value().value;
     if (sampleRate == 0) {
@@ -981,6 +996,11 @@ void StreamOutPrimary::configure() {
         mPalHandle = nullptr;
         return;
     }
+
+    if (mUseCachedVolume) {
+        setHwVolume(mVolumes);
+    }
+
     if (mTag == Usecase::HAPTICS_PLAYBACK) {
 
         hapticChannelLayout = AudioChannelLayout::make<AudioChannelLayout::Tag::layoutMask>
@@ -1029,6 +1049,14 @@ void StreamOutPrimary::configure() {
                                                attr.get()->out_media_config.ch_info);
     }
     auto bufConfig = getBufferConfig();
+    if (mTag == Usecase::ULL_PLAYBACK) {
+        //The buffer size for ULL_PLAYBACK set to PAL should not be more than 2ms
+        const size_t durationMs = 1; // set to 1ms
+        size_t frameSizeInBytes = ::aidl::android::hardware::audio::common::getFrameSizeInBytes(
+                mMixPortConfig.format.value(), mMixPortConfig.channelMask.value());
+        bufConfig.bufferSize = durationMs *
+                    (mMixPortConfig.sampleRate.value().value /1000) * frameSizeInBytes;
+    }
     size_t ringBufSizeInBytes = bufConfig.bufferSize;
     const size_t ringBufCount = bufConfig.bufferCount;
 
@@ -1104,10 +1132,6 @@ void StreamOutPrimary::configure() {
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         // Must be after pal stream start
         std::get<CompressPlayback>(mExt).configureGapless(mPalHandle);
-    }
-
-    if (mUseCachedVolume) {
-        setHwVolume(mVolumes);
     }
 
     if (mPlaybackRate != sDefaultPlaybackRate) {
