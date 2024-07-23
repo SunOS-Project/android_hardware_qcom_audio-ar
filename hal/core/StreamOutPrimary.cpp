@@ -999,6 +999,7 @@ void StreamOutPrimary::configure() {
         mHapticsStreamAttributes.out_media_config.bit_width = Platform::kDefaultPCMBidWidth;
         mHapticsStreamAttributes.out_media_config.aud_fmt_id = Platform::kDefaultPalPCMFormat;
         mHapticsStreamAttributes.out_media_config.ch_info = *(palHapticChannelInfo);
+        mHapticsStreamAttributes.info.opt_stream_info.haptics_type = PAL_STREAM_HAPTICS_RINGTONE;
 
         mHapticsDevice.id = PAL_DEVICE_OUT_HAPTICS_DEVICE;
         mHapticsDevice.config.sample_rate = Platform::kDefaultOutputSampleRate;
