@@ -384,6 +384,8 @@ int32_t CompressPlayback::palCallback(pal_stream_handle_t* palHandle, uint32_t e
         } break;
         case PAL_STREAM_CBK_EVENT_PARTIAL_DRAIN_READY: {
             compressPlayback->mPlatformStreamCallback->onDrainReady();
+            // gapless resets in PAL, when partial drain is received,
+            compressPlayback->mIsGaplessConfigured = false;
         } break;
         case PAL_STREAM_CBK_EVENT_ERROR: {
             compressPlayback->mPlatformStreamCallback->onError();
@@ -582,7 +584,7 @@ ndk::ScopedAStatus CompressPlayback::setVendorParameters(
     return ndk::ScopedAStatus::ok();
 }
 
-bool CompressPlayback::configureGapLessMetadata() const {
+bool CompressPlayback::configureGapLessMetadata() {
     const auto payloadSize = sizeof(pal_param_payload);
     const auto kGapLessSize = sizeof(pal_compr_gapless_mdata);
     auto dataPtr = std::make_unique<uint8_t[]>(payloadSize + kGapLessSize);
@@ -601,6 +603,7 @@ bool CompressPlayback::configureGapLessMetadata() const {
             return false;
         }
     }
+    mIsGaplessConfigured = true;
     return true;
 }
 

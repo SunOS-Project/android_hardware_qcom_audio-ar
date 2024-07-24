@@ -391,6 +391,19 @@ void StreamOutPrimary::resume() {
     if (mIsPaused) {
         resume();
     }
+
+    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
+        /**
+         * upon partial drain, gapless metadata resets in tinycompress.
+         * if there is a write after that, we would need configure the gapless
+         * gain.
+         */
+        auto& compressPlayback = std::get<CompressPlayback>(mExt);
+        if (!(compressPlayback.isGaplessConfigured())) {
+            compressPlayback.configureGapless(mPalHandle);
+        }
+    }
+
     pal_buffer palBuffer{};
     palBuffer.buffer = static_cast<uint8_t*>(buffer);
     palBuffer.size = frameCount * mFrameSizeBytes;
@@ -1104,11 +1117,6 @@ void StreamOutPrimary::configure() {
     if (karaoke) mAudExt.mKarokeExtension->karaoke_start();
 
     LOG(VERBOSE) << __func__ << mLogPrefix << " pal_stream_start successful";
-
-    if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-        // Must be after pal stream start
-        std::get<CompressPlayback>(mExt).configureGapless(mPalHandle);
-    }
 
     if (mPlaybackRate != sDefaultPlaybackRate) {
         LOG(DEBUG) << __func__ << mLogPrefix << ": using playspeed " << mPlaybackRate.speed;

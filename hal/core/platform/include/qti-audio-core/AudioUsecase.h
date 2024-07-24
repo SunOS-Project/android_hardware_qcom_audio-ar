@@ -318,13 +318,14 @@ class CompressPlayback : public UsecaseConfig<CompressPlayback, false /*IsPcm*/>
             const ::aidl::android::hardware::audio::common::SourceMetadata& sourceMetaData);
     int64_t getPositionInFrames(pal_stream_handle_t* palHandle);
     void onFlush();
+    bool isGaplessConfigured() const noexcept { return mIsGaplessConfigured; }
 
   protected:
     void configureDefault();
     // configure the codec info which is cached already
     bool configureCodecInfo() const;
     // configure the gapless info which is cached already
-    bool configureGapLessMetadata() const;
+    bool configureGapLessMetadata();
 
   protected:
     // dynamic compress info
@@ -343,6 +344,7 @@ class CompressPlayback : public UsecaseConfig<CompressPlayback, false /*IsPcm*/>
     int64_t mPrevFrames{0};
     const ::aidl::android::media::audio::common::AudioPortConfig& mMixPortConfig;
     PlatformStreamCallback * const mPlatformStreamCallback;
+    std::atomic<bool> mIsGaplessConfigured = false;
 };
 
 class PcmOffloadPlayback : public UsecaseConfig<PcmOffloadPlayback> {
