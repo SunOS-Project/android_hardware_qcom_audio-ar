@@ -153,22 +153,20 @@ void StreamWorkerCommonLogic::populateReply(StreamDescriptor::Reply* reply,
       .timeNs = StreamDescriptor::Position::UNKNOWN};
 
     reply->latencyMs = mContext->getNominalLatencyMs();
-    if (isConnected) {
-        reply->observable.frames = mContext->getFrameCount();
-        reply->observable.timeNs = ::android::uptimeNanos();
-        if (auto status = mDriver->refinePosition(reply); status == ::android::OK) {
-            return;
-        }
-        else {
-           if (hasMMapFlagsEnabled(mContext->getFlags())) {
-               // if mmap position fails,return error to framework
-               // for any error other than.. not enough data, AAudio will stop
-               reply->status = STATUS_INVALID_OPERATION;
-           }
-        }
+
+    reply->observable.frames = mContext->getFrameCount();
+    reply->observable.timeNs = ::android::uptimeNanos();
+    if (auto status = mDriver->refinePosition(reply); status == ::android::OK) {
+        return;
+    }
+    else {
+       if (hasMMapFlagsEnabled(mContext->getFlags())) {
+           // if mmap position fails,return error to framework
+           // for any error other than.. not enough data, AAudio will stop
+           reply->status = STATUS_INVALID_OPERATION;
+       }
     }
 
-    LOG(ERROR) << __func__ << ": stream is not connected to any device";
     reply->observable = reply->hardware = kUnknownPosition;
 }
 
@@ -533,7 +531,10 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
                         if (asyncCallback == nullptr || reply.fmqByteCount == fmqByteCount) {
                             mState = StreamDescriptor::State::ACTIVE;
                         } else {
-                            switchToTransientState(StreamDescriptor::State::TRANSFERRING);
+                            //If write status is not ok, then dont put state in transferring
+                            if (reply.status == STATUS_OK) {
+                                switchToTransientState(StreamDescriptor::State::TRANSFERRING);
+                            }
                         }
                     }
                 } else {
@@ -686,23 +687,15 @@ bool StreamOutWorkerLogic::write(size_t clientSize, StreamDescriptor::Reply* rep
             byteCount -= frameSize;
         }
         size_t actualFrameCount = 0;
-        if (isConnected) {
-            if (::android::status_t status = mDriver->transfer(
+        // No need to check for connected device, if there is issue, write returns failure
+        if (::android::status_t status = mDriver->transfer(
                  mDataBuffer.get(), byteCount / frameSize, &actualFrameCount, &latency);
                 status != ::android::OK) {
                 reply->status = STATUS_DEAD_OBJECT;
                 fatal = true;
                 LOG(ERROR) << __func__ << ": write failed: " << status;
-            }
-        } else {
-                if (mContext->getAsyncCallback() == nullptr) {
-                    usleep(3000); // Simulate blocking transfer delay.
-                } else {
-                    reply->status = STATUS_DEAD_OBJECT;
-                    fatal = true;
-                    LOG(ERROR) << __func__ << ": async write failed, device not connected: ";
-                }
         }
+
         const size_t actualByteCount = actualFrameCount * frameSize;
         // Frames are consumed and counted regardless of the connection status.
         if (actualByteCount >
