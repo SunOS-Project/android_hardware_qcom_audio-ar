@@ -669,7 +669,10 @@ void StreamInPrimary::configure() {
         }
     } else if (mTag == Usecase::HOTWORD_RECORD) {
         mPalHandle = std::get<HotwordRecord>(mExt).getPalHandle(mMixPortConfig);
-        return;
+        if (!mPalHandle)
+            attr->type = PAL_STREAM_DEEP_BUFFER;
+        else
+            return;
     } else {
         LOG(ERROR) << __func__ << mLogPrefix << " invalid usecase to configure";
         return;
