@@ -440,14 +440,17 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
     if (mContext->getAsyncCallback()) {
         // Accquring the lock in case of Asynchronous Stream
         asyncLock.lock();
+    } else {
+        // Synchronous case
+        if (mState == StreamDescriptor::State::DRAINING) {
+            if (auto stateDurationMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now() - mTransientStateStart);
+                stateDurationMs >= mTransientStateDelayMs) {
+                // In blocking mode, after some duration, expecting, hardware is drained.
+                mState = StreamDescriptor::State::IDLE;
+            }
+        }
     }
-
-    using Tag = StreamDescriptor::Command::Tag;
-    using LogSeverity = ::android::base::LogSeverity;
-    const LogSeverity severity =
-            command.getTag() == Tag::burst || command.getTag() == Tag::getStatus
-                    ? LogSeverity::VERBOSE
-                    : LogSeverity::DEBUG;
 
     LOG(VERBOSE) << __func__ << ": received command " << command.toString() << " in "
                    << kThreadName;
@@ -628,7 +631,12 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
             break;
     }
     reply.state = mState;
+
+    using LogSeverity = ::android::base::LogSeverity;
+    const LogSeverity severity =
+            (reply.status != STATUS_OK) ? LogSeverity::ERROR : LogSeverity::VERBOSE;
     LOG(severity) << __func__ << ": writing reply " << reply.toString();
+
     if (!mContext->getReplyMQ()->writeBlocking(&reply, 1)) {
         LOG(ERROR) << __func__ << ": writing of reply " << reply.toString() << " to MQ failed";
         mState = StreamDescriptor::State::ERROR;
