@@ -571,7 +571,13 @@ void StreamOutPrimary::resume() {
 }
 
 void StreamOutPrimary::shutdown() {
-    return shutdown_I();
+    shutdown_I();
+
+    if (hasOutputVoipRxFlag(mMixPortConfig.flags.value())) {
+        if (auto telephony = mContext.getTelephony().lock()) {
+            telephony->onVoipPlaybackClose();
+        }
+    }
 }
 
 // end of DriverInterface Methods
