@@ -94,7 +94,7 @@ StreamInPrimary::StreamInPrimary(StreamContext&& context, const SinkMetadata& si
 }
 
 StreamInPrimary::~StreamInPrimary() {
-    shutdown();
+    shutdown_I();
     LOG(DEBUG) << __func__ << mLogPrefix;
 }
 
@@ -238,12 +238,6 @@ ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd, int64_t* bu
         return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
 
-    if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
-        LOG(ERROR) << __func__ << mLogPrefix << " pal_stream_start failed!! ret:" << std::to_string(ret);
-        ::pal_stream_close(mPalHandle);
-        mPalHandle = nullptr;
-        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
-    }
 
     if (mPlatform.getMicMuteStatus()) {
         setStreamMicMute(true);
@@ -268,7 +262,15 @@ ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd, int64_t* bu
         LOG(WARNING) << __func__ << mLogPrefix << " stream is not configured";
         return ::android::OK;
     }
-    // No op
+    if (mTag == Usecase::MMAP_RECORD && mIsMMapStarted) {
+        LOG(DEBUG) << __func__ << mLogPrefix << ": stopping input mmap";
+        if (int32_t ret = pal_stream_stop(mPalHandle); ret) {
+            LOG(ERROR) << __func__ << mLogPrefix
+                       << " failed to stop MMAP stream, ret:" << std::to_string(ret);
+            return -EINVAL;
+        }
+        mIsMMapStarted = false;
+    }
     return ::android::OK;
 }
 
@@ -283,7 +285,7 @@ ndk::ScopedAStatus StreamInPrimary::configureMMapStream(int32_t* fd, int64_t* bu
 
 ::android::status_t StreamInPrimary::pause() {
     // Todo check whether pause is possible in PAL
-    shutdown();
+    shutdown_I();
     return ::android::OK;
 }
 
@@ -292,16 +294,26 @@ void StreamInPrimary::resume() {
 }
 
 ::android::status_t StreamInPrimary::standby() {
-    shutdown();
+    shutdown_I();
     return ::android::OK;
 }
 
 ::android::status_t StreamInPrimary::start() {
+    LOG(DEBUG) << __func__ << mLogPrefix;
+    if (mTag == Usecase::MMAP_RECORD && !mIsMMapStarted) {
+        if (int32_t ret = ::pal_stream_start(this->mPalHandle); ret) {
+            LOG(ERROR) << __func__ << mLogPrefix << " pal_stream_start failed!! ret:" << std::to_string(ret);
+            ::pal_stream_close(mPalHandle);
+            mPalHandle = nullptr;
+            return -EINVAL;
+        }
+        mIsMMapStarted = true;
+    }
     return ::android::OK;
 }
 
 ::android::status_t StreamInPrimary::onReadError(const size_t sleepFrameCount) {
-    shutdown();
+    shutdown_I();
     if (mTag == Usecase::COMPRESS_CAPTURE) {
         LOG(ERROR) << __func__ << mLogPrefix << ": cannot afford read failure for compress";
         return ::android::UNEXPECTED_NULL;
@@ -397,17 +409,7 @@ void StreamInPrimary::resume() {
 }
 
 void StreamInPrimary::shutdown() {
-    LOG(DEBUG) << __func__ << mLogPrefix;
-    mEffectsApplied = true;
-    if (mPalHandle != nullptr) {
-        if (mTag == Usecase::HOTWORD_RECORD) {
-            ::pal_stream_set_param(mPalHandle, PAL_PARAM_ID_STOP_BUFFERING, nullptr);
-        } else {
-            ::pal_stream_stop(mPalHandle);
-            ::pal_stream_close(mPalHandle);
-        }
-    }
-    mPalHandle = nullptr;
+    return shutdown_I();
 }
 
 // end of driverInterface methods
@@ -785,6 +787,21 @@ void StreamInPrimary::applyEffects() {
                << mNSEnabled << " type " << type << " enable " << enable;
     int ret = pal_add_remove_effect(mPalHandle, type, enable);
     mEffectsApplied = (ret == 0);
+}
+
+void StreamInPrimary::shutdown_I() {
+    LOG(DEBUG) << __func__ << mLogPrefix;
+    mEffectsApplied = true;
+    if (mPalHandle != nullptr) {
+        if (mTag == Usecase::HOTWORD_RECORD) {
+            ::pal_stream_set_param(mPalHandle, PAL_PARAM_ID_STOP_BUFFERING, nullptr);
+        } else {
+            ::pal_stream_stop(mPalHandle);
+            ::pal_stream_close(mPalHandle);
+        }
+    }
+    mPalHandle = nullptr;
+    mIsMMapStarted = false;
 }
 
 } // namespace qti::audio::core

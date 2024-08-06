@@ -153,22 +153,20 @@ void StreamWorkerCommonLogic::populateReply(StreamDescriptor::Reply* reply,
       .timeNs = StreamDescriptor::Position::UNKNOWN};
 
     reply->latencyMs = mContext->getNominalLatencyMs();
-    if (isConnected) {
-        reply->observable.frames = mContext->getFrameCount();
-        reply->observable.timeNs = ::android::uptimeNanos();
-        if (auto status = mDriver->refinePosition(reply); status == ::android::OK) {
-            return;
-        }
-        else {
-           if (hasMMapFlagsEnabled(mContext->getFlags())) {
-               // if mmap position fails,return error to framework
-               // for any error other than.. not enough data, AAudio will stop
-               reply->status = STATUS_INVALID_OPERATION;
-           }
-        }
+
+    reply->observable.frames = mContext->getFrameCount();
+    reply->observable.timeNs = ::android::uptimeNanos();
+    if (auto status = mDriver->refinePosition(reply); status == ::android::OK) {
+        return;
+    }
+    else {
+       if (hasMMapFlagsEnabled(mContext->getFlags())) {
+           // if mmap position fails,return error to framework
+           // for any error other than.. not enough data, AAudio will stop
+           reply->status = STATUS_INVALID_OPERATION;
+       }
     }
 
-    LOG(ERROR) << __func__ << ": stream is not connected to any device";
     reply->observable = reply->hardware = kUnknownPosition;
 }
 
@@ -386,6 +384,50 @@ bool StreamInWorkerLogic::read(size_t clientSize, StreamDescriptor::Reply* reply
 
 const std::string StreamOutWorkerLogic::kThreadName = "writer";
 
+void StreamOutWorkerLogic::publishTransferReady() {
+    if (!mContext->getAsyncCallback()) {
+        return;
+    }
+    std::unique_lock lock{mAsyncMutex};
+    mPendingCallBack = std::nullopt;
+    if (mState == StreamDescriptor::State::TRANSFERRING) {
+        mState = StreamDescriptor::State::ACTIVE;
+        mContext->getAsyncCallback()->onTransferReady();
+        LOG(VERBOSE) << __func__ << ": sent transfer ready to client";
+    } else if (mState == StreamDescriptor::State::TRANSFER_PAUSED) {
+        mPendingCallBack = StreamCallbackType::TR;
+        LOG(VERBOSE) << __func__ << ": pending transfer ready";
+    } else {
+        LOG(WARNING) << __func__ << ": shouldn't happen !!";
+    }
+}
+
+void StreamOutWorkerLogic::publishDrainReady() {
+    if (!mContext->getAsyncCallback()) {
+        return;
+    }
+    std::unique_lock lock{mAsyncMutex};
+    mPendingCallBack = std::nullopt;
+    if (mState == StreamDescriptor::State::DRAINING) {
+        mContext->getAsyncCallback()->onDrainReady();
+        mState = StreamDescriptor::State::IDLE;
+        LOG(VERBOSE) << __func__ << ": sent drain ready to client";
+    } else if (mState == StreamDescriptor::State::DRAIN_PAUSED) {
+        mPendingCallBack = StreamCallbackType::DR;
+        LOG(VERBOSE) << __func__ << ": pending drain ready";
+    } else {
+        LOG(WARNING) << __func__ << ": shouldn't happen !!";
+    }
+}
+
+void StreamOutWorkerLogic::publishError() {
+    if (!mContext->getAsyncCallback()) {
+        return;
+    }
+    mContext->getAsyncCallback()->onError();
+    LOG(WARNING) << __func__ << ": sent Error to the client";
+}
+
 StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
     StreamDescriptor::Command command{};
     if (!mContext->getCommandMQ()->readBlocking(&command, 1)) {
@@ -393,43 +435,25 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
         mState = StreamDescriptor::State::ERROR;
         return Status::ABORT;
     }
-    if (mState == StreamDescriptor::State::DRAINING ||
-        mState == StreamDescriptor::State::TRANSFERRING) {
-        if (auto stateDurationMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-                    std::chrono::steady_clock::now() - mTransientStateStart);
-            stateDurationMs >= mTransientStateDelayMs) {
-            std::shared_ptr<IStreamCallback> asyncCallback = mContext->getAsyncCallback();
-            if (asyncCallback == nullptr) {
-                // In blocking mode, mState can only be DRAINING.
+
+    std::unique_lock asyncLock{mAsyncMutex, std::defer_lock};
+    if (mContext->getAsyncCallback()) {
+        // Accquring the lock in case of Asynchronous Stream
+        asyncLock.lock();
+    } else {
+        // Synchronous case
+        if (mState == StreamDescriptor::State::DRAINING) {
+            if (auto stateDurationMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now() - mTransientStateStart);
+                stateDurationMs >= mTransientStateDelayMs) {
+                // In blocking mode, after some duration, expecting, hardware is drained.
                 mState = StreamDescriptor::State::IDLE;
-            } else {
-                if (mState == StreamDescriptor::State::DRAINING && mDriver->isDrainReady()) {
-                    mState = StreamDescriptor::State::IDLE;
-                } else if (mState == StreamDescriptor::State::TRANSFERRING &&
-                           mDriver->isTransferReady()) {
-                    mState = StreamDescriptor::State::ACTIVE;
-                }
-            }
-            if (mTransientStateDelayMs.count() != 0) {
-                LOG(DEBUG) << __func__ << ": switched to state " << toString(mState)
-                           << " after a timeout";
             }
         }
     }
-    using Tag = StreamDescriptor::Command::Tag;
-    using LogSeverity = ::android::base::LogSeverity;
-    const LogSeverity severity =
-            command.getTag() == Tag::burst || command.getTag() == Tag::getStatus
-                    ? LogSeverity::VERBOSE
-                    : LogSeverity::DEBUG;
-#ifdef VERY_VERBOSE_LOGGING
-    LOG(severity) << __func__ << ": received command " << command.toString() << " in "
-                  << kThreadName;
-#else
-    if (command.getTag() != Tag::burst && command.getTag() != Tag::getStatus)
-        LOG(DEBUG) << __func__ << ": received command " << command.toString() << " in "
+
+    LOG(VERBOSE) << __func__ << ": received command " << command.toString() << " in "
                    << kThreadName;
-#endif
 
     StreamDescriptor::Reply reply{};
     reply.status = STATUS_BAD_VALUE;
@@ -510,7 +534,10 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
                         if (asyncCallback == nullptr || reply.fmqByteCount == fmqByteCount) {
                             mState = StreamDescriptor::State::ACTIVE;
                         } else {
-                            switchToTransientState(StreamDescriptor::State::TRANSFERRING);
+                            //If write status is not ok, then dont put state in transferring
+                            if (reply.status == STATUS_OK) {
+                                switchToTransientState(StreamDescriptor::State::TRANSFERRING);
+                            }
                         }
                     }
                 } else {
@@ -604,12 +631,46 @@ StreamOutWorkerLogic::Status StreamOutWorkerLogic::cycle() {
             break;
     }
     reply.state = mState;
+
+    using LogSeverity = ::android::base::LogSeverity;
+    const LogSeverity severity =
+            (reply.status != STATUS_OK) ? LogSeverity::ERROR : LogSeverity::VERBOSE;
     LOG(severity) << __func__ << ": writing reply " << reply.toString();
+
     if (!mContext->getReplyMQ()->writeBlocking(&reply, 1)) {
         LOG(ERROR) << __func__ << ": writing of reply " << reply.toString() << " to MQ failed";
         mState = StreamDescriptor::State::ERROR;
         return Status::ABORT;
     }
+
+    if (mContext->getAsyncCallback() && mPendingCallBack && command.getTag() != Tag::getStatus) {
+        /**
+         * After the writing the reply, handle the pending callback, if any
+         * and issue to the client based on the stream state.
+         **/
+        if (command.getTag() == Tag::start && mState == StreamDescriptor::State::TRANSFERRING &&
+            mPendingCallBack == StreamCallbackType::TR) {
+            mContext->getAsyncCallback()->onTransferReady();
+            mState = StreamDescriptor::State::ACTIVE;
+            mPendingCallBack = {};
+            LOG(VERBOSE) << __func__ << ": sent pending transfer ready !!!";
+        } else if (command.getTag() == Tag::start && mState == StreamDescriptor::State::DRAINING &&
+                   mPendingCallBack == StreamCallbackType::DR) {
+            mContext->getAsyncCallback()->onDrainReady();
+            mState = StreamDescriptor::State::IDLE;
+            mPendingCallBack = {};
+            LOG(VERBOSE) << __func__ << ": sent pending drain ready !!!";
+        } else if (command.getTag() == Tag::flush || command.getTag() == Tag::drain) {
+            // clear the pending callbacks
+            mPendingCallBack = {};
+            LOG(VERBOSE) << __func__ << ": cleared the pending callback !!!";
+        } else {
+            // clear the pending callbacks
+            // mPendingCallBack = {};
+            LOG(WARNING) << __func__ << ": shouldn't happen !!!";
+        }
+    }
+
     return Status::CONTINUE;
 }
 
@@ -634,23 +695,15 @@ bool StreamOutWorkerLogic::write(size_t clientSize, StreamDescriptor::Reply* rep
             byteCount -= frameSize;
         }
         size_t actualFrameCount = 0;
-        if (isConnected) {
-            if (::android::status_t status = mDriver->transfer(
+        // No need to check for connected device, if there is issue, write returns failure
+        if (::android::status_t status = mDriver->transfer(
                  mDataBuffer.get(), byteCount / frameSize, &actualFrameCount, &latency);
                 status != ::android::OK) {
                 reply->status = STATUS_DEAD_OBJECT;
                 fatal = true;
                 LOG(ERROR) << __func__ << ": write failed: " << status;
-            }
-        } else {
-                if (mContext->getAsyncCallback() == nullptr) {
-                    usleep(3000); // Simulate blocking transfer delay.
-                } else {
-                    reply->status = STATUS_DEAD_OBJECT;
-                    fatal = true;
-                    LOG(ERROR) << __func__ << ": async write failed, device not connected: ";
-                }
         }
+
         const size_t actualByteCount = actualFrameCount * frameSize;
         // Frames are consumed and counted regardless of the connection status.
         if (actualByteCount >
@@ -765,7 +818,7 @@ ndk::ScopedAStatus StreamCommonImpl::close() {
     if (!isClosed()) {
         stopWorker();
         LOG(DEBUG) << __func__ << ": joining the worker thread...";
-        mWorker->stop();
+        mWorker->join();
         LOG(DEBUG) << __func__ << ": worker thread joined";
         onClose();
         mWorker->setClosed();

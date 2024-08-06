@@ -8,10 +8,11 @@
 #include <qti-audio-core/AudioUsecase.h>
 #include <qti-audio-core/HalOffloadEffects.h>
 #include <qti-audio-core/Stream.h>
+#include <qti-audio-core/PlatformStreamCallback.h>
 
 namespace qti::audio::core {
 
-class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
+class StreamOutPrimary : public StreamOut, public StreamCommonImpl, public PlatformStreamCallback {
   public:
     friend class ndk::SharedRefBase;
     StreamOutPrimary(StreamContext&& context,
@@ -35,8 +36,6 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     ::android::status_t refinePosition(
             ::aidl::android::hardware::audio::core::StreamDescriptor::Reply*
             /*reply*/) override;
-    bool isDrainReady() override;
-    bool isTransferReady() override;
     void shutdown() override;
 
     // methods of StreamCommonInterface
@@ -89,12 +88,18 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
     bool isStreamOutPrimary() { return (mTag == Usecase::PRIMARY_PLAYBACK) ? true : false; }
     static std::mutex sourceMetadata_mutex_;
 
+    // Methods from PlatformStreamCallback
+    void onTransferReady() override;
+    void onDrainReady() override;
+    void onError() override;
+
   protected:
     /*
      * opens, configures and starts pal stream, also validates the pal handle.
      */
     void configure();
     void resume();
+    void shutdown_I();
     size_t getPlatformDelay() const noexcept;
     ::android::status_t onWriteError(const size_t sleepFrameCount);
 
@@ -143,7 +148,7 @@ class StreamOutPrimary : public StreamOut, public StreamCommonImpl {
 
   private:
     std::string mLogPrefix = "";
-    bool mStarted = false;
+    bool mIsMMapStarted = false;
     bool isHwVolumeSupported();
     struct BufferConfig getBufferConfig();
 
