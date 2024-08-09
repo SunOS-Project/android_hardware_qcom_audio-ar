@@ -288,13 +288,10 @@ void Telephony::onExternalDeviceConnectionChanged(const AudioDevice& extDevice,
         mTxDevice = getMatchingTxDevice(mRxDevice);
         updateDevices();
     } else {
-        if (mIsCRSStarted && !hasValidPlaybackStream) {
-            mRxDevice = kDefaultCRSRxDevice;
-            mTxDevice = getMatchingTxDevice(mRxDevice);
-            updateDevices();
-        }
+        mRxDevice = kDefaultRxDevice;
+        mTxDevice = getMatchingTxDevice(mRxDevice);
+        updateDevices();
     }
-
 }
 
 void Telephony::onOutputPrimaryStreamDevices(const std::vector<AudioDevice>& primaryStreamDevices) {
@@ -791,7 +788,8 @@ void Telephony::stopCall() {
         updateVoiceMetadataForBT(false);
     }
     mPalHandle = nullptr;
-    if (mSetUpdates.mIsCrsCall) {
+    if (mSetUpdates.mIsCrsCall &&
+        mRxDevice.type.type == AudioDeviceType::OUT_SPEAKER) {
         mRxDevice = kDefaultRxDevice;
         mTxDevice = getMatchingTxDevice(mRxDevice);
     }
