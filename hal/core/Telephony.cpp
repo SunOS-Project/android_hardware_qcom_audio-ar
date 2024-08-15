@@ -107,7 +107,7 @@ ndk::ScopedAStatus Telephony::switchAudioMode(AudioMode newAudioMode) {
         // safe to stop now
         VoiceStop();
     } else if (newAudioMode == AudioMode::RINGTONE && mSetUpdates.mIsCrsCall) {
-        if (!mIsCRSStarted) {
+        if (!mIsCRSStarted && !isAnyCallActive()) {
             updateCrsDevice();
             startCall();
             if (mRxDevice.type.type != AudioDeviceType::OUT_SPEAKER) {
@@ -412,7 +412,8 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
     if (newUpdates.mIsCrsCall) {
         mSetUpdates.mIsCrsCall = newUpdates.mIsCrsCall;
         mSetUpdates.mVSID = newUpdates.mVSID;
-        if (!mIsCRSStarted && mAudioMode == AudioMode::RINGTONE) {
+        if (!mIsCRSStarted && !isAnyCallActive() &&
+            mAudioMode == AudioMode::RINGTONE) {
              updateCrsDevice();
              startCall();
              if (mRxDevice.type.type != AudioDeviceType::OUT_SPEAKER) {
@@ -462,7 +463,7 @@ void Telephony::updateCalls() {
                                     (palDevices[1].id == PAL_DEVICE_IN_BLUETOOTH_BLE)) {
                                     updateVoiceMetadataForBT(true);
                                 }
-                                if (!isAnyCallActive()) {
+                                if (!isAnyCallActive() && !mIsCRSStarted) {
                                     mSetUpdates =  mVoiceSession.session[i].CallUpdate;
                                     startCall();
                                     mVoiceSession.session[i].state.current_ = mVoiceSession.session[i].state.new_;
@@ -843,7 +844,7 @@ void Telephony::updateDevices() {
     /*If callstate is active, but no palHandle, that means pal stream open
       failed, so start call again , we might get updated devices now which
       helps in pal stream open successful, so call startCall here*/
-    if (mSetUpdates.mCallState == CallState::ACTIVE && mPalHandle == nullptr) {
+    if (mSetUpdates.mCallState == CallState::ACTIVE && !mIsCRSStarted && mPalHandle == nullptr) {
         LOG(DEBUG) << __func__ << ": starting call as palHandle is null and call state active";
         startCall();
         return;
