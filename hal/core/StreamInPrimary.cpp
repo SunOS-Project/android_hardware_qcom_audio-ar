@@ -363,9 +363,6 @@ void StreamInPrimary::resume() {
             memset(palBuffer.buffer, 0, palBuffer.size);
             bytesRead = palBuffer.size;
         }
-    } else if (bytesRead < 0) {
-        LOG(ERROR) << __func__ << mLogPrefix << " read failed, ret:" << std::to_string(bytesRead);
-        return ::android::NOT_ENOUGH_DATA;
     }
 
     if (mTag == Usecase::COMPRESS_CAPTURE) {
@@ -669,7 +666,10 @@ void StreamInPrimary::configure() {
         }
     } else if (mTag == Usecase::HOTWORD_RECORD) {
         mPalHandle = std::get<HotwordRecord>(mExt).getPalHandle(mMixPortConfig);
-        return;
+        if (!mPalHandle)
+            attr->type = PAL_STREAM_DEEP_BUFFER;
+        else
+            return;
     } else {
         LOG(ERROR) << __func__ << mLogPrefix << " invalid usecase to configure";
         return;
