@@ -617,13 +617,6 @@ void StreamOutPrimary::resume() {
 
 void StreamOutPrimary::shutdown() {
     shutdown_I();
-
-    if (hasOutputVoipRxFlag(mMixPortConfig.flags.value()) ||
-        hasOutputDeepBufferFlag(mMixPortConfig.flags.value())) {
-        if (auto telephony = mContext.getTelephony().lock()) {
-            telephony->onPlaybackClose();
-        }
-    }
 }
 
 // end of DriverInterface Methods
@@ -1258,6 +1251,13 @@ void StreamOutPrimary::shutdown_I() {
             mHapticsBuffer = nullptr;
         }
         mHapticsBufSize = 0;
+    }
+
+    if (hasOutputVoipRxFlag(mMixPortConfig.flags.value()) ||
+        hasOutputDeepBufferFlag(mMixPortConfig.flags.value())) {
+        if (auto telephony = mContext.getTelephony().lock()) {
+            telephony->onPlaybackClose();
+        }
     }
 
     mIsPaused = false;
