@@ -84,7 +84,9 @@ StreamOutPrimary::StreamOutPrimary(StreamContext&& context, const SourceMetadata
     mHwVolumeSupported = isHwVolumeSupported();
     mHwFlushSupported = isHwFlushSupported();
     mHwPauseSupported = isHwPauseSupported();
-    mVolumes.resize(getChannelCount(mMixPortConfig.channelMask.value()));
+    if (mHwVolumeSupported) {
+        mVolumes.resize(getChannelCount(mMixPortConfig.channelMask.value()));
+    }
     std::ostringstream os;
     os << " : usecase: " << mTagName;
     os << " IoHandle: " << mMixPortConfig.ext.get<AudioPortExt::Tag::mix>().handle << " ";
@@ -265,9 +267,7 @@ ndk::ScopedAStatus StreamOutPrimary::configureMMapStream(int32_t* fd, int64_t* b
 
     LOG(INFO) << __func__ << mLogPrefix << ": stream is configured";
 
-    if (mUseCachedVolume) {
-        setHwVolume(mVolumes);
-    }
+    setHwVolume(mVolumes);
 
     return ndk::ScopedAStatus::ok();
 }
@@ -723,7 +723,6 @@ ndk::ScopedAStatus StreamOutPrimary::setHwVolume(const std::vector<float>& in_ch
 
     if (!mPalHandle) {
         mVolumes = in_channelVolumes;
-        mUseCachedVolume = true;
         LOG(DEBUG) << __func__ << mLogPrefix << " cache volume "
                    << ::android::internal::ToString(in_channelVolumes);
         return ndk::ScopedAStatus::ok();
@@ -1043,9 +1042,7 @@ void StreamOutPrimary::configure() {
         return;
     }
 
-    if (mUseCachedVolume) {
-        setHwVolume(mVolumes);
-    }
+    setHwVolume(mVolumes);
 
     if (mTag == Usecase::HAPTICS_PLAYBACK) {
 
@@ -1263,7 +1260,6 @@ void StreamOutPrimary::shutdown_I() {
         mHapticsBufSize = 0;
     }
 
-    mUseCachedVolume = false;
     mIsPaused = false;
     mPalHandle = nullptr;
     mHapticsPalHandle = nullptr;
