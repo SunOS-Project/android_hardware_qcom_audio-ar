@@ -80,10 +80,6 @@ class StreamInPrimary : public StreamIn, public StreamCommonImpl {
     void configure();
     void resume();
     void shutdown_I();
-    /* burst zero indicates that burst command with zero bytes issued from framework */
-    ::android::status_t burstZero();
-    ::android::status_t startMMAP();
-    ::android::status_t stopMMAP();
     size_t getPlatformDelay() const noexcept;
 
     // API which are *_I are internal 
@@ -111,6 +107,7 @@ class StreamInPrimary : public StreamIn, public StreamCommonImpl {
     bool mAECEnabled = false;
     bool mNSEnabled = false;
     bool mEffectsApplied = true;
+    bool mIsMMapStarted = false;
     std::string mLogPrefix = "";
 };
 
