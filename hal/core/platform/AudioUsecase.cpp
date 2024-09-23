@@ -292,6 +292,51 @@ int32_t MmapUsecaseBase::getMMapPosition(int64_t* frames, int64_t* timeNs) {
     LOG(VERBOSE) << __func__ << ": frames:" << *frames << ", timeNs:" << *timeNs;
     return 0;
 }
+
+int32_t MmapUsecaseBase::start() {
+    if (!mPalHandle) {
+        LOG(ERROR) << __func__ << ": pal stream handle is null";
+        return -EINVAL;
+    }
+
+    if (mIsStarted) {
+        LOG(VERBOSE) << __func__ << ": MMAP already started";
+        return 0;
+    }
+
+    if (int32_t ret = ::pal_stream_start(mPalHandle); ret) {
+        LOG(ERROR) << __func__ << " pal stream start failed, ret:" << ret;
+        return ret;
+    }
+
+    mIsStarted = true;
+    LOG(VERBOSE) << __func__ << ": MMAP start success";
+
+    return 0;
+}
+
+int32_t MmapUsecaseBase::stop() {
+    if (!mPalHandle) {
+        LOG(ERROR) << __func__ << ": pal stream handle is null";
+        return -EINVAL;
+    }
+
+    if (!mIsStarted) {
+        LOG(VERBOSE) << __func__ << ": MMAP already stopped";
+        return 0;
+    }
+
+    if (int32_t ret = ::pal_stream_stop(mPalHandle); ret) {
+        LOG(ERROR) << __func__ << " pal stream stop failed, ret:" << ret;
+        return -EINVAL;
+    }
+
+    mIsStarted = false;
+    LOG(VERBOSE) << __func__ << ": MMAP stop success";
+
+    return 0;
+}
+
 // [MmapUsecaseBase End]
 // [MMapPlayback Start]
 size_t MMapPlayback::getFrameCount(const AudioPortConfig& mixPortConfig) {
@@ -338,6 +383,7 @@ void CompressPlayback::configureDefault() {
         mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC ||
         mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_HE_V1 ||
         mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_HE_V2 ||
+        mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_ADTS_LC ||
         mCompressFormat.encoding == ::android::MEDIA_MIMETYPE_AUDIO_AAC_LC) {
         mPalSndDec.aac_dec.audio_obj_type = 29;
         mPalSndDec.aac_dec.pce_bits_size = 0;
@@ -605,6 +651,7 @@ bool CompressPlayback::configureGapLessMetadata() {
                  << ", encoderPadding:" << gapLessPtr->encoderPadding;
         return true;
     }
+    LOG(ERROR) << __func__ << " PAL stream handle is NULL!";
     return false;
 }
 
@@ -631,15 +678,19 @@ bool CompressPlayback::configureCodecInfo() const {
     palParamPayload->payload_size = sizeof(pal_snd_dec_t);
     auto palSndDecPtr = reinterpret_cast<pal_snd_dec_t*>(dataPtr.get() + sizeof(pal_param_payload));
     *palSndDecPtr = mPalSndDec;
-    if (int32_t ret =
+    if (mCompressPlaybackHandle) {
+        if (int32_t ret =
                 ::pal_stream_set_param(mCompressPlaybackHandle, PAL_PARAM_ID_CODEC_CONFIGURATION,
                                        reinterpret_cast<pal_param_payload*>(dataPtr.get()));
         ret) {
-        LOG(ERROR) << __func__ << " PAL_PARAM_ID_CODEC_CONFIGURATION failed, ret:" << ret;
-        return false;
+            LOG(ERROR) << __func__ << " PAL_PARAM_ID_CODEC_CONFIGURATION failed, ret:" << ret;
+            return false;
+        }
+        LOG(VERBOSE) << __func__ << " PAL_PARAM_ID_CODEC_CONFIGURATION successful";
+        return true;
     }
-    LOG(VERBOSE) << __func__ << " PAL_PARAM_ID_CODEC_CONFIGURATION successful";
-    return true;
+    LOG(ERROR) << __func__ << " PAL stream handle is NULL!";
+    return false;
 }
 
 int64_t CompressPlayback::getPositionInFrames(pal_stream_handle_t* palHandle) {
@@ -841,11 +892,12 @@ pal_stream_handle_t* HotwordRecord::getPalHandle(
 
     int32_t ret = pal_get_param(PAL_PARAM_ID_ST_CAPTURE_INFO, (void**)&stCaptureInfo, &payloadSize,
                                 nullptr);
-    if (ret) {
+    if (ret || !stCaptureInfo.pal_handle) {
         LOG(ERROR) << __func__ << ": sound trigger handle not found, status " << ret;
         return nullptr;
     }
 
+    mIsStRecord = true;
     LOG(DEBUG) << __func__ << ": sound trigger pal handle " << stCaptureInfo.pal_handle
                << " for IOHandle  " << ioHandle;
 
@@ -948,15 +1000,18 @@ bool CompressCapture::configureCodecInfo(){
     palParamPayload->payload_size = sizeof(pal_snd_enc_t);
     auto payloadPtr = reinterpret_cast<pal_snd_enc_t*>(dataPtr.get() + sizeof(pal_param_payload));
     *payloadPtr = mPalSndEnc;
-
-    if (int32_t ret = ::pal_stream_set_param(mCompressHandle, PAL_PARAM_ID_CODEC_CONFIGURATION,
+    if (mCompressHandle) {
+        if (int32_t ret = ::pal_stream_set_param(mCompressHandle, PAL_PARAM_ID_CODEC_CONFIGURATION,
                                              palParamPayload); ret) {
-        LOG(ERROR) << __func__ << " PAL_PARAM_ID_CODEC_CONFIGURATION failed!!! ret:" << ret;
-        return false;
-    }
+            LOG(ERROR) << __func__ << " PAL_PARAM_ID_CODEC_CONFIGURATION failed!!! ret:" << ret;
+            return false;
+        }
 
-    LOG(VERBOSE) << __func__ << " PAL_PARAM_ID_CODEC_CONFIGURATION configured";
-    return true;
+        LOG(VERBOSE) << __func__ << " PAL_PARAM_ID_CODEC_CONFIGURATION configured";
+        return true;
+    }
+    LOG(ERROR) << __func__ << " PAL stream handle is NULL!";
+    return false;
 }
 
 ndk::ScopedAStatus CompressCapture::setVendorParameters(
@@ -1007,12 +1062,16 @@ void CompressCapture::setAACDSPBitRate() {
     auto paramPayload = (pal_param_payload*)payload.get();
     paramPayload->payload_size = palSndEncSize;
     memcpy(paramPayload->payload, &mPalSndEnc, paramPayload->payload_size);
-
-    if (int32_t ret = ::pal_stream_set_param(mCompressHandle, PAL_PARAM_ID_RECONFIG_ENCODER,
+    if (mCompressHandle) {
+        if (int32_t ret = ::pal_stream_set_param(mCompressHandle, PAL_PARAM_ID_RECONFIG_ENCODER,
                                              paramPayload);
         ret) {
-        LOG(ERROR) << __func__ << "pal set param PAL_PARAM_ID_RECONFIG_ENCODER failed:" << ret;
+            LOG(ERROR) << __func__ << "pal set param PAL_PARAM_ID_RECONFIG_ENCODER failed:" << ret;
+        }
+    } else {
+        LOG(ERROR) << __func__ << "PAL stream handle is NULL!";
     }
+
 }
 
 int32_t CompressCapture::getAACMinBitrateValue() {
