@@ -140,9 +140,11 @@ PRODUCT_COPY_FILES += \
     $(CONFIG_PAL_SRC_DIR)/mixer_paths_tuna_qrd.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_tuna_qrd.xml \
     $(CONFIG_PAL_SRC_DIR)/mixer_paths_tuna_mtp.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_tuna_mtp.xml \
     $(CONFIG_PAL_SRC_DIR)/mixer_paths_tuna_cdp.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_tuna_cdp.xml \
+    $(CONFIG_PAL_SRC_DIR)/mixer_paths_tuna7_mtp.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_tuna7_mtp.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_tuna_qrd.xml:$(CONFIG_SKU_OUT_DIR)/resourcemanager_tuna_qrd.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_tuna_mtp.xml:$(CONFIG_SKU_OUT_DIR)/resourcemanager_tuna_mtp.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_tuna_cdp.xml:$(CONFIG_SKU_OUT_DIR)/resourcemanager_tuna_cdp.xml \
+    $(CONFIG_PAL_SRC_DIR)/resourcemanager_tuna7_mtp.xml:$(CONFIG_SKU_OUT_DIR)/resourcemanager_tuna7_mtp.xml \
     $(CONFIG_PAL_SRC_DIR)/usecaseKvManager.xml:$(TARGET_COPY_OUT_VENDOR)/etc/usecaseKvManager.xml \
     $(CONFIG_PAL_SRC_DIR)/Hapticsconfig.xml:$(TARGET_COPY_OUT_VENDOR)/etc/Hapticsconfig.xml \
     vendor/qcom/opensource/audio-hal/primary-hal/configs/common/media_codecs_vendor_audio.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs_vendor_audio.xml \
