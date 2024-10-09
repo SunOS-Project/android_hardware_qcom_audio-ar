@@ -517,8 +517,7 @@ void StreamOutPrimary::resume() {
 
     // Calculate Haptics Buffer size
 
-    uint8_t hapticsChannelCount = mHapticsStreamAttributes.out_media_config.ch_info.channels;
-    uint32_t hapticsFrameSize = hapticsChannelCount * bytesPerSample;
+    uint32_t hapticsFrameSize = mHapticsChannelCount * bytesPerSample;
     uint32_t audioFrameSize = frameSize - hapticsFrameSize;
     uint32_t totalHapticsBufferSize = frameCount * hapticsFrameSize;
 
@@ -993,11 +992,13 @@ void StreamOutPrimary::configure() {
                << channelLayout.toString();
         palNonHapticChannelInfo = PlatformConverter::getPalChannelInfoForChannelCount(
           getChannelCount(channelLayout));
-        attr->out_media_config.ch_info = *(palNonHapticChannelInfo);
+
         if (palNonHapticChannelInfo == nullptr) {
             LOG(ERROR) << __func__ << " failed to find corresponding pal channel info for "
                << channelLayout.toString();
-            return ;
+            return;
+        } else {
+            attr->out_media_config.ch_info = *palNonHapticChannelInfo;
         }
     } else {
         LOG(ERROR) << __func__ << mLogPrefix << " invalid usecase to configure";
@@ -1046,7 +1047,7 @@ void StreamOutPrimary::configure() {
         hapticChannelLayout = AudioChannelLayout::make<AudioChannelLayout::Tag::layoutMask>
            (mMixPortConfig.channelMask.value().get<AudioChannelLayout::Tag::layoutMask>() & (AudioChannelLayout::LAYOUT_HAPTIC_AB));
 
-        LOG(ERROR) << __func__ << mLogPrefix << " pal channel info for haptics stream "
+        LOG(DEBUG) << __func__ << mLogPrefix << " pal channel info for haptics stream "
                << hapticChannelLayout.toString();
 
         palHapticChannelInfo = PlatformConverter::getPalChannelInfoForChannelCount(
@@ -1057,29 +1058,31 @@ void StreamOutPrimary::configure() {
                << hapticChannelLayout.toString();
             return ;
         }
-        mHapticsStreamAttributes.type = PAL_STREAM_HAPTICS;
-        mHapticsStreamAttributes.flags = static_cast<pal_stream_flags_t>(0);
-        mHapticsStreamAttributes.direction = PAL_AUDIO_OUTPUT;
-        mHapticsStreamAttributes.out_media_config.sample_rate = Platform::kDefaultOutputSampleRate;
-        mHapticsStreamAttributes.out_media_config.bit_width = Platform::kDefaultPCMBidWidth;
-        mHapticsStreamAttributes.out_media_config.aud_fmt_id = Platform::kDefaultPalPCMFormat;
-        mHapticsStreamAttributes.out_media_config.ch_info = *(palHapticChannelInfo);
-        mHapticsStreamAttributes.info.opt_stream_info.haptics_type = PAL_STREAM_HAPTICS_RINGTONE;
 
-        mHapticsDevice.id = PAL_DEVICE_OUT_HAPTICS_DEVICE;
-        mHapticsDevice.config.sample_rate = Platform::kDefaultOutputSampleRate;
-        mHapticsDevice.config.bit_width = Platform::kDefaultPCMBidWidth;
-        mHapticsDevice.config.ch_info = mHapticsStreamAttributes.out_media_config.ch_info;
-        mHapticsDevice.config.aud_fmt_id = Platform::kDefaultPalPCMFormat;
+        // set haptics stream attributes
+        struct pal_stream_attributes hapticsStreamAttributes {};
+        hapticsStreamAttributes.type = PAL_STREAM_HAPTICS;
+        hapticsStreamAttributes.flags = static_cast<pal_stream_flags_t>(0);
+        hapticsStreamAttributes.direction = PAL_AUDIO_OUTPUT;
+        hapticsStreamAttributes.out_media_config.sample_rate = Platform::kDefaultOutputSampleRate;
+        hapticsStreamAttributes.out_media_config.bit_width = Platform::kDefaultPCMBidWidth;
+        hapticsStreamAttributes.out_media_config.aud_fmt_id = Platform::kDefaultPalPCMFormat;
+        hapticsStreamAttributes.out_media_config.ch_info = *(palHapticChannelInfo);
+        hapticsStreamAttributes.info.opt_stream_info.haptics_type = PAL_STREAM_HAPTICS_RINGTONE;
+        mHapticsChannelCount = hapticsStreamAttributes.out_media_config.ch_info.channels;
 
-        int32_t ret =
-        ::pal_stream_open(&mHapticsStreamAttributes, 1, &mHapticsDevice, 0, nullptr,
-                          palFn, cookie, &(this->mHapticsPalHandle));
+        // set haptics device
+        struct pal_device hapticsDevice {};
+        hapticsDevice.id = PAL_DEVICE_OUT_HAPTICS_DEVICE;
+        hapticsDevice.config.sample_rate = Platform::kDefaultOutputSampleRate;
+        hapticsDevice.config.bit_width = Platform::kDefaultPCMBidWidth;
+        hapticsDevice.config.ch_info = hapticsStreamAttributes.out_media_config.ch_info;
+        hapticsDevice.config.aud_fmt_id = Platform::kDefaultPalPCMFormat;
 
-        if (ret) {
-                LOG(ERROR) << __func__ << mLogPrefix << " pal Haptics Stream Open Error ret:"
-                << ret;
-            }
+        if (int32_t ret = ::pal_stream_open(&hapticsStreamAttributes, 1, &hapticsDevice, 0,
+                                        nullptr, palFn, cookie, &(this->mHapticsPalHandle))) {
+            LOG(ERROR) << __func__ << mLogPrefix << " pal_stream_open failed for haptics " << ret;
+        }
     }
 
     const auto palOpenApiEndTime = std::chrono::steady_clock::now();
