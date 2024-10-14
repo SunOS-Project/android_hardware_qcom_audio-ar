@@ -141,6 +141,7 @@ PRODUCT_COPY_FILES += \
     $(CONFIG_PAL_SRC_DIR)/mixer_paths_tuna_mtp.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_tuna_mtp.xml \
     $(CONFIG_PAL_SRC_DIR)/mixer_paths_tuna_cdp.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_tuna_cdp.xml \
     $(CONFIG_PAL_SRC_DIR)/mixer_paths_tuna7_mtp.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_tuna7_mtp.xml \
+    $(CONFIG_PAL_SRC_DIR)/mixer_paths_tuna_mtp_qmp.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_tuna_mtp_qmp.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_tuna_qrd.xml:$(CONFIG_SKU_OUT_DIR)/resourcemanager_tuna_qrd.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_tuna_mtp.xml:$(CONFIG_SKU_OUT_DIR)/resourcemanager_tuna_mtp.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_tuna_cdp.xml:$(CONFIG_SKU_OUT_DIR)/resourcemanager_tuna_cdp.xml \
