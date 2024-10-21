@@ -70,6 +70,7 @@ AUDIO_MODULES += ftm_test_config_tuna7-mtp-snd-card
 AUDIO_MODULES += ftm_test_config_tuna-mtp-qmp-snd-card
 AUDIO_MODULES += ftm_test_config_kera-mtp-snd-card
 AUDIO_MODULES += ftm_test_config_kera-qrd-snd-card
+AUDIO_MODULES += ftm_test_config_kera-mtp-qmp-snd-card
 AUDIO_MODULES += audioadsprpcd
 AUDIO_MODULES += MTP_acdb_cal.acdb
 AUDIO_MODULES += MTP_workspaceFileXml.qwsp

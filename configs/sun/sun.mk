@@ -190,6 +190,7 @@ PRODUCT_COPY_FILES += \
     $(CONFIG_PAL_SRC_DIR)/mixer_paths_kera_qrd.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_kera_qrd.xml \
     $(CONFIG_PAL_SRC_DIR)/mixer_paths_kera_mtp.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_kera_mtp.xml \
     $(CONFIG_PAL_SRC_DIR)/mixer_paths_kera_cdp.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_kera_cdp.xml \
+    $(CONFIG_PAL_SRC_DIR)/mixer_paths_tuna_mtp_qmp.xml:$(CONFIG_SKU_OUT_DIR)/mixer_paths_kera_mtp_qmp.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_kera_qrd.xml:$(CONFIG_SKU_OUT_DIR)/resourcemanager_kera_qrd.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_kera_mtp.xml:$(CONFIG_SKU_OUT_DIR)/resourcemanager_kera_mtp.xml \
     $(CONFIG_PAL_SRC_DIR)/resourcemanager_kera_cdp.xml:$(CONFIG_SKU_OUT_DIR)/resourcemanager_kera_cdp.xml \
