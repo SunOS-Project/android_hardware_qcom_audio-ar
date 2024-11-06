@@ -164,7 +164,7 @@ ndk::ScopedAStatus ModulePrimary::setMicMute(bool in_mute) {
 
     mTelephony->setMicMute(in_mute);
 
-    int ret = mAudExt.mHfpExtension->audio_extn_hfp_set_mic_mute(in_mute);
+    mAudExt.mHfpExtension->audio_extn_hfp_set_mic_mute(in_mute);
 
     for (const auto& inputMixPortConfigId :
          getActiveInputMixPortConfigIds(getConfig().portConfigs)) {
