@@ -318,10 +318,6 @@ void StreamInPrimary::resume() {
         return ::android::OK;
     }
 
-    if (mTag == Usecase::MMAP_RECORD) {
-        return ::android::OK;
-    }
-
     shutdown_I();
     return ::android::OK;
 }

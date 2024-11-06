@@ -390,10 +390,6 @@ void StreamOutPrimary::resume() {
         return ::android::OK;
     }
 
-    if (mTag == Usecase::MMAP_PLAYBACK) {
-        return ::android::OK;
-    }
-
     shutdown_I();
     LOG(DEBUG) << __func__ << mLogPrefix;
     return ::android::OK;
