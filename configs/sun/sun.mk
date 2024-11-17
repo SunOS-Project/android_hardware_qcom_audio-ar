@@ -261,6 +261,8 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_PROPERTY_OVERRIDES += \
     vendor.audio_hal.timecheck_timeoutMS=8000
 
+PRODUCT_PROPERTY_OVERRIDES += \
+    vendor.audio.hal.stubmode=1
 # Low latency audio buffer size in frames
 PRODUCT_PROPERTY_OVERRIDES += \
     vendor.audio_hal.period_size=192
