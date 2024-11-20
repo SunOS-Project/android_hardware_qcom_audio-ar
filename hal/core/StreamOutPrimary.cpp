@@ -157,9 +157,11 @@ ndk::ScopedAStatus StreamOutPrimary::configureConnectedDevices_I() {
         return ndk::ScopedAStatus::ok();
     }
 
-    if (mTag == Usecase::LOW_LATENCY_PLAYBACK) {
+    if (mTag == Usecase::LOW_LATENCY_PLAYBACK ||
+        mTag == Usecase::DEEP_BUFFER_PLAYBACK ||
+        mTag == Usecase::VOIP_PLAYBACK) {
         if (auto telephony = mContext.getTelephony().lock()) {
-            telephony->onOutputPrimaryStreamDevices(mConnectedDevices);
+            telephony->onPlaybackStreamDevices(mConnectedDevices);
         }
     }
 
@@ -410,10 +412,14 @@ void StreamOutPrimary::resume() {
         resume();
     }
 
+    if (mConnectedDevices.empty()) {
+        LOG(DEBUG) << __func__ << mLogPrefix << ": stream is not connected";
+        return ::android::OK;
+    }
     if (hasOutputVoipRxFlag(mMixPortConfig.flags.value()) ||
         hasOutputDeepBufferFlag(mMixPortConfig.flags.value())) {
         if (auto telephony = mContext.getTelephony().lock()) {
-            telephony->onPlaybackStart();
+            telephony->onPlaybackStart(mConnectedDevices);
         }
     }
     return ::android::OK;
@@ -426,8 +432,7 @@ void StreamOutPrimary::resume() {
         configure();
         if (!mPalHandle) {
             LOG(ERROR) << __func__ << mLogPrefix << ": failed to configure";
-            *actualFrameCount = frameCount;
-            return onWriteError(frameCount);
+            return onWriteError(frameCount, actualFrameCount);
         }
     }
 
@@ -466,11 +471,7 @@ void StreamOutPrimary::resume() {
     }
     if (bytesWritten < 0) {
         LOG(ERROR) << __func__ << mLogPrefix << " write failed, ret: " << bytesWritten;
-       *actualFrameCount = frameCount;
-       if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
-           *actualFrameCount = 0;
-       }
-       return onWriteError(frameCount);
+        return onWriteError(frameCount, actualFrameCount);
     }
 
     *actualFrameCount = static_cast<size_t>(bytesWritten / mFrameSizeBytes);
@@ -919,19 +920,22 @@ size_t StreamOutPrimary::getPlatformDelay() const noexcept {
     return 0;
 }
 
-::android::status_t StreamOutPrimary::onWriteError(const size_t sleepFrameCount) {
+::android::status_t StreamOutPrimary::onWriteError(const size_t sleepFrameCount, size_t* const consumedFrameCount) {
     shutdown_I();
     if (mTag == Usecase::COMPRESS_OFFLOAD_PLAYBACK) {
         // return error for offload, so that FW sends data again
         LOG(ERROR) << __func__ << mLogPrefix << ": cannot afford write failure";
+        *consumedFrameCount = 0;
         return ::android::DEAD_OBJECT;
     }
     auto& sampleRate = mMixPortConfig.sampleRate.value().value;
     if (sampleRate == 0) {
         LOG(ERROR) << __func__ << mLogPrefix << ": cannot afford write failure, sampleRate is zero";
+        *consumedFrameCount = 0;
         return ::android::UNEXPECTED_NULL;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds((sleepFrameCount * 1000) / sampleRate));
+    *consumedFrameCount = sleepFrameCount;
     LOG(WARNING) << __func__ << mLogPrefix << ": ignoring this write";
     return ::android::OK;
 }
