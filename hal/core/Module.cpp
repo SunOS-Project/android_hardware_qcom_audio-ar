@@ -25,7 +25,6 @@
 
 #define LOG_TAG "AHAL_Module_QTI"
 
-#include <Utils.h>
 #include <aidl/android/media/audio/common/AudioInputFlags.h>
 #include <aidl/android/media/audio/common/AudioOutputFlags.h>
 #include <android-base/logging.h>
@@ -37,9 +36,6 @@
 #include <qti-audio-core/SoundDose.h>
 #include <qti-audio-core/Utils.h>
 
-using aidl::android::hardware::audio::common::getFrameSizeInBytes;
-using aidl::android::hardware::audio::common::isBitPositionFlagSet;
-using aidl::android::hardware::audio::common::isValidAudioMode;
 using aidl::android::hardware::audio::common::SinkMetadata;
 using aidl::android::hardware::audio::common::SourceMetadata;
 using aidl::android::hardware::audio::core::sounddose::ISoundDose;
@@ -66,9 +62,6 @@ using aidl::android::media::audio::common::PcmType;
 
 using ::aidl::android::hardware::audio::common::SinkMetadata;
 using ::aidl::android::hardware::audio::common::SourceMetadata;
-using ::aidl::android::hardware::audio::common::getFrameSizeInBytes;
-using ::aidl::android::hardware::audio::common::isBitPositionFlagSet;
-using ::aidl::android::hardware::audio::common::isValidAudioMode;
 
 using ::aidl::android::hardware::audio::core::IStreamOut;
 using ::aidl::android::hardware::audio::core::IStreamIn;
@@ -413,8 +406,9 @@ ndk::ScopedAStatus Module::updateStreamsConnectedState(const AudioPatch& oldPatc
     std::for_each(oldConnections.begin(), oldConnections.end(), [&](const auto& connectionPair) {
         const int32_t mixPortConfigId = connectionPair.first;
         if (auto it = newConnections.find(mixPortConfigId);
-            it == newConnections.end() || it->second != connectionPair.second) {
-            if (auto status = mStreams.setStreamConnectedDevices(mixPortConfigId, {});
+            it == newConnections.end()) {
+            ::aidl::android::media::audio::common::AudioDevice noneDevice;
+            if (auto status = mStreams.setStreamConnectedDevices(mixPortConfigId, {noneDevice});
                 status.isOk()) {
                 LOG(DEBUG) << "updateStreamsConnectedState: The "
                               "stream on port config id "
@@ -455,13 +449,32 @@ ndk::ScopedAStatus Module::updateStreamsConnectedState(const AudioPatch& oldPatc
         }
     });
     if (!maybeFailure.isOk()) {
-        LOG(WARNING) << __func__ << ": Due to a failure, disconnecting streams on port config ids "
-                     << ::android::internal::ToString(idsToDisconnectOnFailure);
+         LOG(WARNING) << __func__ << ": Due to a failure, disconnecting streams on port config ids "
+                      << ::android::internal::ToString(idsToDisconnectOnFailure);
         std::for_each(idsToDisconnectOnFailure.begin(), idsToDisconnectOnFailure.end(),
-                      [&](const auto& portConfigId) {
-                          auto status = mStreams.setStreamConnectedDevices(portConfigId, {});
-                          (void)status.isOk(); // Can't do much about a failure here.
-                      });
+                       [&](const auto& portConfigId) {
+            auto& ports = getConfig().ports;
+            std::vector<AudioDevice> prevDev;
+            if (auto it = oldConnections.find(portConfigId); it != oldConnections.end()) {
+                auto portIds = portIdsFromPortConfigIds((std::set<int32_t>) it->second);
+                for (auto it = portIds.cbegin(); it != portIds.cend(); ++it) {
+                    auto portIt = findById<AudioPort>(ports, *it);
+                    if (portIt != ports.end() &&
+                        portIt->ext.getTag() == AudioPortExt::Tag::device) {
+                        prevDev.push_back(portIt->ext.get<AudioPortExt::Tag::device>().device);
+                        if (auto status =
+                            mStreams.setStreamConnectedDevices(portConfigId, prevDev);
+                            status.isOk()) {
+                            LOG(DEBUG) << "updateStreamsConnectedState: The stream on port "
+                                           "config id "
+                                       << portConfigId
+                                       << " has been connected to previous device: "
+                                       << ::android::internal::ToString(prevDev);
+                        }
+                    }
+                }
+            }
+        });
         return maybeFailure;
     }
     return ndk::ScopedAStatus::ok();

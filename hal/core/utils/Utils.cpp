@@ -5,8 +5,6 @@
 
 #define LOG_TAG "AHAL_Utils_QTI"
 
-#include <aidl/android/media/audio/common/AudioInputFlags.h>
-#include <aidl/android/media/audio/common/AudioOutputFlags.h>
 #include <android-base/logging.h>
 #include <audio_utils/format.h>
 #include <qti-audio-core/Utils.h>
@@ -97,6 +95,11 @@ bool isBluetoothLEDevice(const AudioDevice& device) noexcept {
     return (device.type.connection == AudioDeviceDescription::CONNECTION_BT_LE);
 }
 
+bool isBluetoothLETXDevice(const AudioDevice& device) noexcept {
+    return (device.type.type == AudioDeviceType::IN_HEADSET &&
+            device.type.connection == AudioDeviceDescription::CONNECTION_BT_LE);
+}
+
 bool isBluetoothDevice(const AudioDevice& device) noexcept {
     return (device.type.connection == AudioDeviceDescription::CONNECTION_BT_A2DP ||
             device.type.connection == AudioDeviceDescription::CONNECTION_BT_LE);
@@ -109,6 +112,11 @@ bool hasBluetoothDevice(const std::vector<AudioDevice>& devices) noexcept {
 
 bool isBluetoothA2dpDevice(const AudioDevice& device) noexcept {
     return (device.type.connection == AudioDeviceDescription::CONNECTION_BT_A2DP);
+}
+
+bool isBluetoothA2dpTXDevice(const AudioDevice& device) noexcept {
+    return (device.type.type == AudioDeviceType::IN_DEVICE &&
+            device.type.connection == AudioDeviceDescription::CONNECTION_BT_A2DP);
 }
 
 bool hasBluetoothLEDevice(const std::vector<AudioDevice>& devices) noexcept {

@@ -157,8 +157,8 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     std::weak_ptr<StreamIn> mStreamInPrimary;
 
   protected:
-    void startCall();
-    void stopCall();
+    ndk::ScopedAStatus startCall();
+    ndk::ScopedAStatus stopCall();
     void VoiceStop();
     void configureVolumeBoost();
     void configureSlowTalk();
@@ -171,6 +171,7 @@ class Telephony : public ::aidl::android::hardware::audio::core::BnTelephony {
     void stopCrsLoopback();
     void triggerHACinVoipPlayback();
     void getPlaybackStreamDevices();
+    void updateTTYPalDevices(std::vector<pal_device>& palDevices);
     ::aidl::android::media::audio::common::AudioDevice getMatchingTxDevice(
             const ::aidl::android::media::audio::common::AudioDevice & rxDevice);
     bool isAnyCallActive();

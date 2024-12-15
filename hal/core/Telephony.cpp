@@ -21,7 +21,6 @@
  */
 
 #define LOG_TAG "AHAL_Telephony_QTI"
-#include <Utils.h>
 #include <android-base/logging.h>
 #include <android/binder_to_string.h>
 #include <hardware/audio.h>
@@ -31,7 +30,6 @@
 #include <qti-audio-core/Utils.h>
 #include <system/audio.h>
 
-using aidl::android::hardware::audio::common::isValidAudioMode;
 using aidl::android::media::audio::common::AudioDevice;
 using aidl::android::media::audio::common::AudioDeviceAddress;
 using aidl::android::media::audio::common::AudioDeviceDescription;
@@ -144,6 +142,10 @@ ndk::ScopedAStatus Telephony::setTelecomConfig(const TelecomConfig& in_config,
         mTelecomConfig.ttyMode = in_config.ttyMode;
         // safe to update when there is ttymode is provided
         updateTtyMode();
+        if (mTelecomConfig.ttyMode == TelecomConfig::TtyMode::HCO ||
+            mTelecomConfig.ttyMode == TelecomConfig::TtyMode::VCO) {
+            updateDevices();
+        }
     }
     if (in_config.isHacEnabled.has_value()) {
         mTelecomConfig.isHacEnabled = in_config.isHacEnabled;
@@ -218,6 +220,42 @@ void Telephony::setDevices(const std::vector<AudioDevice>& devices, const bool u
         // /* update the voice call devices only on TX devices update. Because Rx
         //  * devices patch is followed by Tx Devices patch */
         // updateDevices();
+    }
+}
+
+void Telephony::updateTTYPalDevices(std::vector<pal_device>& palDevices) {
+    if (!palDevices.size()) {
+        LOG(ERROR) << __func__ << " no connected devices";
+         return;
+    }
+
+    if(mTelecomConfig.ttyMode == TelecomConfig::TtyMode::HCO) {
+      /**  device pairs for HCO usecase
+        *  <handset, headset-mic>
+        *  <speaker, headset-mic>
+        *  override devices accordingly.
+        */
+       if (palDevices[0].id == PAL_DEVICE_OUT_WIRED_HEADSET) {
+             palDevices[0].id = PAL_DEVICE_OUT_HANDSET;
+       } else if ( palDevices[0].id== PAL_DEVICE_OUT_SPEAKER) {
+            palDevices[1].id = PAL_DEVICE_IN_WIRED_HEADSET;
+       } else {
+           LOG(DEBUG) << __func__ << ": invalid device pair for TTY HCO usecase";
+       }
+    } else if (mTelecomConfig.ttyMode == TelecomConfig::TtyMode::VCO) {
+        /**  device pairs for VCO usecase
+          *  <headphones, handset-mic>
+          *  <headphones, speaker-mic>
+          *  override devices accordingly.
+          */
+       if (palDevices[0].id == PAL_DEVICE_OUT_WIRED_HEADSET ||
+           palDevices[0].id == PAL_DEVICE_OUT_WIRED_HEADPHONE) {
+           palDevices[1].id = PAL_DEVICE_IN_HANDSET_MIC;
+       } else if (palDevices[0].id == PAL_DEVICE_OUT_SPEAKER) {
+           palDevices[0].id = PAL_DEVICE_OUT_WIRED_HEADSET;
+       } else {
+           LOG(DEBUG) << __func__ << ": invalid device pair for TTY VCO usecase";
+       }
     }
 }
 
@@ -468,6 +506,7 @@ void Telephony::reconfigure(const SetUpdates& newUpdates) {
 }
 
 void Telephony::updateCalls() {
+     auto status = ndk::ScopedAStatus::ok();
      auto palDevices = mPlatform.convertToPalDevices({mRxDevice, mTxDevice});
      for (int i = 0; i < MAX_VOICE_SESSIONS; i++) {
             switch (mVoiceSession.session[i].state.new_) {
@@ -481,9 +520,13 @@ void Telephony::updateCalls() {
                                 }
                                 if (!isAnyCallActive() && !mIsCRSStarted) {
                                     mSetUpdates =  mVoiceSession.session[i].CallUpdate;
-                                    startCall();
-                                    mIsVoiceStarted = true;
-                                    mVoiceSession.session[i].state.current_ = mVoiceSession.session[i].state.new_;
+                                    status = startCall();
+                                    if (!status.isOk()) {
+                                        LOG(ERROR) << __func__ << ": start call failed";
+                                    } else {
+                                        mIsVoiceStarted = true;
+                                        mVoiceSession.session[i].state.current_ = mVoiceSession.session[i].state.new_;
+                                    }
                                 } else {
                                     LOG(DEBUG) << __func__ << ": voice already started";
                                 }
@@ -502,8 +545,12 @@ void Telephony::updateCalls() {
                             case CallState::ACTIVE:
                                 LOG(DEBUG) << __func__ << " CallState: ACTIVE -> INACTIVE vsid:" << mVoiceSession.session[i].CallUpdate.mVSID;
                                 mSetUpdates =  mVoiceSession.session[i].CallUpdate;
-                                stopCall();
-                                mVoiceSession.session[i].state.current_ = mVoiceSession.session[i].state.new_;
+                                status = stopCall();
+                                if (!status.isOk()) {
+                                    LOG(ERROR) << __func__ << ": stop call failed";
+                                } else {
+                                    mVoiceSession.session[i].state.current_ = mVoiceSession.session[i].state.new_;
+                                }
                                 break;
 
                              default:
@@ -721,7 +768,7 @@ void Telephony::updateTtyMode() {
     return;
 }
 
-void Telephony::startCall() {
+ndk::ScopedAStatus Telephony::startCall() {
     LOG(DEBUG) << __func__ << ": Enter: "
                << " Rx: " << mRxDevice.toString() << " Tx: " << mTxDevice.toString();
     auto attributes = mPlatform.getDefaultTelephonyAttributes();
@@ -734,6 +781,8 @@ void Telephony::startCall() {
         attributes->info.voice_call_info.tty_mode =
                 ttyMode != mTtyMap.cend() ? ttyMode->second : PAL_TTY_OFF;
     }
+    //override device pairs of HCO and VCO usecase
+    updateTTYPalDevices(palDevices);
 
     const size_t numDevices = 2;
     //set custom key for hac mode
@@ -754,23 +803,27 @@ void Telephony::startCall() {
                 nullptr, nullptr, reinterpret_cast<uint64_t>(this), &mPalHandle);
         ret) {
         LOG(ERROR) << __func__ << ": pal stream open failed !!" << ret;
-        return;
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
     if (int32_t ret = ::pal_stream_start(mPalHandle); ret) {
         LOG(ERROR) << __func__ << ": pal stream start failed !!" << ret;
         pal_stream_close(mPalHandle);
         mPalHandle = nullptr;
-        return;
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
     }
     if (mPlatform.getMicMuteStatus()) {
         mPlatform.setStreamMicMute(mPalHandle, true);
     }
     updateVoiceVolume();
+    if (mIsDeviceMuted) {
+        configureDeviceMute();
+    }
     if (mSetUpdates.mIsCrsCall) {
         mPlatform.setStreamMicMute(mPalHandle, true);
         LOG(DEBUG) << __func__ << ": CRS usecase mute TX";
     }
     LOG(DEBUG) << __func__ << ": Exit : Voice Stream";
+    return ndk::ScopedAStatus::ok();
 }
 
 void Telephony::startCrsLoopback() {
@@ -815,19 +868,24 @@ void Telephony::startCrsLoopback() {
     LOG(DEBUG) << __func__ << ": Exit";
 }
 
-void Telephony::stopCall() {
+ndk::ScopedAStatus Telephony::stopCall() {
     LOG(DEBUG) << __func__ << ": Enter";
     if (mPalHandle == nullptr) {
-        return;
+        return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
     }
+    int32_t ret = 0;
     auto palDevices = mPlatform.convertToPalDevices({mRxDevice, mTxDevice});
     if (mSetUpdates.mIsCrsCall) {
         strlcpy(palDevices[0].custom_config.custom_key, "",
                 sizeof(palDevices[0].custom_config.custom_key));
         LOG(VERBOSE) << __func__ << "setting custom key as ", palDevices[0].custom_config.custom_key;
     }
-    ::pal_stream_stop(mPalHandle);
-    ::pal_stream_close(mPalHandle);
+    if (int32_t ret = pal_stream_stop(mPalHandle); ret) {
+        LOG(ERROR) << __func__ << ": pal stream stop failed !!" << ret;
+    }
+    if (int32_t ret = pal_stream_close(mPalHandle); ret) {
+        LOG(ERROR) << __func__ << ": pal stream stop failed !!" << ret;
+    }
     if ((palDevices[0].id == PAL_DEVICE_OUT_BLUETOOTH_BLE) &&
         (palDevices[1].id == PAL_DEVICE_IN_BLUETOOTH_BLE)) {
         updateVoiceMetadataForBT(false);
@@ -838,7 +896,11 @@ void Telephony::stopCall() {
         mRxDevice = kDefaultRxDevice;
         mTxDevice = getMatchingTxDevice(mRxDevice);
     }
+    if (ret) {
+        return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+    }
     LOG(DEBUG) << __func__ << ": EXIT";
+    return ndk::ScopedAStatus::ok();
 }
 
 void Telephony::stopCrsLoopback() {
@@ -928,6 +990,9 @@ void Telephony::updateDevices() {
         }
     }
 
+    //override device pairs of HCO and VCO usecase
+    updateTTYPalDevices(palDevices);
+
     //set or remove custom key for hac mode
     if (mTelecomConfig.isHacEnabled.has_value() && mTelecomConfig.isHacEnabled.value().value &&
         palDevices[0].id == PAL_DEVICE_OUT_HANDSET) {
@@ -963,6 +1028,9 @@ void Telephony::updateDevices() {
         }
     }
     updateVoiceVolume();
+    if (mIsDeviceMuted) {
+        configureDeviceMute();
+    }
     LOG(DEBUG) << __func__ << ": Exit : Rx: " << mRxDevice.toString() << " Tx: " << mTxDevice.toString();
 }
 

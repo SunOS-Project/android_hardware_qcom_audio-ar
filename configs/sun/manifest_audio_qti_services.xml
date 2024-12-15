@@ -39,8 +39,12 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <!-- PAL Event Notifier service -->
     <hal format="aidl">
         <name>vendor.qti.hardware.paleventnotifier</name>
-        <version>2</version>
+        <version>1</version>
         <fqname>IPALEventNotifier/default</fqname>
     </hal>
-
+    <hal format="aidl">
+        <name>vendor.qti.hardware.ListenSoundModelAidl</name>
+        <version>1</version>
+        <fqname>IListenSoundModel/default</fqname>
+    </hal>
 </manifest>
