@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -615,11 +615,15 @@ ndk::ScopedAStatus StreamInPrimary::addEffect(
             mAECEnabled = true;
             applyEffects();
         }
+        isECEnabledCount++;
+        LOG(VERBOSE) << __func__ << mLogPrefix << " isECEnabledCount:" << isECEnabledCount;
     } else if (typeUUID == getEffectTypeUuidNoiseSuppression()) {
         if (!mNSEnabled) {
             mNSEnabled = true;
             applyEffects();
         }
+        isNSEnabledCount++;
+        LOG(VERBOSE) << __func__ << mLogPrefix << " isNSEnabledCount:" << isNSEnabledCount;
     }
 
     return ndk::ScopedAStatus::ok();
@@ -640,12 +644,18 @@ ndk::ScopedAStatus StreamInPrimary::removeEffect(
     const auto& typeUUID = desc.common.id.type;
 
     if (typeUUID == getEffectTypeUuidAcousticEchoCanceler()) {
-        if (mAECEnabled) {
+        isECEnabledCount--;
+        LOG(VERBOSE) << __func__ << mLogPrefix << " isECEnabledCount:" << isECEnabledCount;
+        if (mAECEnabled && !isECEnabledCount) {
+            LOG(VERBOSE) << __func__ << mLogPrefix << " removing EC effect";
             mAECEnabled = false;
             applyEffects();
         }
     } else if (typeUUID == getEffectTypeUuidNoiseSuppression()) {
-        if (mNSEnabled) {
+        isNSEnabledCount--;
+        LOG(VERBOSE) << __func__ << mLogPrefix << " isNSEnabledCount:" << isNSEnabledCount;
+        if (mNSEnabled && !isNSEnabledCount) {
+            LOG(VERBOSE) << __func__ << mLogPrefix << " removing NS effect";
             mNSEnabled = false;
             applyEffects();
         }
