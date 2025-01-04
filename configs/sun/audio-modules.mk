@@ -154,7 +154,7 @@ AUDIO_MODULES += $(AUDIO_C2)
 AUDIO_MODULES += $(AUDIO_TEST)
 
  # sound trigger aidl library
-#AUDIO_MODULES += libsoundtriggerhal.qti
+AUDIO_MODULES += libsoundtriggerhal.qti
 
 # enable Listen Sound Model aidl 1.0
 AUDIO_MODULES += \
