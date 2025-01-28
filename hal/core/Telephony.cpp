@@ -937,7 +937,7 @@ void Telephony::updateDevices() {
     LOG(DEBUG) << __func__ << ": Enter";
 
     if (!isAnyCallActive()) {
-        if (mAudioMode == AudioMode::IN_CALL && mPalHandle == nullptr) {
+        if (mAudioMode == AudioMode::IN_CALL && (mPalHandle == nullptr || mSetUpdates.mIsCrsCall)) {
             mIsVoiceStarted = true;
             updateCalls();
             return;
