@@ -371,7 +371,8 @@ void Telephony::onPlaybackStreamDevices(const std::vector<AudioDevice>& playback
         LOG(VERBOSE) << __func__ << ": voice call exist";
         return;
     }
-    if (playbackStreamDevices.size() == 1 &&
+    if (hasValidPlaybackStream &&
+        playbackStreamDevices.size() == 1 &&
         isValidDevice(playbackStreamDevices[0])) {// combo devices unsupported.
         mPlaybackStreamDevices = playbackStreamDevices;
         mRxDevice = playbackStreamDevices[0]; // expected to have 1 device.
@@ -721,10 +722,10 @@ void Telephony::getPlaybackStreamDevices() {
 void Telephony::onPlaybackStart(const std::vector<AudioDevice>& playbackStreamDevices) {
     std::scoped_lock lock{mLock};
 
-    hasValidPlaybackStream = true;
     if (playbackStreamDevices.size() == 1 &&
         isValidDevice(playbackStreamDevices[0])) {
         mPlaybackStreamDevices = playbackStreamDevices;
+        hasValidPlaybackStream = true;
         if (mIsCRSStarted) {
             mRxDevice = playbackStreamDevices[0];
             mTxDevice = getMatchingTxDevice(mRxDevice);
@@ -736,10 +737,12 @@ void Telephony::onPlaybackStart(const std::vector<AudioDevice>& playbackStreamDe
 
 void Telephony::onPlaybackClose() {
     std::scoped_lock lock{mLock};
-    hasValidPlaybackStream = false;
-    if (mIsCRSStarted) {
-        LOG(INFO) << __func__ << ": playback conc status stop for CRS call";
-        updateDevices();
+    if (hasValidPlaybackStream) {
+        hasValidPlaybackStream = false;
+        if (mIsCRSStarted) {
+            LOG(INFO) << __func__ << ": playback conc status stop for CRS call";
+            updateDevices();
+        }
     }
 }
 
@@ -957,7 +960,7 @@ void Telephony::updateDevices() {
     int retry_cnt = 20;
     const int retry_period_ms = 100;
     bool is_suspend_setparam = false;
-    LOG(DEBUG) << __func__ << ": Enter";
+    LOG(INFO) << __func__ << ": Enter";
 
     if (!isAnyCallActive()) {
         if (mAudioMode == AudioMode::IN_CALL && (mPalHandle == nullptr || mSetUpdates.mIsCrsCall)) {
