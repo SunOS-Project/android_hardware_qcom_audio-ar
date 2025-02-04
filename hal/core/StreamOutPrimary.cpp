@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -735,7 +735,7 @@ ndk::ScopedAStatus StreamOutPrimary::getPlaybackRateParameters(AudioPlaybackRate
         return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
     }
 
-    LOG(DEBUG) << __func__ << mPlaybackRate.toString();
+    LOG(DEBUG) << __func__ << mLogPrefix << mPlaybackRate.toString();
     *_aidl_return = mPlaybackRate;
     return ndk::ScopedAStatus::ok();
 }
@@ -745,12 +745,16 @@ ndk::ScopedAStatus StreamOutPrimary::setPlaybackRateParameters(
     auto ret = mPlatform.setPlaybackRate(mPalHandle, mTag, in_playbackRate);
     if (PlaybackRateStatus::SUCCESS == ret) {
         mPlaybackRate = in_playbackRate;
-        LOG(DEBUG) << __func__ << mPlaybackRate.toString();
+        LOG(DEBUG) << __func__ << mLogPrefix << mPlaybackRate.toString();
         return ndk::ScopedAStatus::ok();
     } else if (PlaybackRateStatus::UNSUPPORTED == ret) {
+        LOG(VERBOSE) << __func__ << mLogPrefix << "raise EX_UNSUPPORTED_OPERATION exception for "
+                     << mPlaybackRate.toString();
         return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
     }
 
+    LOG(ERROR) << __func__ << mLogPrefix << "raise EX_ILLEGAL_ARGUMENT exception for "
+                 << mPlaybackRate.toString();
     return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
 }
 
