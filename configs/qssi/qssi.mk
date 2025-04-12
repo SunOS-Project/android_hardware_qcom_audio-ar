@@ -1,4 +1,4 @@
-AUDIO_HAL_DIR := hardware/qcom-caf/sm8550/audio/primary-hal
+AUDIO_HAL_DIR := hardware/qcom-caf/sm8650/audio/primary-hal
 
 #BOARD_USES_GENERIC_AUDIO := true
 #
